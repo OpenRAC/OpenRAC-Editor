@@ -5470,7 +5470,59 @@ Vector3 Node3DEditorViewport::_get_instance_position(const Point2 &p_pos, Node3D
 	ray_params.to = world_pos + world_ray * camera->get_far();
 
 	PhysicsDirectSpaceState3D::RayResult result;
-	if (ss->intersect_ray(ray_params, result) && (preview_node->get_child_count() > 0 || !preview_node->is_inside_tree())) {
+	const bool placing = preview_node->get_child_count() > 0 || !preview_node->is_inside_tree();
+	bool hit = placing && ss->intersect_ray(ray_params, result);
+
+	// OpenRAC Editor: this build has no physics, so the ray meets what the view shows instead: the
+	// nearest drawn mesh under the pointer, as a click selects it (not the dropped or moved nodes).
+	if (!hit && placing) {
+		const List<Node *> &moving = editor_selection->get_top_selected_node_list();
+		HashSet<Ref<EditorNode3DGizmo>> seen;
+		real_t closest = 1e20;
+
+		for (Node3D *spat : Node3DEditor::get_singleton()->gizmo_bvh_ray_query(world_pos, ray_params.to)) {
+			// Only what is drawn: helpers with gizmos (volumes, markers, lights) are not ground.
+			if (!Object::cast_to<MeshInstance3D>(spat) || !spat->is_visible_in_tree() || preview_node == spat
+					|| preview_node->is_ancestor_of(spat)) {
+				continue;
+			}
+
+			bool skip = false;
+			if (!preview_node->is_inside_tree()) {
+				for (const Node *node : moving) {
+					skip = skip || node == spat || node->is_ancestor_of(spat);
+				}
+			}
+			if (skip) {
+				continue;
+			}
+
+			for (const Ref<Node3DGizmo> &gizmo : spat->get_gizmos()) {
+				Ref<EditorNode3DGizmo> seg = gizmo;
+				Vector3 point;
+				Vector3 normal;
+
+				if (seg.is_null() || seen.has(seg) || !seg->intersect_ray(camera, p_pos, point, normal)) {
+					continue;
+				}
+
+				seen.insert(seg);
+				const real_t dist = world_pos.distance_to(point);
+
+				if (dist < closest) {
+					closest = dist;
+					result.position = point;
+					result.normal = normal.is_zero_approx() ? Vector3(0, 1, 0) : normal.normalized();
+					if (result.normal.dot(world_ray) > 0) {
+						result.normal = -result.normal; // the side facing the camera
+					}
+					hit = true;
+				}
+			}
+		}
+	}
+
+	if (hit) {
 		// Calculate an offset for the `p_node` such that the its bounding box is on top of and touching the contact surface's plane.
 
 		// Use the Gram-Schmidt process to get an orthonormal Basis aligned with the surface normal.
