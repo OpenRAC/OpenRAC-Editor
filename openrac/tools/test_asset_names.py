@@ -27,6 +27,14 @@ def wrapped(name: str, line: int = 17) -> list[str]:
 
 
 class AssetNames(unittest.TestCase):
+    def test_level_export_reads_the_names(self):
+        """The level export names its moby nodes from this file, rows with a fourth column too."""
+        import godot
+
+        names = godot.readable_names()
+        self.assertEqual(names[0], "ratchet")
+        self.assertEqual(names[11], "vendor")
+
     def test_each_class_has_one_readable_name(self):
         for path in sorted(NAMES.glob("*.tsv")):
             seen = set()

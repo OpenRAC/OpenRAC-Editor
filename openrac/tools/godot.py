@@ -41,7 +41,7 @@ from levelwrite import (COLLISION_ALPHA, GAME_TO_GODOT, MIN_SCALE, PANORAMA, STO
 from mesh import Mesh
 from moby_class import MobyClass, moby_classes
 import moby_collision_scene
-from mobys import LEVEL_NAMES, moby_logic, node_name, moby_class_names, moby_instances, readable_names
+from mobys import LEVEL_NAMES, moby_logic, node_name, moby_class_names, moby_instances
 from shrubs import shrub_class_normals, shrub_classes, shrub_instances
 from sky import level_sky
 from terrain import terrain
@@ -99,6 +99,16 @@ limits/global_shader_variables/buffer_size=1048576
 
 enabled=PackedStringArray({addons})
 """
+
+
+ASSET_NAMES = Path(__file__).resolve().parents[1] / "project" / "addons" / "openrac_library" / "names" / "rac1.tsv"
+
+
+def readable_names(kind: str = "mobys") -> dict[int, str]:
+    """Class number -> readable name of KIND, from the Assets dock's names/rac1.tsv (see its header)."""
+    rows = (line.split("\t") for line in ASSET_NAMES.read_text(encoding="utf-8").splitlines()
+            if line and not line.startswith("#"))
+    return {int(row[1]): row[2] for row in rows if row[0] == kind}
 
 
 class LevelWriter(levelwrite.LevelWriter):
