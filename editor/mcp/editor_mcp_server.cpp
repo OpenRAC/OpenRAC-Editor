@@ -133,9 +133,10 @@ void EditorMCPServer::_stop() {
 }
 
 void EditorMCPServer::_poll() {
-	if (server.is_null()) {
+	if (server.is_null() || polling) {
 		return;
 	}
+	polling = true;
 	while (server->is_connection_available()) {
 		Connection c;
 		c.peer = server->take_connection();
@@ -150,6 +151,7 @@ void EditorMCPServer::_poll() {
 		}
 		E = next;
 	}
+	polling = false;
 }
 
 static int _find_header_end(const Vector<uint8_t> &p_data) {

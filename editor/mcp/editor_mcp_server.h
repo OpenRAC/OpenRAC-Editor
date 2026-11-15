@@ -22,6 +22,9 @@ class EditorMCPServer : public Node {
 
 	Ref<TCPServer> server;
 	List<Connection> connections;
+	// Set while a request is handled: a tool that runs frames of its own (saving, importing) must
+	// not handle the same request again inside it.
+	bool polling = false;
 	String token;
 	int port = 0;
 	String session_id;
