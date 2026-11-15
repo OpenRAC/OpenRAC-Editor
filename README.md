@@ -54,7 +54,7 @@ Mix characters from many planets in one level. Each one keeps its own animations
 does at home.
 
 <p align="center">
-  <img src="docs/assets/other-planets.gif" alt="Characters from other planets standing and moving around Ratchet on Kerwan" width="100%">
+  <img src="docs/assets/other-planets.gif" alt="Characters from other planets standing and moving around Ratchet, who crouches facing the camera on Kerwan" width="100%">
 </p>
 
 ### Give objects a behaviour
@@ -80,7 +80,7 @@ Find any object of the game in the Assets dock, by name or class number, and dra
 level. It comes with its own logic, ready to play.
 
 <p align="center">
-  <img src="docs/assets/drag-asset.gif" alt="Searching the Assets dock for turret and dragging the Blarg turret in next to Ratchet on Novalis" width="100%">
+  <img src="docs/assets/drag-asset.gif" alt="Searching the Assets dock for turret and dragging blarg_turret in next to Ratchet on Novalis" width="100%">
 </p>
 
 ### Edit everything in the level
