@@ -1,0 +1,45 @@
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
+
+from methods import print_error
+
+Import("env")
+
+env.drivers_sources = []
+supported = env.get("supported", [])
+
+# OS drivers
+SConscript("unix/SCsub")
+SConscript("windows/SCsub")
+
+# Sounds drivers
+SConscript("alsa/SCsub")
+SConscript("pulseaudio/SCsub")
+if env["platform"] == "windows":
+    SConscript("wasapi/SCsub")
+    if not env.msvc:
+        SConscript("backtrace/SCsub")
+
+# Shared Apple platform drivers
+if env["platform"] == "macos":
+    SConscript("apple/SCsub")
+    SConscript("coreaudio/SCsub")
+
+# OpenRAC Editor: no MIDI drivers.
+
+# Graphics drivers. OpenRAC Editor: Vulkan, and Metal on macOS.
+if env["vulkan"]:
+    SConscript("vulkan/SCsub")
+if env["metal"]:
+    if "metal" not in supported:
+        print_error("Target platform '{}' does not support the Metal rendering driver".format(env["platform"]))
+        Exit(255)
+    SConscript("metal/SCsub")
+
+# Core dependencies
+SConscript("png/SCsub")
+
+env.add_source_files(env.drivers_sources, "*.cpp")
+
+lib = env.add_library("drivers", env.drivers_sources)
+env.Prepend(LIBS=[lib])

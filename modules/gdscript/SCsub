@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+from misc.utility.scons_hints import *
+
+Import("env")
+Import("env_modules")
+
+env_gdscript = env_modules.Clone()
+
+env_gdscript.add_source_files(env.modules_sources, "*.cpp")
+
+if env.editor_build:
+    env_gdscript.add_source_files(env.modules_sources, "./editor/*.cpp")
+
+    SConscript("editor/script_templates/SCsub")
+
+    # OpenRAC Editor: no language server (it needs the removed JSON-RPC and WebSocket modules).
+    env_gdscript.Append(CPPDEFINES=["GDSCRIPT_NO_LSP"])
+    # Also needed in main env to unexpose --lsp-port option.
+    env.Append(CPPDEFINES=["GDSCRIPT_NO_LSP"])
+

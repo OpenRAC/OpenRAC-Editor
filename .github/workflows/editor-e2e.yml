@@ -1,0 +1,124 @@
+# The editor's tools and the Assets dock end to end on this editor: builds the editor (no LTO, SCons
+# cache), then runs openrac/tools' tests (test_editor_e2e.py and the others that need Godot) against
+# an OpenRAC checkout, whose extractor the tools import (openrac_root.py, extractor_api.json).
+name: editor-e2e
+
+on:
+  pull_request:
+    paths-ignore: ["mods/**", "docs/**", "**.md"]
+  push:
+    branches: [main, master]
+    paths-ignore: ["mods/**", "docs/**", "**.md"]
+  workflow_dispatch:
+    inputs:
+      # Until OpenRAC's extractor/ (the editor split) is merged, the tools read it from the fork's
+      # branch; then these go back to OpenRAC/OpenRAC and develop.
+      openrac-repository:
+        description: The OpenRAC repository whose extractor the tools read
+        default: nickyyOO/OpenRAC
+      openrac-ref:
+        description: Its branch or tag
+        default: feature/editor-asset-library
+
+permissions:
+  contents: read
+
+concurrency:
+  group: editor-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The tools' tests that need no editor build on each system the editor ships for, and once more
+  # on Linux in Windows' code page (cp1252), where text read without an encoding breaks.
+  tools:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+          - os: windows-2025
+          - os: macos-15
+          - os: ubuntu-24.04
+            codepage: cp1252
+          # The oldest Python the launcher accepts.
+          - os: ubuntu-24.04
+            python: "3.10"
+    name: tools (${{ matrix.os }}${{ matrix.codepage && format(', {0}', matrix.codepage) || '' }}${{ matrix.python && format(', Python {0}', matrix.python) || '' }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
+          path: openrac-game
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python || '3.12' }}
+
+      - name: A Windows code page on Linux
+        if: matrix.codepage
+        run: |
+          mkdir -p "$RUNNER_TEMP/locale"
+          localedef -i en_US -f CP1252 "$RUNNER_TEMP/locale/en_US.CP1252"
+          { echo "LOCPATH=$RUNNER_TEMP/locale"; echo "LC_ALL=en_US.CP1252"; echo "PYTHONUTF8=0"; } >> "$GITHUB_ENV"
+
+      - name: The editor's tools
+        working-directory: openrac/tools
+        shell: bash
+        env:
+          OPENRAC_ROOT: ${{ github.workspace }}/openrac-game
+        run: python -m unittest discover -s . -v
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
+          path: openrac-game
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends build-essential pkg-config
+          python -m pip install -q scons
+
+      # One cache per commit, restored from the newest one, so only changed files compile.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/scons-cache
+          key: editor-e2e-scons-${{ github.sha }}
+          restore-keys: editor-e2e-scons-
+
+      # The release profile without LTO, which only makes the build slower here.
+      - name: Build the editor
+        run: |
+          scons platform=linuxbsd profile=build/custom.py production=no lto=none optimize=speed \
+            wayland=no cache_path="$RUNNER_TEMP/scons-cache" cache_limit=4 -j"$(nproc)"
+          echo "OPENRAC_GODOT=$PWD/bin/godot.linuxbsd.editor.x86_64" >> "$GITHUB_ENV"
+
+      - name: The editor's tools, the Assets dock end to end, and the tests that run Godot
+        working-directory: openrac/tools
+        env:
+          OPENRAC_ROOT: ${{ github.workspace }}/openrac-game
+        run: python -m unittest discover -s . -v

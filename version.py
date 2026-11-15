@@ -1,0 +1,9 @@
+short_name = "openrac_editor"
+name = "OpenRAC Editor"
+major = 4
+minor = 7
+patch = 2
+status = "stable"
+module_config = ""
+website = "https://openrac.dev"
+docs = "4.7"
