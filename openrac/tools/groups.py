@@ -267,11 +267,12 @@ def measure(gen: Path, found: dict, reads: dict[str, set[str]]) -> dict[str, set
                 ["clang", "-S", "-emit-llvm", "-O0", "-w", "-o", "-", "-I", str(port / "runtime" / "include"),
                  "-I", str(port / "game" / "common" / "include"), "-I", str(gen), "-I", str(file.parent),
                  str(source)], capture_output=True, text=True)
-        found_values = re.search(r"@openrac_probe = \S+ constant \[\d+ x i64\] \[(.*)\]", done.stdout)
+        # Linux marks it dso_local, macOS does not; Windows' long is 32 bits.
+        found_values = re.search(r"@openrac_probe = (?:\w+ )*constant \[\d+ x i(?:32|64)\] \[(.*)\]", done.stdout)
         if not found_values:
             print(f"{file}: clang could not measure ({done.stderr.strip()[:200]})", file=sys.stderr)
             continue
-        values = [int(v) for v in re.findall(r"i64 (-?\d+)", found_values.group(1))]
+        values = [int(v) for v in re.findall(r"i(?:32|64) (-?\d+)", found_values.group(1))]
         for (name, _, _, _), (offset, size, count) in zip(items, zip(values[::3], values[1::3], values[2::3])):
             if 0 <= offset < 0x1000 and size in (1, 2, 4) and 0 < count <= 32:
                 out.setdefault(name, set()).update((offset + k * size, size) for k in range(count))
