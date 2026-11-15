@@ -30,6 +30,7 @@
 
 #include "node_3d_editor_plugin.h"
 
+
 #include "core/config/project_settings.h"
 #include "core/input/input.h"
 #include "core/input/input_map.h"
@@ -46,6 +47,7 @@
 #include "editor/debugger/editor_debugger_node.h"
 #include "editor/docks/scene_tree_dock.h"
 #include "editor/editor_main_screen.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
@@ -3849,7 +3851,7 @@ void Node3DEditorViewport::_notification(int p_what) {
 				double snap = EDITOR_GET("interface/inspector/default_float_step");
 				int snap_step_decimals = Math::range_step_decimals(snap);
 				set_message(vformat(TTR("Instantiating: %s"), vformat("%.*v", snap_step_decimals, preview_node_pos)));
-				Transform3D preview_gl_transform = Transform3D(Basis(), preview_node_pos);
+				Transform3D preview_gl_transform = Transform3D(_get_instance_basis(preview_node_pos), preview_node_pos);
 				preview_node->set_global_transform(preview_gl_transform);
 				if (!preview_node->is_visible()) {
 					preview_node->show();
@@ -5441,6 +5443,27 @@ void _insert_rid_recursive(Node *node, HashSet<RID> &rids) {
 	}
 }
 
+// OpenRAC Editor: a drop placed by a plugin turns the way it asks. While EditorInterface has the
+// meta "openrac_drop_basis" (a Basis: the model's axes in the world), a dropped scene gets that
+// basis, turned about the world's up so the model's front faces the camera: its x axis, or the
+// axis in "openrac_drop_front".
+Basis Node3DEditorViewport::_get_instance_basis(const Vector3 &p_pos) const {
+	if (!EditorInterface::get_singleton()->has_meta("openrac_drop_basis")) {
+		return Basis();
+	}
+	const Basis model = EditorInterface::get_singleton()->get_meta("openrac_drop_basis");
+	const Vector3 side = EditorInterface::get_singleton()->get_meta("openrac_drop_front", Vector3(1, 0, 0));
+	Vector3 front = model.xform(side);
+	Vector3 to_camera = camera->get_global_position() - p_pos;
+	front.y = 0;
+	to_camera.y = 0;
+	if (front.length() < CMP_EPSILON || to_camera.length() < CMP_EPSILON) {
+		return model;
+	}
+	const real_t turn = front.normalized().signed_angle_to(to_camera.normalized(), Vector3(0, 1, 0));
+	return Basis(Vector3(0, 1, 0), turn) * model;
+}
+
 Vector3 Node3DEditorViewport::_get_instance_position(const Point2 &p_pos, Node3D *p_node) const {
 	const float MAX_DISTANCE = 50.0;
 	const float FALLBACK_DISTANCE = 5.0;
@@ -5883,7 +5906,7 @@ bool Node3DEditorViewport::_create_instance(Node *p_parent, const String &p_path
 			new_tf.origin += preview_node_pos;
 		} else {
 			new_tf.origin = parent_tf.affine_inverse().xform(preview_node_pos + node3d->get_position());
-			new_tf.basis = parent_tf.affine_inverse().basis * new_tf.basis;
+			new_tf.basis = parent_tf.affine_inverse().basis * _get_instance_basis(preview_node_pos) * new_tf.basis;
 		}
 
 		undo_redo->add_do_method(instantiated_scene, "set_transform", new_tf);

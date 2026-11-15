@@ -47,7 +47,7 @@ keep their own logic: they walk their paths, guard their zones and fire their ow
 you put them.
 
 <p align="center">
-  <img src="docs/assets/imported-turret.gif" alt="A Blarg turret from Gemlik placed on Eudora, turning to Ratchet and hitting him with its laser bolts" width="100%">
+  <img src="docs/assets/imported-turret.gif" alt="A Blarg turret from Gemlik placed on Eudora next to Ratchet, turning to him and hitting him with its laser bolts" width="100%">
 </p>
 
 Mix characters from many planets in one level. Each one keeps its own animations and moves as it
