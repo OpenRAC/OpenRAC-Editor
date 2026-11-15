@@ -56,7 +56,7 @@ jobs:
         with:
           repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
           ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
-          path: OpenRAC
+          path: openrac-game
           persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -74,7 +74,7 @@ jobs:
         working-directory: openrac/tools
         shell: bash
         env:
-          OPENRAC_ROOT: ${{ github.workspace }}/OpenRAC
+          OPENRAC_ROOT: ${{ github.workspace }}/openrac-game
         run: python -m unittest discover -s . -v
 
   e2e:
@@ -90,7 +90,7 @@ jobs:
         with:
           repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
           ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
-          path: OpenRAC
+          path: openrac-game
           persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -120,5 +120,5 @@ jobs:
       - name: The editor's tools, the Assets dock end to end, and the tests that run Godot
         working-directory: openrac/tools
         env:
-          OPENRAC_ROOT: ${{ github.workspace }}/OpenRAC
+          OPENRAC_ROOT: ${{ github.workspace }}/openrac-game
         run: python -m unittest discover -s . -v
