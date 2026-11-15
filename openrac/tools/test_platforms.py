@@ -171,6 +171,17 @@ class Release(unittest.TestCase):
             self.assertNotIn("\\", path, "the launcher splits the manifest's paths at /")
             self.assertFalse(path.startswith("/"), path)
 
+    def test_the_mac_bundle_starts_the_program_the_manifest_names(self):
+        """Finder starts Info.plist's CFBundleExecutable; the launcher starts the manifest's path."""
+        import plistlib
+        plist = REPO / "misc" / "dist" / "macos_tools.app" / "Contents" / "Info.plist"
+        if not plist.is_file():
+            self.skipTest("no macos_tools.app")
+        info = plistlib.loads(plist.read_bytes())
+        bundle, _, _, name = MANIFEST["program"]["macos"].split("/")
+        self.assertEqual(info["CFBundleExecutable"], name)
+        self.assertEqual(bundle, f"{info['CFBundleName']}.app")
+
     def test_release_archives_are_the_ones_the_launcher_downloads(self):
         workflow = (REPO / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
         assets = dict(re.findall(r"- system: (\w+)\n(?:\s+\w+: .*\n)*?\s+asset: (\S+)", workflow))
@@ -240,6 +251,73 @@ class Starting(unittest.TestCase):
         with mock.patch.object(oe.subprocess, "Popen") as popen:
             self.assertEqual(oe.open_editor(["ed", "--path"]), 0)
             popen.assert_called_once()
+
+
+class Workers(unittest.TestCase):
+    """The levels are exported in processes of their own. Linux starts them with fork, a copy of
+    this one; Windows and macOS with spawn, a fresh Python that imports the tools again and gets
+    the function by name, so a function only this process has breaks there alone. Android has no
+    process pools: extract.SubprocessPool runs openrac_editor.py --worker instead."""
+
+    CHILD = """
+import multiprocessing, sys
+from concurrent.futures import ProcessPoolExecutor
+from pathlib import Path
+import openrac_editor as oe
+import extract
+if __name__ == "__main__":
+    kind = sys.argv[1]
+    if kind == "spawn":
+        pool = ProcessPoolExecutor(1, mp_context=multiprocessing.get_context("spawn"))
+    else:
+        pool = extract.SubprocessPool(1, Path(oe.__file__).resolve())
+    with pool:
+        for function, args in ((oe.export_level, (Path("no disc.iso"), {}, Path(sys.argv[2]), 0)),
+                               (oe.export_wad_level, (Path("no disc.iso"), 3, Path(sys.argv[2]), 0))):
+            try:
+                pool.submit(function, *args).result(timeout=120)
+                print("ran")
+            except Exception as error:
+                print(type(error).__name__, str(error)[:200])
+"""
+
+    def run_child(self, kind: str) -> tuple[list[str], str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            done = subprocess.run([sys.executable, "-c", self.CHILD, kind, tmp], cwd=HERE, capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace", timeout=300)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        return done.stdout.splitlines(), done.stderr
+
+    def check(self, run: tuple[list[str], str]) -> None:
+        lines, stderr = run
+        self.assertEqual(len(lines), 2, lines)
+        if lines[0].startswith("RuntimeError"):
+            # SubprocessPool says only that the worker failed; the worker said why on stderr.
+            self.assertNotIn("is not one of the level exports", stderr)
+            lines = [stderr]
+        for line in lines:
+            # The worker found and ran the function: it failed on the missing disc, not on
+            # pickling, importing or finding it.
+            self.assertNotRegex(line, r"^(PicklingError|AttributeError|ModuleNotFoundError|ImportError|"
+                                      r"BrokenProcessPool|NameError)", line)
+            self.assertRegex(line, r"no disc\.iso|No such file|FileNotFound|FormatError", line)
+
+    def test_spawned_workers_run_the_exports(self):
+        self.check(self.run_child("spawn"))
+
+    def test_subprocess_workers_run_the_exports(self):
+        self.check(self.run_child("subprocess"))
+
+    def test_every_function_given_to_the_pool_can_be_found_by_name(self):
+        tree = ast.parse((HERE / "openrac_editor.py").read_text(encoding="utf-8"))
+        top = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+        submitted = {n.args[0].id for n in ast.walk(tree) if isinstance(n, ast.Call)
+                     and isinstance(n.func, ast.Attribute) and n.func.attr == "submit" and isinstance(n.args[0], ast.Name)}
+        self.assertTrue(submitted)
+        self.assertLessEqual(submitted, top, "a worker function must be a top-level one")
+        self.assertLessEqual(submitted, set(oe.WORKER_FUNCTIONS), "Android's SubprocessPool runs only these")
+        self.assertRegex((HERE / "openrac_editor.py").read_text(encoding="utf-8"), r'\nif __name__ == "__main__":\n',
+                         "spawn imports the script again: its commands must not run then")
 
 
 class FindingOpenRAC(unittest.TestCase):

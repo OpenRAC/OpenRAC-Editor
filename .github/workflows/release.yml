@@ -71,6 +71,14 @@ jobs:
           TAG: ${{ inputs.tag || github.ref_name }}
         run: python build/package.py "${{ matrix.program }}" "${{ matrix.system }}" "$TAG" "${{ matrix.asset }}"
 
+      # The archive as the player gets it, on its own system: unpacked as the launcher does into a
+      # folder with spaces and Polish letters, and the editor run without a window there.
+      - name: Check it
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: python build/smoke.py "${{ matrix.asset }}" "$TAG"
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.asset }}
