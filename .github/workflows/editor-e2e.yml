@@ -1,6 +1,6 @@
-# OpenRAC's Assets dock end to end on this editor: builds the editor (no LTO, SCons cache), then runs
-# OpenRAC's editor/test_editor_e2e.py and the other editor tests that need Godot. The fork's own
-# changes (the 3D view's drop hook, the MCP server) are what the dock leans on.
+# The editor's tools and the Assets dock end to end on this editor: builds the editor (no LTO, SCons
+# cache), then runs openrac/tools' tests (test_editor_e2e.py and the others that need Godot) against
+# an OpenRAC checkout, whose extractor the tools import (openrac_root.py, extractor_api.json).
 name: editor-e2e
 
 on:
@@ -11,8 +11,11 @@ on:
     paths-ignore: ["mods/**", "docs/**", "**.md"]
   workflow_dispatch:
     inputs:
+      openrac-repository:
+        description: The OpenRAC repository whose extractor the tools read
+        default: OpenRAC/OpenRAC
       openrac-ref:
-        description: OpenRAC branch or tag whose editor tests run
+        description: Its branch or tag
         default: develop
 
 permissions:
@@ -34,9 +37,9 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: OpenRAC/OpenRAC
+          repository: ${{ inputs.openrac-repository || 'OpenRAC/OpenRAC' }}
           ref: ${{ inputs.openrac-ref || 'develop' }}
-          path: openrac
+          path: OpenRAC
           persist-credentials: false
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -63,10 +66,8 @@ jobs:
             wayland=no cache_path="$RUNNER_TEMP/scons-cache" cache_limit=4 -j"$(nproc)"
           echo "OPENRAC_GODOT=$PWD/bin/godot.linuxbsd.editor.x86_64" >> "$GITHUB_ENV"
 
-      - name: Assets dock end to end, and the editor tests that run Godot
-        working-directory: openrac/editor
-        run: |
-          if [ ! -f test_editor_e2e.py ]; then
-            echo "::notice::this OpenRAC ref has no editor e2e yet"
-          fi
-          python -m unittest discover -s . -v
+      - name: The editor's tools, the Assets dock end to end, and the tests that run Godot
+        working-directory: openrac/tools
+        env:
+          OPENRAC_ROOT: ${{ github.workspace }}/OpenRAC
+        run: python -m unittest discover -s . -v

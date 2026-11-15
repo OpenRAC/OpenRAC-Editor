@@ -1,0 +1,103 @@
+# OpenRAC Editor's releases, which OpenRAC's launcher downloads (launcher/core/src/editor_install.rs):
+# for a tag v*, the editor built for Linux, Windows and macOS, each packed with the editor's tools
+# and project files (build/package.py), and SHA256SUMS, which the launcher checks the download by.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to build and publish (it must exist)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - system: linux
+            runner: ubuntu-24.04
+            scons: platform=linuxbsd wayland=no
+            program: bin/godot.linuxbsd.editor.x86_64
+            asset: openrac-editor-linux-x86_64.zip
+          - system: windows
+            runner: windows-2025
+            scons: platform=windows
+            program: bin/godot.windows.editor.x86_64.exe
+            asset: openrac-editor-windows-x86_64.zip
+          - system: macos
+            runner: macos-15
+            scons: platform=macos arch=arm64 metal=yes vulkan=no
+            program: bin/godot.macos.editor.arm64
+            asset: openrac-editor-macos-arm64.zip
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build tools
+        shell: bash
+        run: |
+          python -m pip install -q scons
+          if [ "${{ matrix.system }}" = linux ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq --no-install-recommends build-essential pkg-config
+          fi
+
+      - name: Build the editor
+        shell: bash
+        run: scons ${{ matrix.scons }} profile=build/custom.py -j"$(python -c 'import os; print(os.cpu_count())')"
+
+      - name: Pack it
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: python build/package.py "${{ matrix.program }}" "${{ matrix.system }}" "$TAG" "${{ matrix.asset }}"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        working-directory: dist
+        run: sha256sum ./*.zip | sed 's# \./# #' > SHA256SUMS && cat SHA256SUMS
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" --repo "$REPO" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber --repo "$REPO"
+          else
+            gh release create "$TAG" dist/* --title "OpenRAC Editor $TAG" --generate-notes --repo "$REPO"
+          fi

@@ -102,13 +102,14 @@ See [MCP](docs/MCP.md).
 ## Get started
 
 1. [Get the OpenRAC launcher](https://github.com/OpenRAC/OpenRAC/releases/latest) and add your disc.
-2. In **Mods**, open the **Level editor** tab and press **Get the levels ready**.
+2. In **Mods**, open the **Level editor** tab and press **Download OpenRAC Editor** (once: the
+   launcher fetches it from [this repository's releases](https://github.com/nickyyOO/OpenRAC-Editor/releases)).
 3. Pick a planet and open it.
 
 Edits play in Ratchet & Clank (PAL and NTSC-U). Levels of the later games open to explore.
 
-**Guides:** [Level editor](https://github.com/OpenRAC/OpenRAC/blob/develop/editor/README.md) ·
-[Map mods](https://github.com/OpenRAC/OpenRAC/blob/develop/editor/MAP_MODDING.md)
+**Guides:** [Level editor](docs/LEVEL_EDITOR.md) · [Level modding](docs/LEVEL_MODDING.md) ·
+[Map mods](docs/MAP_MODDING.md)
 
 ## Build from source
 
@@ -120,6 +121,14 @@ scons platform=linuxbsd profile=build/custom.py      # Linux
 scons platform=windows profile=build/custom.py       # Windows
 scons platform=macos arch=arm64 profile=build/custom.py metal=yes vulkan=no   # macOS
 ```
+
+The editor's tools (`openrac/tools`: the level projects and the packer) are Python and read your disc
+with [OpenRAC](https://github.com/OpenRAC/OpenRAC)'s extractor, found by `OPENRAC_ROOT` or as a
+checkout named `OpenRAC` beside this one. Their tests:
+`OPENRAC_ROOT=../OpenRAC python3 -m unittest discover -s openrac/tools` (with `OPENRAC_GODOT` set to
+an editor build, the ones that run it too). A release (`v*` tag) builds and packs the editor for each
+system (`.github/workflows/release.yml`, `build/package.py`), with `openrac/editor.json`, the steps
+the launcher lists once the editor is downloaded.
 
 **More:** [Building](docs/BUILDING.md) · [Changes from Godot](docs/CHANGES.md) · [Contributing](CONTRIBUTING.md)
 

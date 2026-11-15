@@ -1,0 +1,1651 @@
+{
+  "format": 1,
+  "version": "dev",
+  "extractorApi": 1,
+  "program": {
+    "linux": "openrac-editor.x86_64",
+    "windows": "openrac-editor.exe",
+    "macos": "OpenRAC Editor.app/Contents/MacOS/OpenRAC Editor"
+  },
+  "versions": {
+    "rac1/pal": [
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "connected",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS the same command wrote the per-level projects, and refused an existing folder with a clear message."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS, Godot 4.7.2 imported one extracted level this way in five seconds; a 4.9 development build crashed on it."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e",
+          "--",
+          "--openrac-data",
+          "{data}",
+          "--openrac-levels",
+          "{levels}",
+          "--openrac-states",
+          "{states}"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The project file is assets/godot/project.godot, as the action expects."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in OpenRAC Editor back into the game's level data, in your packed levels folder; your disc image is never changed. Packs the objects you moved, turned, scaled, changed, added or deleted.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "pack",
+          "{disc}",
+          "{projects}",
+          "{packed}",
+          "--states",
+          "{states}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{levels}",
+          "--anywhere"
+        ],
+        "output": "{packed}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_00/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run from a shell on macOS: an untouched project packs to nothing, a scene Godot re-saved with one object moved packs to a level file that differs from the disc in that object's record, and the port ran level 0 for 400 frames from it. Not run from the desktop app yet. Next: adding and deleting objects, then ties and shrubs."
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in OpenRAC Editor look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "{data}/mods/pal",
+          "--projects",
+          "{projects}"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS a 4x terrain texture showed at its size in Godot 4.7.2 after the import."
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "--projects",
+          "{projects}",
+          "--undo"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS a 4x terrain texture showed at its size in Godot 4.7.2 after the import."
+      }
+    ],
+    "rac1/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your NTSC-U disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS the same command wrote level 0's project from SCUS_971.99."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app on an NTSC-U disc's levels; PAL's is connected, and the projects are the same but for their folder."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as PAL's, on the NTSC-U disc's projects ({projects})."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e",
+          "--",
+          "--openrac-data",
+          "{data}",
+          "--openrac-levels",
+          "{levels}",
+          "--openrac-states",
+          "{states}"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as PAL's, on the NTSC-U disc's projects ({projects})."
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in OpenRAC Editor back into the game's level data, in your packed levels folder; your disc image is never changed. Packs the objects you moved, turned, scaled, changed, added or deleted.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "pack",
+          "{disc}",
+          "{projects}",
+          "{packed}",
+          "--states",
+          "{states}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{levels}",
+          "--anywhere"
+        ],
+        "output": "{packed}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_00/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-16): level 0 extracted from SCUS_971.99, one bolt moved, packed to {packed}'s level_00/gameplay_ntsc.wad at the NTSC copy's sectors, reading back as the disc's but for that bolt's record. Not yet played: the NTSC-U port does not reach a level."
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in OpenRAC Editor look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "{data}/mods/ntsc",
+          "--projects",
+          "{projects}"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS a 4x terrain texture showed at its size in Godot 4.7.2 after the import."
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "--projects",
+          "{projects}",
+          "--undo"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS a 4x terrain texture showed at its size in Godot 4.7.2 after the import."
+      }
+    ],
+    "rac1/pal1": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your PAL v1.00 disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e",
+          "--",
+          "--openrac-data",
+          "{data}",
+          "--openrac-levels",
+          "{levels}",
+          "--openrac-states",
+          "{states}"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in OpenRAC Editor look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "{data}/mods/pal1",
+          "--projects",
+          "{projects}"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "--projects",
+          "{projects}",
+          "--undo"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      }
+    ],
+    "rac1/jp": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 19 levels on your Japanese disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time (a few seconds per level).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor: move, turn or scale its objects and save. Each level is a project of its own, so only that level loads.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e",
+          "--",
+          "--openrac-data",
+          "{data}",
+          "--openrac-levels",
+          "{levels}",
+          "--openrac-states",
+          "{states}"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-show-packs",
+        "label": "Show your textures in the editor",
+        "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in OpenRAC Editor look as they will in the game. The editor's own come back with Hide them again.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "{data}/mods/jp",
+          "--projects",
+          "{projects}"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-hide-packs",
+        "label": "Hide your textures in the editor",
+        "description": "Puts the level editor's own textures back in its projects, in place of the mods' (Show your textures in the editor).",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "extractor/overrides.py",
+          "preview",
+          "--projects",
+          "{projects}",
+          "--undo"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      }
+    ],
+    "rac2/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac2/pal": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac2/ntsc2": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns the 27 levels on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Going Commando yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac3/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet, and the game is not playable yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Up Your Arsenal yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac3/pal": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns its 51 levels (the single-player ones and the multiplayer maps) on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet, and the game is not playable yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Up Your Arsenal yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac4/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "Turns its 47 levels (the campaign, the multiplayer maps and their split-screen copies) on your disc into OpenRAC Editor projects, one per level, in your levels folder. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again. Early access: the levels are read and shown, for looking and for texture and model packs; edits are not packed back into the game yet, and the game is not playable yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) the same command read every level of this disc (extractor/README.md, \"The later games\")."
+      },
+      {
+        "id": "editor-reexport",
+        "label": "Export the levels again",
+        "description": "Reads every level from your disc into its OpenRAC Editor project again, even one that is up to date. The levels there now go to a backups folder first, and the objects you moved, changed, added or deleted are carried onto the fresh ones (Ratchet & Clank); anything that cannot be carried is listed, to redo by hand.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "godot",
+          "{disc}",
+          "{projects}",
+          "--split",
+          "--again",
+          "--anywhere"
+        ],
+        "output": "{projects}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "editor"
+        ],
+        "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-preview",
+        "label": "Preview a level in OpenRAC Editor",
+        "description": "Opens one extracted level in OpenRAC Editor's player, to fly around it. This is OpenRAC Editor showing the editor's scene, not the game.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "res://levels/level_{level}/level_{level}.tscn"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      },
+      {
+        "id": "editor-import",
+        "label": "Import a level into OpenRAC Editor",
+        "description": "Has OpenRAC Editor read one level's meshes and textures without opening a window. Not needed before opening the editor, which does the same the first time.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{editor}",
+        "args": [
+          "--path",
+          "{projects}/level_{level}",
+          "--headless",
+          "--import"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. From a shell on macOS (2026-10-20) Godot 4.7.2 imported a level of each later game without errors."
+      },
+      {
+        "id": "editor-open",
+        "label": "Open a level in OpenRAC Editor",
+        "description": "Opens one level in OpenRAC Editor, to look around it, and its models and textures. Edits are not packed back into Deadlocked yet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "open",
+          "{editor}",
+          "--path",
+          "{projects}/level_{level}",
+          "-e"
+        ],
+        "output": "{projects}/level_{level}",
+        "cwd": ".",
+        "requires": [
+          "python",
+          "editor",
+          "artifact"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "detached": true,
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Run it from the desktop app. The same action as Ratchet & Clank's, on this game's projects."
+      }
+    ],
+    "rac5/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "planned",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Size Matters keeps its levels in SNR2 .REL modules (games/rac5/decomp/docs/REL-FORMAT.md); the editor reads none of them yet."
+      }
+    ],
+    "rac6/ntsc": [
+      {
+        "id": "editor-extract",
+        "label": "Extract the levels",
+        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "planned",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Secret Agent Clank keeps its levels in SNR2 .REL modules; the editor reads none of them yet."
+      }
+    ]
+  }
+}
