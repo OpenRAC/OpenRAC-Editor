@@ -29,7 +29,7 @@ def table(path: Path = TABLE) -> dict[tuple[int, int], list[tuple[int, str]]]:
     out: dict[tuple[int, int], list[tuple[int, str]]] = {}
     if not path.is_file():
         return out
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("#"):
             continue
         class_id, level, words = (line.split("\t") + ["", ""])[:3]
@@ -157,7 +157,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     lines = ["# class\tlevel (-1: every level's)\tits pvar words that hold a place in the world, "
              "offset:axis (editor/positions.py, from the game's code)"]
     lines += [f"{c}\t{lv}\t{','.join(f'{o}:{a}' for o, a in sorted(w))}" for (c, lv), w in sorted(rows.items())]
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return len(rows)
 
 

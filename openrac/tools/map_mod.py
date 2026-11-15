@@ -41,7 +41,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
         import pack
         if not scene.is_file():
             raise overrides.PackError("Keep the editable level scene to read Ratchet's arrival position")
-        heroes = [n for n in pack.scene_mobys(scene.read_text()) if n['class_id'] == 0]
+        heroes = [n for n in pack.scene_mobys(scene.read_text(encoding="utf-8")) if n['class_id'] == 0]
         if len(heroes) != 1:
             raise overrides.PackError("Place exactly one Ratchet start in the scene, or supply --spawn X Y Z")
         position, rotation, _ = pack.placement(heroes[0]['transform'])
@@ -59,7 +59,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
         import collision_scene
         if not scene.is_file():
             raise overrides.PackError("A destination needs its editable level scene with a return ship")
-        _, _, nodes = collision_scene.read_scene(scene.read_text())
+        _, _, nodes = collision_scene.read_scene(scene.read_text(encoding="utf-8"))
         ship = next((n for n in nodes if n["name"] == "Ship" and n["parent"] == "Game/LevelSettings"), None)
         if ship is None or collision_scene.transform_of(ship)[9] <= 0:
             raise overrides.PackError("Keep a working Ship under Game/LevelSettings for the return journey")
@@ -68,7 +68,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
     virtual_rows = []
     virtual_file = packed / "virtual.tsv"
     if virtual_file.is_file():
-        for line in virtual_file.read_text().splitlines():
+        for line in virtual_file.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.startswith("#"):
                 continue
             fields = line.split("\t")
@@ -96,7 +96,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
     terrain = level_dir / "terrain.glb"
     import static_assets
     packed_level = packed / prefix
-    scene_text = scene.read_text() if scene.is_file() else ''
+    scene_text = scene.read_text(encoding="utf-8") if scene.is_file() else ''
     authoring = next((p for p in (level_dir, *level_dir.parents) if (p / 'project.godot').is_file()), project)
     if static_assets.placements(authoring, scene_text) or (packed_level / static_assets.STAMP).exists():
         _, _, current = static_assets.bake(authoring, level_dir, scene_text)
@@ -115,7 +115,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
     patches = []
     patch_file = packed / "patches.tsv"
     if patch_file.is_file():
-        for line in patch_file.read_text().splitlines():
+        for line in patch_file.read_text(encoding="utf-8").splitlines():
             if not line.strip() or line.startswith("#"):
                 continue
             fields = line.split("\t")
@@ -140,9 +140,9 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
             target = stage / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
-        (stage / "patches.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(patches) + "\n")
-        (stage / "virtual.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(virtual_rows) + "\n")
-        (stage / overrides.MANIFEST).write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n")
+        (stage / "patches.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(patches) + "\n", encoding="utf-8", newline="\n")
+        (stage / "virtual.tsv").write_text("# first sector\tsectors\tfile\n" + "\n".join(virtual_rows) + "\n", encoding="utf-8", newline="\n")
+        (stage / overrides.MANIFEST).write_text(json.dumps(manifest, indent=2, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         _, _, _, problems = overrides.check(stage)
         if problems:
             raise overrides.PackError("\n".join(problems))

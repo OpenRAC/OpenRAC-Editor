@@ -35,7 +35,7 @@ def level_folders(project: Path, wanted: list[int] | None) -> dict[int, Path]:
     """The project's level folders (levels/level_NN), by number."""
     found = {}
     for stats in [*project.glob("levels/level_*/level.json"), *project.glob("level_*/levels/level_*/level.json")]:
-        number = json.loads(stats.read_text())["level"]
+        number = json.loads(stats.read_text(encoding="utf-8"))["level"]
         if wanted is None or number in wanted:
             found[number] = stats.parent
     return dict(sorted(found.items()))
@@ -51,7 +51,7 @@ def states(program: Path, data: Path, levels: Path, level: int, ticks: int, mods
         run = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT)
         if run.returncode != 0 or not out.is_file():
             raise RuntimeError(f"level {level}: the states program failed: {run.stderr.strip()[-400:]}")
-        return json.loads(out.read_text())
+        return json.loads(out.read_text(encoding="utf-8"))
 
 
 def after_pack(program: Path, data: Path, levels: Path, packed: Path, project: Path,
@@ -62,11 +62,11 @@ def after_pack(program: Path, data: Path, levels: Path, packed: Path, project: P
     so the editor works it out from the disc's level again. What happened, a line each."""
     lines = []
     for stats in [*project.glob("levels/level_*/level.json"), *project.glob("level_*/levels/level_*/level.json")]:
-        number, file = json.loads(stats.read_text()).get("level"), stats.parent / "moby_states.json"
+        number, file = json.loads(stats.read_text(encoding="utf-8")).get("level"), stats.parent / "moby_states.json"
         if number in moby_names or not file.is_file():
             continue
         try:
-            stale = json.loads(file.read_text()).get("packed", False)
+            stale = json.loads(file.read_text(encoding="utf-8")).get("packed", False)
         except (OSError, ValueError, AttributeError):
             stale = True
         if stale:
@@ -81,7 +81,7 @@ def after_pack(program: Path, data: Path, levels: Path, packed: Path, project: P
             key = moby["key"]
             moby["name"] = names[key] if 0 <= key < len(names) else None
         result["packed"], result["names"] = True, names
-        (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n")
+        (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
         lines.append(f"level {number:02}: moby start states updated")
     return lines
 
@@ -100,14 +100,14 @@ def main() -> None:
     if not folders:
         sys.exit(f"{args.project} has no levels")
     for number, folder in folders.items():
-        version = json.loads((folder / "level.json").read_text()).get("version", "pal")
+        version = json.loads((folder / "level.json").read_text(encoding="utf-8")).get("version", "pal")
         program = Path(args.program) if args.program else ROOT / PROGRAM.format(version=version)
         if not program.is_file() and program.with_suffix(".exe").is_file():
             program = program.with_suffix(".exe")
         if not program.is_file():
             sys.exit(f"no states program at {program}: build the port's openrac-rac1-{version}-states target")
         result = states(program, args.data, args.levels, number, args.ticks)
-        (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n")
+        (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
         print(f"level {number}: {len(result['mobys'])} mobys")
 
 

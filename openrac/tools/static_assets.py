@@ -232,7 +232,7 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
            (directory, directory / 'imported_static', project / '.openrac-backups')):
         raise ValueError('The scene, imported assets and backups must stay inside the project')
     scene = directory / f'level_{level:02}.tscn'
-    before = scene.read_text()
+    before = scene.read_text(encoding="utf-8")
     nodes, _ = gamedata.parse_scene(before)
     if 'Game' not in nodes or f'{GROUP}/{name}' in nodes:
         raise ValueError('The project must contain Game and the new node name must be unused')
@@ -269,7 +269,7 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
         provenance = {'format': 1, 'source_level': source.parent.parent.name if extracted else None,
                       'kind': source.parent.name if extracted else 'creator-glb', 'source_model': source.name,
                       'source_sha256': digest(source.read_bytes()), 'textures': sorted(textures)}
-        (bundle / 'source.json').write_text(json.dumps(provenance, indent=2) + '\n')
+        (bundle / 'source.json').write_text(json.dumps(provenance, indent=2) + '\n', encoding="utf-8", newline="\n")
     resource = 'static_' + uuid.uuid4().hex[:12]
     uri = 'res://' + (bundle / 'model.glb').relative_to(project).as_posix()
     # Godot requires external resources before any sub-resource or node declaration.
@@ -288,7 +288,7 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
     backup = backups / f'{scene.stem}-{uuid.uuid4().hex}.tscn'
     shutil.copyfile(scene, backup)
     temporary = scene.with_suffix('.tscn.tmp')
-    temporary.write_text(after, newline='\n')
+    temporary.write_text(after, newline='\n', encoding="utf-8")
     file_ops.replace(temporary, scene)
     return {'node': f'{GROUP}/{name}', 'model': uri, 'textures': len(textures), 'backup': str(backup)}
 
@@ -410,14 +410,14 @@ def write_packed(project: Path, level_dir: Path, text: str, out: Path):
     if not placements(project, text) and not (out / STAMP).exists():
         return None
     payload, textures, stamp = bake(project, level_dir, text)
-    previous = json.loads((out / STAMP).read_text()) if (out / STAMP).exists() else {}
+    previous = json.loads((out / STAMP).read_text(encoding="utf-8")) if (out / STAMP).exists() else {}
     stamp['managed_textures'] = sorted(set(previous.get('managed_textures', [])) | set(textures))
     out.mkdir(parents=True, exist_ok=True)
     (out / 'terrain.glb').write_bytes(payload)
     (out / 'textures').mkdir(exist_ok=True)
     for name, data in textures.items():
         (out / 'textures' / name).write_bytes(data)
-    (out / STAMP).write_text(json.dumps(stamp, indent=2) + '\n')
+    (out / STAMP).write_text(json.dumps(stamp, indent=2) + '\n', encoding="utf-8", newline="\n")
     return stamp
 
 
@@ -455,7 +455,7 @@ def write_animated(project: Path, text: str, out: Path):
                         'move_axis': move_axis, 'move_distance': move_distance,
                         'move_speed': move_speed, 'move_phase': move_phase})
     out.mkdir(parents=True, exist_ok=True)
-    (out / 'animated.json').write_text(json.dumps({'format': 1, 'objects': objects}, indent=2) + '\n')
+    (out / 'animated.json').write_text(json.dumps({'format': 1, 'objects': objects}, indent=2) + '\n', encoding="utf-8", newline="\n")
     return len(objects)
 
 

@@ -116,7 +116,7 @@ def export(level_dir: Path, block: bytes) -> dict:
         (level_dir / file).write_bytes(data)
         manifest["hero_walls"][name] = {"file": file, "sha1": hashlib.sha1(data).hexdigest(),
                                         "triangles": len(group.triangles)}
-    (folder / "collision.json").write_text(json.dumps(manifest, indent=1) + "\n")
+    (folder / "collision.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 
@@ -369,7 +369,7 @@ def scene_collision(project: Path, level_dir: Path, text: str) -> dict | None:
         if imported:
             raise FormatError('Static collisions need an extracted project with collision metadata')
         return None
-    manifest = json.loads(manifest_file.read_text())
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
     if manifest.get("format") != FORMAT:
         if imported:
             raise FormatError('Re-extract the collision metadata before packing static imports')

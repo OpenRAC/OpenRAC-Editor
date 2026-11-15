@@ -867,7 +867,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
         if disc.version.key == "pal":
             metadata = scene.with_name("level.json")
             try:
-                source = json.loads(metadata.read_text()).get("gameplay_source")
+                source = json.loads(metadata.read_text(encoding="utf-8")).get("gameplay_source")
             except (OSError, ValueError, AttributeError):
                 source = None
             if source != disc.version.gameplay:
@@ -878,7 +878,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
         place = info["ranges"][disc.version.gameplay]
         stored = disc.sectors(place["lba"], place["sectors"])
         gameplay = decoded(stored)
-        text = scene.read_text()
+        text = scene.read_text(encoding="utf-8")
         scene_nodes, _ = gamedata.parse_scene(text)
         game_frame = scene_nodes.get("Game")
         # A scene without the node (an older project, or one written by hand) has nothing to keep.
@@ -1111,7 +1111,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
             report += [f"  not packed: {line}" for line in problems + scenery_problems]
         if placements is not None:
             (out / name).mkdir(parents=True, exist_ok=True)
-            (out / name / "placements.json").write_text(json.dumps(placements, separators=(",", ":")) + "\n")
+            (out / name / "placements.json").write_text(json.dumps(placements, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
             total += len(scenery_changes)
             packed += 0 if changes else 1
         if not changes:
@@ -1159,10 +1159,10 @@ def pack(disc, survey: dict, project: Path, out: Path,
         (out / file).parent.mkdir(parents=True, exist_ok=True)
         (out / file).write_bytes(header + bytes(-len(header) % SECTOR))
         patches.append(f"{info['header_lba']}\t{-(-LEVEL_HEADER_SIZE // SECTOR)}\t{file}")
-    (out / "patches.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in patches))
-    (out / "virtual.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in virtual))
-    (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n")
+    (out / "patches.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in patches), encoding="utf-8", newline="\n")
+    (out / "virtual.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n" + "".join(p + "\n" for p in virtual), encoding="utf-8", newline="\n")
+    (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n", encoding="utf-8", newline="\n")
     # The format OpenRAC's extractor says the game plays (extractor_api.json packed_format): a pack
     # in another would be refused by the launcher (overrides.py).
-    (out / "packed.json").write_text(json.dumps({"format": PACKED_FORMAT, "game": "rac1", "version": disc.version.key}) + "\n")
+    (out / "packed.json").write_text(json.dumps({"format": PACKED_FORMAT, "game": "rac1", "version": disc.version.key}) + "\n", encoding="utf-8", newline="\n")
     return packed, total

@@ -98,7 +98,7 @@ def write_skins(project: Path, text: str, out: Path, spawn_ids: dict[str, int]) 
             problems.append(f"{name}: skin not used: {error}")
     if entries:
         out.mkdir(parents=True, exist_ok=True)
-        (out / "skins.json").write_text(json.dumps({"format": 1, "skins": entries}, indent=1) + "\n")
+        (out / "skins.json").write_text(json.dumps({"format": 1, "skins": entries}, indent=1) + "\n", encoding="utf-8", newline="\n")
     elif (out / "skins.json").exists():
         (out / "skins.json").unlink()
     return changes, problems

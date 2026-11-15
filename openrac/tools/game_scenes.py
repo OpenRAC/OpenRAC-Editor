@@ -329,7 +329,7 @@ def export_level(disc: Disc, level: int, out: Path, only: int | None = None) -> 
         doc = to_cutscene(chunks, level, k, speech, poses)
         out.mkdir(parents=True, exist_ok=True)
         file = out / f"game_scene_{k:02}.cutscene"
-        file.write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n", encoding="utf-8")
+        file.write_text(json.dumps(doc, indent=1, allow_nan=False) + "\n", encoding="utf-8", newline="\n")
         written.append(file)
     return written
 

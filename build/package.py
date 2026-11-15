@@ -33,7 +33,7 @@ def put(archive: zipfile.ZipFile, name: str, data: bytes, executable: bool = Fal
 
 
 def package(program: Path, system: str, version: str, out: Path) -> None:
-    manifest = json.loads(MANIFEST.read_text())
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     manifest["version"] = version
     at = manifest["program"][system]
     with zipfile.ZipFile(out, "w") as archive:

@@ -85,7 +85,7 @@ def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int]) -
         changes.append(f"{name}: behaviour {entries[-1]['preset']}")
     if entries:
         out.mkdir(parents=True, exist_ok=True)
-        (out / "behaviours.json").write_text(json.dumps({"format": 1, "mobys": entries}, indent=1) + "\n")
+        (out / "behaviours.json").write_text(json.dumps({"format": 1, "mobys": entries}, indent=1) + "\n", encoding="utf-8", newline="\n")
     elif (out / "behaviours.json").exists():
         (out / "behaviours.json").unlink()
     return changes, problems

@@ -413,10 +413,10 @@ def carry_project(old_project: Path, old_level_dir: Path, new_level_dir: Path, o
     """Carries one level's edits from the backed-up project into the fresh one, writes the report
     beside the fresh scene (carried.json, which the launcher reads) and returns it."""
     name = new_level_dir.name
-    old_scene = (old_level_dir / f"{name}.tscn").read_text()
+    old_scene = (old_level_dir / f"{name}.tscn").read_text(encoding="utf-8")
     new_file = new_level_dir / f"{name}.tscn"
     try:
-        text, report = carry_level(old_scene, old_gameplay, new_file.read_text(), new_gameplay)
+        text, report = carry_level(old_scene, old_gameplay, new_file.read_text(encoding="utf-8"), new_gameplay)
     except FormatError as exc:
         report = {"carried": [], "not_carried": [str(exc)], "mobys": 0, "failed": True}
         text = None
@@ -431,8 +431,8 @@ def carry_project(old_project: Path, old_level_dir: Path, new_level_dir: Path, o
                       "mobys": 0, "failed": True}
             text = None
         if text is not None:
-            new_file.write_text(text)
+            new_file.write_text(text, encoding="utf-8", newline="\n")
     report["backup"] = str(backup)
     report["level"] = int(name.split("_")[1])
-    (new_level_dir / REPORT).write_text(json.dumps(report, indent=1) + "\n")
+    (new_level_dir / REPORT).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8", newline="\n")
     return report

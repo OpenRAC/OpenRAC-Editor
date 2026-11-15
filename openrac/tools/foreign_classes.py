@@ -236,7 +236,7 @@ def write(out: Path, blobs: dict[int, tuple[int, bytes]]) -> list[str]:
     for class_id, (level, blob) in blobs.items():
         (folder / f"{class_id}.bin").write_bytes(blob)
         lines.append(f"{class_id}\t{level}")
-    (out / "classes.tsv").write_text("\n".join(lines) + "\n")
+    (out / "classes.tsv").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return [f"class {c}: imported from level {lvl:02}" for c, (lvl, _) in blobs.items()]
 
 

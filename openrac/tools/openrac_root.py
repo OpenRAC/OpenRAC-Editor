@@ -26,7 +26,7 @@ def find() -> Path:
 
 
 ROOT = find()
-API = json.loads((ROOT / "extractor" / "extractor_api.json").read_text())
+API = json.loads((ROOT / "extractor" / "extractor_api.json").read_text(encoding="utf-8"))
 if API.get("version") not in API_VERSIONS:
     raise SystemExit(f"OpenRAC at {ROOT} offers extractor API {API.get('version')}; these tools need "
                      f"{' or '.join(map(str, API_VERSIONS))}: update OpenRAC or OpenRAC Editor")

@@ -407,7 +407,7 @@ def main(argv: list[str] | None = None) -> int:
         scale = args.scale
         if scale is None and args.scene is not None:
             import moby_collision_scene
-            scale = moby_collision_scene.scene_scale(args.scene.read_text())
+            scale = moby_collision_scene.scene_scale(args.scene.read_text(encoding="utf-8"))
         blob = generate(tris, args.mode, int(args.surface, 0), scale or 1.0)
         if args.out is not None:
             args.out.write_bytes(write(blob))

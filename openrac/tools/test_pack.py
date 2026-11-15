@@ -505,7 +505,10 @@ class PackCutscenes(unittest.TestCase):
             (scene_dir / "cutscenes" / "a.cutscene").write_text(json.dumps({"format": "openrac-cutscene", "length": 60}))
             secret = Path(tmp) / "secret.txt"
             secret.write_text("private")
-            os.symlink(secret, scene_dir / "cutscenes" / "secret.txt")
+            try:
+                os.symlink(secret, scene_dir / "cutscenes" / "secret.txt")
+            except OSError:
+                self.skipTest("this system lets only an administrator make links (Windows)")
             pack_cutscenes(scene_dir, out)
             self.assertFalse((out / "cutscenes" / "secret.txt").exists())
 

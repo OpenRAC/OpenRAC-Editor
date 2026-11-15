@@ -29,7 +29,7 @@ def table(path: Path = TABLE) -> dict[tuple[int, int], set[int]]:
     out: dict[tuple[int, int], set[int]] = {}
     if not path.is_file():
         return out
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("#"):
             continue
         class_id, level, made = (line.split("\t") + ["", ""])[:3]
@@ -82,7 +82,7 @@ def functions(gen: Path) -> dict[str, Function]:
     for file in sorted(gen.rglob("*.c")):
         if "prep" in file.relative_to(gen).parts:
             continue
-        lines = file.read_text(errors="replace").split("\n")
+        lines = file.read_text(errors="replace", encoding="utf-8").split("\n")
         i = 0
         while i < len(lines):
             found = head.match(lines[i])
@@ -109,7 +109,7 @@ def hooks(libraries: Path) -> list[tuple[str, int, int]]:
     """(function, level or -1 for every level's, class) of each "The update of class N" hook."""
     hook = re.compile(r"^(FUN_(?:L(\d\d)_)?[0-9a-f]{8})\t\S+\t\S+\thook\tThe update of class (?:[a-z_0-9]+ \()?(\d+)")
     out = []
-    for line in libraries.read_text().splitlines():
+    for line in libraries.read_text(encoding="utf-8").splitlines():
         found = hook.match(line)
         if found:
             level = found.group(2)
@@ -175,7 +175,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
             rows.setdefault((class_id, level), set()).update(made)
     lines = ["# class\tlevel (-1: every level's)\tthe classes its update can make (editor/spawns.py, from the game's code)"]
     lines += [f"{c}\t{lv}\t{','.join(str(m) for m in sorted(made))}" for (c, lv), made in sorted(rows.items())]
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return len(rows)
 
 

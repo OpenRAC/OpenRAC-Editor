@@ -627,7 +627,7 @@ def write_class_scene(path: Path, kind: str) -> None:
     scene.node(kind.capitalize(), kind="Node3D")
     scene.node("Shape", ".", "MeshInstance3D", mesh=mesh, **({"transform": placed} if placed else {}))
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(scene.text())
+    path.write_text(scene.text(), encoding="utf-8", newline="\n")
 
 
 def curve(scene, rid: str, points: list[tuple]):

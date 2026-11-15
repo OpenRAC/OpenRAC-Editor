@@ -34,7 +34,7 @@ def table(path: Path = TABLE) -> dict[tuple[int, int], list[tuple[int, int]]]:
     out: dict[tuple[int, int], list[tuple[int, int]]] = {}
     if not path.is_file():
         return out
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line or line.startswith("#"):
             continue
         class_id, level, words = (line.split("\t") + ["", ""])[:3]
@@ -172,7 +172,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     lines = ["# class\tlevel (-1: every level's)\tits pvar words that hold a moby group, offset:size "
              "(editor/groups.py, from the game's code)"]
     lines += [f"{c}\t{lv}\t{','.join(f'{o}:{s}' for o, s in sorted(w))}" for (c, lv), w in sorted(rows.items())]
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return len(rows)
 
 
@@ -256,13 +256,13 @@ def measure(gen: Path, found: dict, reads: dict[str, set[str]]) -> dict[str, set
     out: dict[str, set[tuple[int, int]]] = {}
     port = next((p for p in gen.parents if (p / "runtime" / "include").is_dir()), gen)
     for file, items in by_file.items():
-        text = file.read_text(errors="replace")
+        text = file.read_text(errors="replace", encoding="utf-8")
         probe = "\n#define PVARS_BASE 0\n#include <stddef.h>\nconst unsigned long openrac_probe[] = {\n"
         probe += ",\n".join(f"(unsigned long)({a}), (unsigned long)({s}), (unsigned long)({n})"
                              for _, a, s, n in items) + "};\n"
         with tempfile.TemporaryDirectory() as scratch:
             source = Path(scratch) / "probe.c"
-            source.write_text(text + probe)
+            source.write_text(text + probe, encoding="utf-8", newline="\n")
             done = subprocess.run(
                 ["clang", "-S", "-emit-llvm", "-O0", "-w", "-o", "-", "-I", str(port / "runtime" / "include"),
                  "-I", str(port / "game" / "common" / "include"), "-I", str(gen), "-I", str(file.parent),

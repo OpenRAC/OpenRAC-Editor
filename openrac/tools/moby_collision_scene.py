@@ -228,7 +228,7 @@ def write_manifest(level_dir: Path, scenes: dict[int, str], files: dict[str, str
                            for c, path in sorted(scenes.items())},
                 "files": dict(sorted(files.items()))}
     (level_dir / "mobys").mkdir(parents=True, exist_ok=True)
-    (level_dir / "mobys" / MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n")
+    (level_dir / "mobys" / MANIFEST).write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8", newline="\n")
 
 
 # --- reading a class scene back --------------------------------------------------------------------
@@ -447,7 +447,7 @@ def replace_in_scene(path: Path, blob: mc.Blob) -> None:
     its children, with the triangle part as glTF files beside the others: what pack then reads.
     The old children go, with the resources nothing else in the scene uses."""
     from godot import Scene
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     _ext, _sub, nodes = cs.read_scene(text)
     layer = collision_layer(nodes)
     found = re.fullmatch(r"moby_(\d+)", path.stem)
@@ -486,7 +486,7 @@ def replace_in_scene(path: Path, blob: mc.Blob) -> None:
     first_node = next((i for i, b in enumerate(blocks) if b.startswith("[node")), len(blocks))
     out = blocks[:first_sub] + resources + blocks[first_sub:first_node] + subs + blocks[first_node:] + children
     out[0] = re.sub(r" load_steps=\d+", "", out[0])  # Godot counts them again
-    path.write_text("\n\n".join(out) + "\n")
+    path.write_text("\n\n".join(out) + "\n", encoding="utf-8", newline="\n")
 
 
 # --- packing ---------------------------------------------------------------------------------------
@@ -496,7 +496,7 @@ def unchanged_scenes(level_dir: Path) -> bool:
     file = level_dir / "mobys" / MANIFEST
     if not file.is_file():
         return True
-    manifest = json.loads(file.read_text())
+    manifest = json.loads(file.read_text(encoding="utf-8"))
     if manifest.get("format") != FORMAT:
         return True
     folder = level_dir / "mobys"
@@ -528,7 +528,7 @@ def pack_classes(level, project: Path, level_dir: Path) -> tuple[dict[int, bytes
             continue
         class_id = int(found.group(1))
         start = starts.get(class_id, 0)
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         if start <= 0:
             if collision_layer(cs.read_scene(text)[2]) is not None and re.search(r'parent="Collision"', text):
                 problems.append(f"moby class {class_id}: it has no class data in this level's core (a gadget, or a "

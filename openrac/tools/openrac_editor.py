@@ -52,7 +52,7 @@ def ours_packed(path: Path, version: str) -> None:
     if not any(path.iterdir()):
         return
     try:
-        manifest = json.loads((path / "packed.json").read_text())
+        manifest = json.loads((path / "packed.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         manifest = None
     if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
@@ -63,7 +63,7 @@ def ours_packed(path: Path, version: str) -> None:
 def level_schema(level_dir: Path) -> int | None:
     """The level.json schema a Godot level was written with, None when it has none."""
     try:
-        return json.loads((level_dir / "level.json").read_text()).get("schema")
+        return json.loads((level_dir / "level.json").read_text(encoding="utf-8")).get("schema")
     except (OSError, ValueError, AttributeError):
         return None
 
@@ -96,7 +96,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             todo.append(i)
         elif (again or level_schema(level_dir(i)) != schema or not whole(i) or
               (gameplay_source is not None and
-               json.loads((level_dir(i) / "level.json").read_text()).get("gameplay_source") != gameplay_source)):
+               json.loads((level_dir(i) / "level.json").read_text(encoding="utf-8")).get("gameplay_source") != gameplay_source)):
             report["replaced"].append(i)
             todo.append(i)
         else:
@@ -139,7 +139,7 @@ def carry_edits(disc, survey: dict, level: int, old_dir: Path, new_dir: Path, ba
     fix names none: it was read from the PAL copy), the new one from the one this disc plays."""
     import carry
     try:
-        stats = json.loads((old_dir / "level.json").read_text())
+        stats = json.loads((old_dir / "level.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         stats = {}
     source = stats.get("gameplay_source") or ("gameplay_pal" if disc.version.key == "pal" else disc.version.gameplay)
@@ -260,12 +260,12 @@ def sync_project(project: Path) -> bool:
         return False
     want = project_files()
     stamp = project / PROJECT_STAMP
-    if stamp.is_file() and stamp.read_text().strip() == want:
+    if stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == want:
         return False
     shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.uid"))
     install_addon(project)
     stamp.parent.mkdir(exist_ok=True)
-    stamp.write_text(want + "\n")
+    stamp.write_text(want + "\n", encoding="utf-8", newline="\n")
     return True
 
 
@@ -360,7 +360,7 @@ def main() -> None:
                     raise FormatError(f"{args.project} is not the editor's Godot project or its folder of "
                                       "per-level projects (run `godot` first)", code="no-project")
                 for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
-                    game = json.loads(stats.read_text()).get("game", "rac1")
+                    game = json.loads(stats.read_text(encoding="utf-8")).get("game", "rac1")
                     if game != "rac1":
                         raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
                                           code="game-not-packable")
@@ -373,7 +373,7 @@ def main() -> None:
                 def build_pack(directory: Path) -> None:
                     moby_names.clear()
                     levels, mobys = pack(disc, survey, args.project, directory, moby_names)
-                    report = (directory / "changes.txt").read_text()
+                    report = (directory / "changes.txt").read_text(encoding="utf-8")
                     incomplete = [line.strip() for line in report.splitlines()
                                   if line.lstrip().startswith("not packed:")]
                     if incomplete:

@@ -62,7 +62,7 @@ ADDONS = ((ADDON, ADDON_CFG), (LIBRARY_ADDON, LIBRARY_ADDON_CFG))
 # level of an older schema again, after backing it up with its edits (and carry.py carries them
 # over). It is in project_format.json, which the launcher reads too, to say a project is outdated.
 PROJECT_FORMAT_FILE = PROJECT_FILES / "project_format.json"
-PROJECT_FORMAT = json.loads(PROJECT_FORMAT_FILE.read_text())
+PROJECT_FORMAT = json.loads(PROJECT_FORMAT_FILE.read_text(encoding="utf-8"))
 SCHEMA = PROJECT_FORMAT["schema"]
 NANOTECH_CRATE = 501  # Ratchet & Clank's nanotech crate: its ball is drawn by code (effects.py)
 ELECTRIC_GATE = 838  # Rilgar's electric gate: its beams are drawn by code (effects.py)
@@ -190,7 +190,7 @@ class LevelWriter(levelwrite.LevelWriter):
         for file, texture in pictures.values():
             (out / file).write_bytes(texture.png())
         tables["textures"] = {key: file for key, (file, _) in pictures.items()}
-        (out / "nanotech.json").write_text(json.dumps(tables) + "\n")
+        (out / "nanotech.json").write_text(json.dumps(tables) + "\n", encoding="utf-8", newline="\n")
 
     def write_electric_gate(self) -> None:
         """The electric gate's beams (effects.py) for rc1/electric_gate.gd: effects/electric_gate.json
@@ -203,7 +203,7 @@ class LevelWriter(levelwrite.LevelWriter):
         out.mkdir(exist_ok=True)
         gate["picture"] = f"fx_{gate['texture']}.png"
         (out / gate["picture"]).write_bytes(texture.png())
-        (out / "electric_gate.json").write_text(json.dumps(gate) + "\n")
+        (out / "electric_gate.json").write_text(json.dumps(gate) + "\n", encoding="utf-8", newline="\n")
 
     def write_mobys(self, placements: list[dict], classes: dict[int, MobyClass | None]) -> None:
         """A scene per moby class the level loads, mobys/moby_<class>.tscn,
@@ -252,7 +252,7 @@ class LevelWriter(levelwrite.LevelWriter):
             # The classes' glow colours (rc1/import_lit.gd gives a class with one its glow pass).
             glow = {str(c): [m.glow_rgba & 0xFF, (m.glow_rgba >> 8) & 0xFF, (m.glow_rgba >> 16) & 0xFF]
                     for c, m in models.items() if m.glow_rgba}
-            (self.dir / "moby_glow.json").write_text(json.dumps(glow) + "\n")
+            (self.dir / "moby_glow.json").write_text(json.dumps(glow) + "\n", encoding="utf-8", newline="\n")
         if self.godot_scales and self.fmt.class_names and NANOTECH_CRATE in placed:
             self.write_nanotech()
         if self.godot_scales and self.fmt.class_names and ELECTRIC_GATE in placed:
@@ -355,7 +355,7 @@ def write_marker(path: Path, class_id: int, label: str, model: tuple[str, float,
     if collision is not None:
         collision(scene)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(scene.text())
+    path.write_text(scene.text(), encoding="utf-8", newline="\n")
 
 
 # What a level project has of this editor's own files (openrac/project), by their digest
@@ -386,11 +386,11 @@ def write_project(project: Path, levels: list[int], region: str = "PAL", game: s
         fmt = games.FORMATS[game]
         name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}, early access)" if len(levels) == 1
                 else f"{fmt.title} levels ({region}, early access)")
-    (project / "project.godot").write_text(PROJECT.format(main=main, name=name, addons=", ".join(f'"{cfg}"' for _, cfg in ADDONS)))
+    (project / "project.godot").write_text(PROJECT.format(main=main, name=name, addons=", ".join(f'"{cfg}"' for _, cfg in ADDONS)), encoding="utf-8", newline="\n")
     shutil.copytree(SCRIPTS, project / "rc1")
     install_addon(project)
     (project / PROJECT_STAMP).parent.mkdir(exist_ok=True)
-    (project / PROJECT_STAMP).write_text(project_files() + "\n")
+    (project / PROJECT_STAMP).write_text(project_files() + "\n", encoding="utf-8", newline="\n")
 
 
 def install_addon(project: Path) -> None:
@@ -401,7 +401,7 @@ def install_addon(project: Path) -> None:
         shutil.copytree(folder, project / "addons" / folder.name, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns("*.uid"))
         settings = project / "project.godot"
-        text = settings.read_text()
+        text = settings.read_text(encoding="utf-8")
         if cfg in text:
             continue
         if "[editor_plugins]" not in text:
@@ -411,4 +411,4 @@ def install_addon(project: Path) -> None:
             text = text.replace(f'"{cfg}", )', f'"{cfg}")')
         else:
             text = text.replace("[editor_plugins]\n", f'[editor_plugins]\n\nenabled=PackedStringArray("{cfg}")\n', 1)
-        settings.write_text(text)
+        settings.write_text(text, encoding="utf-8", newline="\n")
