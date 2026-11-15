@@ -45,3 +45,13 @@ Then make the app: copy `misc/dist/macos_tools.app` to `OpenRAC Editor.app` and 
 - `bin/<program> --editor --path <level folder>` opens a level the launcher made.
 
 Builds take a while: a clean Linux build is about 17 minutes on 4 cores.
+
+## Tools and release
+
+The editor's tools (`openrac/tools`: level projects and the packer) are Python and use
+[OpenRAC](https://github.com/OpenRAC/OpenRAC)'s extractor, found by `OPENRAC_ROOT` or as a checkout
+named `OpenRAC` beside this one. Tests: `OPENRAC_ROOT=../OpenRAC python3 -m unittest discover -s openrac/tools`
+(set `OPENRAC_GODOT` to an editor build to also run the ones that start it).
+
+A `v*` tag builds and packs the editor for each system (`.github/workflows/release.yml`,
+`build/package.py`), with `openrac/editor.json`, the steps the launcher lists once it has the editor.

@@ -113,22 +113,12 @@ Edits play in Ratchet & Clank (PAL and NTSC-U). Levels of the later games open t
 
 ## Build from source
 
-You need Python 3, SCons and a C++ compiler.
-
 ```sh
 git clone https://github.com/nickyyOO/OpenRAC-Editor.git && cd OpenRAC-Editor
 scons platform=linuxbsd profile=build/custom.py      # Linux
 scons platform=windows profile=build/custom.py       # Windows
 scons platform=macos arch=arm64 profile=build/custom.py metal=yes vulkan=no   # macOS
 ```
-
-The editor's tools (`openrac/tools`: the level projects and the packer) are Python and read your disc
-with [OpenRAC](https://github.com/OpenRAC/OpenRAC)'s extractor, found by `OPENRAC_ROOT` or as a
-checkout named `OpenRAC` beside this one. Their tests:
-`OPENRAC_ROOT=../OpenRAC python3 -m unittest discover -s openrac/tools` (with `OPENRAC_GODOT` set to
-an editor build, the ones that run it too). A release (`v*` tag) builds and packs the editor for each
-system (`.github/workflows/release.yml`, `build/package.py`), with `openrac/editor.json`, the steps
-the launcher lists once the editor is downloaded.
 
 **More:** [Building](docs/BUILDING.md) · [Changes from Godot](docs/CHANGES.md) · [Contributing](CONTRIBUTING.md)
 
