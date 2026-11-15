@@ -408,7 +408,7 @@ class PackCutscenes(unittest.TestCase):
             self.assertEqual(changes, ["cutscene hello"])
             self.assertEqual(len(problems), 3, problems)
             self.assertTrue(all(p.startswith("cutscene ") for p in problems))
-            copied = sorted(str(p.relative_to(out)) for p in out.rglob("*") if p.is_file())
+            copied = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
             self.assertEqual(copied, ["cutscenes/audio/line_en.wav", "cutscenes/hello.cutscene"])
 
     def test_checks_before_packing(self):

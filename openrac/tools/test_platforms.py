@@ -329,6 +329,7 @@ class FindingOpenRAC(unittest.TestCase):
                                                                     encoding="utf-8", newline="\n")
             env["OPENRAC_ROOT"] = str(root) + os.sep
         env["PYTHONUTF8"] = "0"
+        env["PYTHONIOENCODING"] = "utf-8"  # only so the answer reaches the test; a console's code page is not under test
         return subprocess.run([sys.executable, "-c", "import openrac_root; print(openrac_root.ROOT)"],
                               cwd=HERE, env=env, capture_output=True, text=True, encoding="utf-8")
 
