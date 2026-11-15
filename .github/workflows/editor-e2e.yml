@@ -11,12 +11,14 @@ on:
     paths-ignore: ["mods/**", "docs/**", "**.md"]
   workflow_dispatch:
     inputs:
+      # Until OpenRAC's extractor/ (the editor split) is merged, the tools read it from the fork's
+      # branch; then these go back to OpenRAC/OpenRAC and develop.
       openrac-repository:
         description: The OpenRAC repository whose extractor the tools read
-        default: OpenRAC/OpenRAC
+        default: nickyyOO/OpenRAC
       openrac-ref:
         description: Its branch or tag
-        default: develop
+        default: feature/editor-asset-library
 
 permissions:
   contents: read
@@ -52,8 +54,8 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.openrac-repository || 'OpenRAC/OpenRAC' }}
-          ref: ${{ inputs.openrac-ref || 'develop' }}
+          repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
           path: OpenRAC
           persist-credentials: false
 
@@ -86,8 +88,8 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.openrac-repository || 'OpenRAC/OpenRAC' }}
-          ref: ${{ inputs.openrac-ref || 'develop' }}
+          repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
           path: OpenRAC
           persist-credentials: false
 
