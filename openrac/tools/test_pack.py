@@ -368,6 +368,19 @@ class PackDisc(unittest.TestCase):
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data))
                 self.assertEqual(pack(image, survey, project, Path(tmp) / "untouched"), (0, 0))
                 self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text(encoding="utf-8").splitlines()), 1)
+                # Untouched since: not read again (the disc's copy neither), and the same pack.
+                reads.clear()
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "again"), (0, 0))
+                self.assertEqual(reads, [])
+                self.assertEqual((Path(tmp) / "again/patches.tsv").read_bytes(),
+                                 (Path(tmp) / "untouched/patches.tsv").read_bytes())
+                # A file of the level changed (a collision tile, a class scene): packed in full again.
+                (project / "level_00/levels/level_00/extra.glb").write_bytes(b"x")
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "third"), (0, 0))
+                self.assertEqual(reads, [100])
+                # And an edit after that is packed, never taken for the untouched level.
+                (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "fourth"), (1, 1))
 
     def test_gameplay_larger_than_its_disc_slot_uses_virtual_sectors_and_a_header_patch(self):
         import tempfile

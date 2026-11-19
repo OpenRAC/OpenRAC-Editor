@@ -46,8 +46,10 @@ if API["packed_format"] != WRITES_PACKED_FORMAT:
     raise SystemExit(f"OpenRAC plays packed levels of format {API['packed_format']}; this packer writes "
                      f"{WRITES_PACKED_FORMAT}: update OpenRAC or OpenRAC Editor")
 PACKED_FORMAT = WRITES_PACKED_FORMAT
+import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import struct
@@ -921,6 +923,59 @@ def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, 
     return changes, problems, notes
 
 
+# Each level pack() found untouched, by the files it reads (unchanged_key): a level whose files are
+# all as they were then is not read again (a folder of 19 levels takes seconds, not half a minute).
+# Only a level that packed to nothing is kept here: one with any change, refusal or note is always
+# packed again.
+UNCHANGED = Path(".openrac") / "unchanged.json"
+# Folders that never change what packs: the editor's import cache, these notes, backups.
+NOT_READ = {".godot", ".openrac", ".openrac-backups", "__pycache__"}
+_tools_digest: list[str] = []
+
+
+def tools_digest() -> str:
+    """What this packer is: its files' bytes (a newer packer packs everything again)."""
+    if not _tools_digest:
+        h = hashlib.sha256()
+        here = Path(__file__).resolve().parent
+        for path in sorted(p for p in here.iterdir() if p.suffix in (".py", ".tsv") and p.is_file()):
+            h.update(path.name.encode() + b"\0" + hashlib.sha256(path.read_bytes()).digest())
+        h.update(json.dumps(API, sort_keys=True, default=str).encode())
+        _tools_digest.append(h.hexdigest())
+    return _tools_digest[0]
+
+
+def unchanged_key(disc, info: dict, scene: Path) -> str:
+    """Every file the level's project holds (name, size, time written), the scene's bytes, the disc's
+    version and this packer, as one digest."""
+    root = scene.parents[2]
+    h = hashlib.sha256(f"{tools_digest()}\0{disc.version.key}\0{info['id']}\0".encode())
+    h.update(hashlib.sha256(scene.read_bytes()).digest())
+    for folder, dirs, files in os.walk(root):
+        dirs[:] = sorted(d for d in dirs if d not in NOT_READ)
+        for file in sorted(files):
+            stat = os.stat(os.path.join(folder, file))
+            rel = os.path.relpath(os.path.join(folder, file), root)
+            h.update(f"{rel}\0{stat.st_size}\0{stat.st_mtime_ns}\n".encode())
+    return h.hexdigest()
+
+
+def read_unchanged(root: Path) -> dict:
+    try:
+        found = json.loads((root / UNCHANGED).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return found if isinstance(found, dict) else {}
+
+
+def write_unchanged(root: Path, keys: dict) -> None:
+    try:
+        (root / UNCHANGED).parent.mkdir(exist_ok=True)
+        (root / UNCHANGED).write_text(json.dumps(keys, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    except OSError:
+        pass    # a project that cannot be written packs in full each time
+
+
 def pack(disc, survey: dict, project: Path, out: Path,
          moby_names: dict[int, tuple[Path, list[str]]] | None = None) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed).
@@ -937,8 +992,19 @@ def pack(disc, survey: dict, project: Path, out: Path,
         return next((s for s in (project / "levels" / name / f"{name}.tscn",
                                  project / name / "levels" / name / f"{name}.tscn") if s.is_file()), None)
     found = [(info, scene) for info in survey["levels"] if (scene := scene_of(info)) is not None]
+    known: dict[Path, dict] = {}       # each project's unchanged.json, as read and as updated
     for info, scene in progress_line.counted("pack", found, lambda item: item[0]["id"]):
         name = f"level_{info['id']:02}"
+        root = scene.parents[2]
+        keys = known.setdefault(root, read_unchanged(root))
+        try:
+            key = unchanged_key(disc, info, scene)
+        except OSError:
+            key = None
+        if key is not None and keys.get(name) == key:
+            continue
+        keys.pop(name, None)
+        reported = len(report)
         if disc.version.key == "pal":
             metadata = scene.with_name("level.json")
             try:
@@ -1174,6 +1240,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
         if changes or scenery_changes:
             packed += 1
             total += len(changes) + len(scenery_changes)
+        elif key is not None and len(report) == reported and not (out / name).exists():
+            keys[name] = key       # nothing to pack, nothing said, nothing written: not read again
         if not changes:
             continue
         stream = compress(edited, stored[:16])
@@ -1210,6 +1278,9 @@ def pack(disc, survey: dict, project: Path, out: Path,
             report.append(f"  gameplay stream expanded to {len(stream)} bytes in virtual sectors")
         if moby_names is not None:
             moby_names[info["id"]] = (scene.parent, names)
+    for root, keys in known.items():
+        if keys != read_unchanged(root):
+            write_unchanged(root, keys)
     out.mkdir(parents=True, exist_ok=True)
     by_id = {entry["id"]: entry for entry in survey["levels"]}
     for level, header in sorted(headers.items()):

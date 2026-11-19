@@ -217,7 +217,7 @@ class CheckAndPlay(unittest.TestCase):
             level.mkdir(parents=True)
             with self.assertRaises(FormatError) as caught:
                 oe.remembered_disc(level)
-            self.assertEqual(caught.exception.code, "no-disc")
+            self.assertEqual(caught.exception.code, "file-missing")
             iso = Path(tmp) / "disc.iso"
             iso.write_bytes(b"x")
             oe.remember_disc(projects, iso)

@@ -361,9 +361,9 @@ def remembered_disc(level_project: Path) -> Path:
         if disc.is_file():
             return disc
         raise FormatError(f"the disc these levels were read from is no longer at {disc}: run \"Extract the "
-                          "levels\" in the launcher once (your edits are kept)", code="no-disc")
+                          "levels\" in the launcher once (your edits are kept)", code="file-missing")
     raise FormatError("the editor does not know your disc yet: run \"Extract the levels\" in the launcher once "
-                      "(levels you edited are kept)", code="no-disc")
+                      "(levels you edited are kept)", code="file-missing")
 
 
 def level_number(level_project: Path) -> int:
@@ -407,7 +407,7 @@ def check_or_play(args) -> int:
         game = game.with_suffix(".exe")
     if not game.is_file():
         raise FormatError(f"no game program at {game}: build the port (or start it from the launcher)",
-                          code="no-game")
+                          code="file-missing")
     command = [str(game), "--data", str(args.data), "--levels", str(args.levels), "--mods", str(result["dest"]),
                "--level", str(number), "--skip-movies"]
     options = {"start_new_session": True} if sys.platform != "win32" else {
