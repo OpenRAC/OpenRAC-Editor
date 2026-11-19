@@ -55,8 +55,8 @@ class DockOnALevel(unittest.TestCase):
                              capture_output=True, text=True, timeout=600)
         self.assertIn("collision dock test: ok", run.stdout, run.stdout + run.stderr)
         self.assertEqual(run.returncode, 0)
-        wanted = json.loads(expect.read_text())
-        text = (self.level_dir / f"level_{self.number:02}.tscn").read_text()
+        wanted = json.loads(expect.read_text(encoding="utf-8"))
+        text = (self.level_dir / f"level_{self.number:02}.tscn").read_text(encoding="utf-8")
         with Disc(Path(DISC)) as disc:
             info = next(i for i in disc.survey()["levels"] if i["id"] == self.number)
             level = load_level(disc, info)
@@ -93,7 +93,7 @@ class DockOnALevel(unittest.TestCase):
             pristine = Path(PROJECT)
             level_dir = pristine / "levels" / f"level_{self.number:02}"
             self.assertIsNone(cs.scene_collision(pristine, level_dir,
-                                                 (level_dir / f"level_{self.number:02}.tscn").read_text()))
+                                                 (level_dir / f"level_{self.number:02}.tscn").read_text(encoding="utf-8")))
             self.assertEqual(mcs.pack_classes(level, pristine, level_dir)[0], {})
 
 

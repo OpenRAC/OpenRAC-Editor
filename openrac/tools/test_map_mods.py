@@ -49,11 +49,11 @@ class MapMods(unittest.TestCase):
             manifest = map_mod.export_map(packed, project, out, "My arena", 0, [1, 2, 3], 1.0)
             self.assertEqual(manifest["map"]["spawn"], [1, 2, 3])
             self.assertEqual((out / "level_00/terrain.glb").read_bytes(), source_terrain)
-            self.assertIn("100\t1", (out / "patches.tsv").read_text())
-            self.assertIn("10\t5\tlevel_00/header_pal.bin", (out / "patches.tsv").read_text())
-            self.assertEqual((out / "virtual.tsv").read_text().splitlines()[1],
+            self.assertIn("100\t1", (out / "patches.tsv").read_text(encoding="utf-8"))
+            self.assertIn("10\t5\tlevel_00/header_pal.bin", (out / "patches.tsv").read_text(encoding="utf-8"))
+            self.assertEqual((out / "virtual.tsv").read_text(encoding="utf-8").splitlines()[1],
                              f"{0x10000000}\t1\tlevel_00/data_pal.bin\t0\t0\t300\t1")
-            self.assertNotIn("200\t1", (out / "patches.tsv").read_text())
+            self.assertNotIn("200\t1", (out / "patches.tsv").read_text(encoding="utf-8"))
             self.assertFalse((out / "level_01").exists())
             self.assertEqual((level / "terrain.glb").read_bytes(), source_terrain)
             self.assertEqual((packed / "level_00/core_pal.bin").read_bytes(), bytes(2048))
@@ -62,7 +62,7 @@ class MapMods(unittest.TestCase):
             folder = root / "overrides"
             ident, _, _ = overrides.add(out, folder)
             overrides.stack(folder, root / "mods")
-            result = json.loads((root / "mods/map.json").read_text())
+            result = json.loads((root / "mods/map.json").read_text(encoding="utf-8"))
             self.assertEqual(result["id"], ident)
             self.assertEqual((result["name"], result["heading"]), ("My arena", 1.0))
             self.assertTrue(result["skip_cutscenes"])

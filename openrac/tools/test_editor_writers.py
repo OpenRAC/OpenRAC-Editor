@@ -21,7 +21,7 @@ class MobySceneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "moby_11.tscn"
             write_marker(path, 11, "11 vendor", ("res://levels/level_03/mobys/moby_11.glb", 0.5, 1.25))
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
         self.assertIn('[ext_resource type="PackedScene" path="res://levels/level_03/mobys/moby_11.glb" id="model"]',
                       text)
         self.assertIn('[node name="Model" parent="." instance=ExtResource("model")]\n'
@@ -37,7 +37,7 @@ class MobySceneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "mobys" / "moby_11.tscn"
             write_marker(path, 11, "11 vendor")
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
         self.assertIn('text = "11 vendor"', text)
         self.assertIn("metadata/rc1_class = 11", text)
 
@@ -47,9 +47,9 @@ class MobySceneTests(unittest.TestCase):
             write_project(Path(temp) / "one", [30], "NTSC-U", "rac2")
             write_project(Path(temp) / "all", [1, 2], "NTSC-U", "rac4")
             self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (USA, early access)"',
-                          (Path(temp) / "one/project.godot").read_text())
+                          (Path(temp) / "one/project.godot").read_text(encoding="utf-8"))
             self.assertIn('config/name="Ratchet: Deadlocked levels (USA, early access)"',
-                          (Path(temp) / "all/project.godot").read_text())
+                          (Path(temp) / "all/project.godot").read_text(encoding="utf-8"))
 
 
     def test_a_project_names_its_disc_by_market(self):
@@ -58,8 +58,8 @@ class MobySceneTests(unittest.TestCase):
                                    ("Other", "Other")]:
                 write_project(Path(temp) / region, [3], region)
                 self.assertIn(f'config/name="Ratchet & Clank: Kerwan ({market})"',
-                              (Path(temp) / region / "project.godot").read_text())
-            self.assertNotIn("NTSC", (Path(temp) / "NTSC-U/project.godot").read_text().split("[rendering]")[0])
+                              (Path(temp) / region / "project.godot").read_text(encoding="utf-8"))
+            self.assertNotIn("NTSC", (Path(temp) / "NTSC-U/project.godot").read_text(encoding="utf-8").split("[rendering]")[0])
 
 
     def test_keeps_minus_zero_unlike_packs(self):
@@ -71,7 +71,7 @@ class ProjectFormat(unittest.TestCase):
         import json
         import disc
         import godot
-        stated = json.loads((godot.PROJECT_FORMAT_FILE).read_text())
+        stated = json.loads((godot.PROJECT_FORMAT_FILE).read_text(encoding="utf-8"))
         self.assertEqual(godot.SCHEMA, stated["schema"])
         self.assertEqual(stated["gameplay"], {"rac1/pal": disc.PAL.gameplay})
 

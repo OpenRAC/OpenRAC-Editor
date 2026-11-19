@@ -44,7 +44,7 @@ class AfterPack(unittest.TestCase):
             lines = moby_states.after_pack(program, temp, temp, temp / "packed", project,
                                            {5: (packed, ["Vendor_0001", "Crate"])})
             self.assertEqual(lines, ["level 05: moby start states updated"])
-            result = json.loads((packed / "moby_states.json").read_text())
+            result = json.loads((packed / "moby_states.json").read_text(encoding="utf-8"))
             self.assertTrue(result["packed"])
             self.assertEqual(result["names"], ["Vendor_0001", "Crate"])
             self.assertEqual([m["name"] for m in result["mobys"]], ["Vendor_0001", "Crate"])

@@ -39,7 +39,7 @@ class Behaviours(unittest.TestCase):
                      'metadata/rc1_behaviour_sequence = 2')
         changes, problems = behaviours.write_behaviours(text, self.out, {"Vendor_0001": 181, "Vendor_0003": 3})
         self.assertEqual((changes, problems), (["Vendor_0001: behaviour orbit"], []))
-        doc = json.loads((self.out / "behaviours.json").read_text())
+        doc = json.loads((self.out / "behaviours.json").read_text(encoding="utf-8"))
         self.assertEqual(doc, {"format": 1, "mobys": [
             {"spawn_id": 181, "preset": "orbit", "radius": 6.5, "speed": 45.0, "sequence": 2}]})
 
@@ -70,7 +70,7 @@ class Inspector(unittest.TestCase):
             out = project / "out.json"
             subprocess.run([GODOT, "--headless", "--editor", "--path", str(project), "--script", "res://t.gd",
                             "--", str(out)], capture_output=True, timeout=300)
-            steps = json.loads(out.read_text())
+            steps = json.loads(out.read_text(encoding="utf-8"))
         self.assertEqual(steps[:2], [True, False])
         self.assertEqual(steps[2], {"rc1_behaviour": "follow", "rc1_behaviour_speed": 4.0,
                                     "rc1_behaviour_distance": 3.0, "rc1_behaviour_range": 30.0,

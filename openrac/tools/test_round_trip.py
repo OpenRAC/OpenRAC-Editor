@@ -107,7 +107,7 @@ class RoundTrip(unittest.TestCase):
             self.assertIn("Packed 1 level(s)", done.stdout)
 
             name = f"level_00/gameplay_{version}.wad"
-            listed = (packed / "patches.tsv").read_text().splitlines()
+            listed = (packed / "patches.tsv").read_text(encoding="utf-8").splitlines()
             self.assertEqual(len(listed), 2, listed)
             self.assertTrue(listed[1].endswith(f"\t{name}"), listed)
             index = int(re.search(r"\d+$", crate).group())
@@ -115,7 +115,7 @@ class RoundTrip(unittest.TestCase):
             self.assertEqual(len(moved), 1)
             for got, want in zip(moved[0]["matrix"][12:15], crate_at):
                 self.assertAlmostEqual(got, want, places=3)
-            placements = json.loads((packed / "level_00" / "placements.json").read_text())
+            placements = json.loads((packed / "level_00" / "placements.json").read_text(encoding="utf-8"))
             tie_index = int(re.search(r"\d+$", tie).group())
             placed = [t for t in placements["ties"] if t["index"] == tie_index]
             self.assertEqual(len(placed), 1)
@@ -138,7 +138,7 @@ class RoundTrip(unittest.TestCase):
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertEqual((mods / name).read_bytes(), (packed / name).read_bytes())
             self.assertTrue((mods / "level_00" / "placements.json").is_file())
-            self.assertIn(name, (mods / "patches.tsv").read_text())
+            self.assertIn(name, (mods / "patches.tsv").read_text(encoding="utf-8"))
 
     def test_pal(self):
         self.check_version("pal")

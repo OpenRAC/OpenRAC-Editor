@@ -98,7 +98,7 @@ def projects(root: Path) -> Path:
     (addon / "plugin.cfg").write_text('[plugin]\n\nname="OpenRAC e2e"\ndescription=""\nauthor=""\nversion="1"\n'
                                       'script="plugin.gd"\n')
     settings = here / "project.godot"
-    text = settings.read_text()
+    text = settings.read_text(encoding="utf-8")
     # The extractor's texture defaults (godot.py), so a drawing editor does not import them again.
     text += ('\n[importer_defaults]\n\ntexture={\n"compress/mode": 0,\n"detect_3d/compress_to": 0,\n'
              '"mipmaps/generate": true\n}\n')
@@ -137,7 +137,7 @@ def run_editor(test: unittest.TestCase, scenarios: str = "", drawn: bool = False
         run = subprocess.run(command, capture_output=True, text=True, timeout=180, env=env)
         log = run.stdout + run.stderr
         test.assertTrue(out.is_file(), log[-4000:])
-        result = json.loads(out.read_text())
+        result = json.loads(out.read_text(encoding="utf-8"))
         print(f"\n  editor run {time.monotonic() - began:.1f} s, scenarios {result['total_ms']} ms: "
               + ", ".join(f"{name} {ms}" for name, ms in result["times"].items()))
 

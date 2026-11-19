@@ -56,34 +56,34 @@ class StaticAssets(unittest.TestCase):
             project, level, scene, source = fixture(root)
             static_assets.import_asset(source, project, 2, 'Bridge', [10, 20, 30])
             packed = root / 'packed'
-            static_assets.write_packed(project, level, scene.read_text(), packed / 'level_02')
+            static_assets.write_packed(project, level, scene.read_text(encoding="utf-8"), packed / 'level_02')
             (packed / 'packed.json').write_text('{"game":"rac1","version":"pal"}')
-            scene.write_text(re.sub(r'\[node name="Bridge".*?\Z', '', scene.read_text(), flags=re.S))
-            stamp = static_assets.write_packed(project, level, scene.read_text(), packed / 'level_02')
+            scene.write_text(re.sub(r'\[node name="Bridge".*?\Z', '', scene.read_text(encoding="utf-8"), flags=re.S))
+            stamp = static_assets.write_packed(project, level, scene.read_text(encoding="utf-8"), packed / 'level_02')
             self.assertEqual(stamp['instances'], 0)
             map_mod.export_map(packed, project, root / 'clean', 'A world', 2, [0, 0, 0])
             self.assertEqual(len(list((root / 'clean/level_02/textures').glob('*.png'))), 1)
-            self.assertFalse(static_assets.collision_triangles(project, scene.read_text()))
+            self.assertFalse(static_assets.collision_triangles(project, scene.read_text(encoding="utf-8")))
 
     def test_copy_namespaces_dependencies_and_preserves_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, level, scene, source = fixture(Path(tmp))
             original = source.read_bytes()
-            scene.write_text(scene.read_text().replace('[node name="Level"',
+            scene.write_text(scene.read_text(encoding="utf-8").replace('[node name="Level"',
                 '[sub_resource type="BoxMesh" id="box"]\nsize = Vector3(1,1,1)\n[node name="Level"'))
             before = scene.read_bytes()
             added = static_assets.import_asset(source, project, 2, 'Bridge', [10, 20, 30])
             self.assertEqual(source.read_bytes(), original)
             self.assertEqual(Path(added['backup']).read_bytes(), before)
-            self.assertLess(scene.read_text().index('[ext_resource'), scene.read_text().index('[sub_resource'))
+            self.assertLess(scene.read_text(encoding="utf-8").index('[ext_resource'), scene.read_text(encoding="utf-8").index('[sub_resource'))
             copied = project / added['model'][6:]
             doc = gltf_read.read(copied)
             self.assertTrue(doc.list('images')[0]['uri'].startswith('textures/static_'))
             self.assertEqual(doc.image_bytes(doc.list('images')[0]), source.parent.parent.joinpath('textures/shared.png').read_bytes())
-            payload, textures, stamp = static_assets.bake(project, level, scene.read_text())
+            payload, textures, stamp = static_assets.bake(project, level, scene.read_text(encoding="utf-8"))
             self.assertEqual(len(textures), 2) # donor red and target blue shared.png never collide
             self.assertEqual(stamp['instances'], 1)
-            self.assertFalse(static_assets.collision_triangles(project, scene.read_text()))
+            self.assertFalse(static_assets.collision_triangles(project, scene.read_text(encoding="utf-8")))
             self.assertTrue(payload.startswith(b'glTF'))
             kept = scene.read_bytes()
             with self.assertRaisesRegex(ValueError, 'unused'):
@@ -94,7 +94,7 @@ class StaticAssets(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             project, level, scene, source = fixture(Path(tmp))
             static_assets.import_asset(source, project, 2, 'Bridge', [10, 20, 30], True)
-            text = scene.read_text().replace('[node name="StaticAssets" type="Node3D" parent="Game"]',
+            text = scene.read_text(encoding="utf-8").replace('[node name="StaticAssets" type="Node3D" parent="Game"]',
                 '[node name="StaticAssets" type="Node3D" parent="Game"]\n'
                 'transform = Transform3D(-2,0,0,0,3,0,0,0,1,100,200,0)')
             payload, _, _ = static_assets.bake(project, level, text)
@@ -116,7 +116,7 @@ class StaticAssets(unittest.TestCase):
             project, level, scene, source = fixture(Path(tmp))
             added = static_assets.import_asset(source, project, 2, 'Bridge', [0, 0, 0])
             copied = project / added['model'][6:]
-            text = re.sub(r'(\[node name="Bridge"[^\n]*\n)transform = [^\n]*\n', r'\1', scene.read_text())
+            text = re.sub(r'(\[node name="Bridge"[^\n]*\n)transform = [^\n]*\n', r'\1', scene.read_text(encoding="utf-8"))
             self.assertNotIn('transform', text.split('[node name="Bridge"')[1])
             copied.with_name(copied.name + '.import').write_text(
                 '[params]\n\nnodes/apply_root_scale=false\nnodes/root_scale=0.5\n')
@@ -135,10 +135,10 @@ class StaticAssets(unittest.TestCase):
             packed = root / 'packed'
             (packed / 'level_02').mkdir(parents=True)
             (packed / 'packed.json').write_text('{"game":"rac1","version":"pal"}')
-            static_assets.write_packed(project, level, scene.read_text(), packed / 'level_02')
+            static_assets.write_packed(project, level, scene.read_text(encoding="utf-8"), packed / 'level_02')
             map_mod.export_map(packed, project, root / 'export', 'A world', 2, [0, 0, 0])
             self.assertEqual((root / 'export/level_02/terrain.glb').read_bytes(), (packed / 'level_02/terrain.glb').read_bytes())
-            scene.write_text(scene.read_text().replace('rc1_static_collision = false', 'rc1_static_collision = true'))
+            scene.write_text(scene.read_text(encoding="utf-8").replace('rc1_static_collision = false', 'rc1_static_collision = true'))
             with self.assertRaisesRegex(ValueError, 'Pack the project again'):
                 map_mod.export_map(packed, project, root / 'stale', 'A world', 2, [0, 0, 0])
             self.assertFalse((root / 'stale').exists())

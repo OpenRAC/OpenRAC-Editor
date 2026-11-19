@@ -109,8 +109,8 @@ class CarryProject(unittest.TestCase):
                 (folder / "level_03.tscn").write_text(text)
             report = carry.carry_project(old.parent, old, new, OLD, NEW, Path(tmp) / "backup")
             self.assertEqual(report["carried"], ["Moby_0000: moved"])
-            self.assertEqual(json.loads((new / carry.REPORT).read_text())["level"], 3)
-            self.assertIn("5, 6, 7", (new / "level_03.tscn").read_text())
+            self.assertEqual(json.loads((new / carry.REPORT).read_text(encoding="utf-8"))["level"], 3)
+            self.assertIn("5, 6, 7", (new / "level_03.tscn").read_text(encoding="utf-8"))
 
 
 class UpdateGodot(unittest.TestCase):

@@ -68,7 +68,7 @@ metadata/rc1_draw_distance = 2.5
         with tempfile.TemporaryDirectory() as temp:
             project = Path(temp) / "project"
             write_project(project, [3, 5])
-            text = (project / "project.godot").read_text()
+            text = (project / "project.godot").read_text(encoding="utf-8")
             self.assertIn('run/main_scene="res://levels/level_03/level_03.tscn"', text)
             self.assertIn('"meshes/generate_lods": false', text)
             self.assertTrue((project / "rc1" / "level.gd").is_file())
@@ -90,13 +90,13 @@ metadata/rc1_draw_distance = 2.5
             for project in (plain, other):
                 install_addon(project)
                 install_addon(project)          # twice: still once
-                text = (project / "project.godot").read_text()
+                text = (project / "project.godot").read_text(encoding="utf-8")
                 self.assertEqual(text.count(ADDON_CFG), 1)
                 self.assertEqual(text.count(LIBRARY_ADDON_CFG), 1)
                 self.assertEqual(text.count("[editor_plugins]"), 1)
                 self.assertTrue((project / "addons" / "openrac_collision" / "plugin.gd").is_file())
             self.assertIn(f'enabled=PackedStringArray("{ADDON_CFG}", "{LIBRARY_ADDON_CFG}", "res://addons/mine/plugin.cfg")',
-                          (other / "project.godot").read_text())
+                          (other / "project.godot").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

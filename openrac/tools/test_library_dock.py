@@ -119,7 +119,7 @@ class LibraryOnProjects(unittest.TestCase):
                                   str(HERE / "test_library_dock.gd"), "--", str(out)],
                                  capture_output=True, text=True, timeout=300)
             self.assertTrue(out.is_file(), run.stdout + run.stderr)
-            result = json.loads(out.read_text())
+            result = json.loads(out.read_text(encoding="utf-8"))
 
             self.assertEqual(result["place"], {"game": "rac1", "disc": "ntsc"})
             self.assertEqual(sorted(result["levels"]), ["rac1 ntsc 5 Rilgar", "rac1 pal 3 Kerwan",
@@ -140,7 +140,7 @@ class LibraryOnProjects(unittest.TestCase):
             document = static_assets.read_model(copy, here)
             static_assets.validate(document)
             self.assertEqual(sum(len(order) // 3 for _, order, _ in static_assets.triangles(document, gltf_read.trs())), 1)
-            self.assertEqual(json.loads(copy.with_suffix(".source.json").read_text())["class"], 75)
+            self.assertEqual(json.loads(copy.with_suffix(".source.json").read_text(encoding="utf-8"))["class"], 75)
             # Its indices stay whole numbers (Godot reads every JSON number as a float).
             self.assertIsInstance(document.doc["accessors"][0]["count"], int)
 

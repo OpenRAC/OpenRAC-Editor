@@ -123,7 +123,7 @@ class Settings(unittest.TestCase):
             self.assertEqual(planet.settings(project), {"planet/name": 'two\nlines "quoted" end\\', "planet/id": "a.1"})
             planet.set_setting(project, planet.NAME, "one line")
             self.assertEqual(planet.settings(project), {"planet/name": "one line", "planet/id": "a.1"})
-            self.assertNotIn("lines", (project / "project.godot").read_text())
+            self.assertNotIn("lines", (project / "project.godot").read_text(encoding="utf-8"))
 
     def test_a_section_between_others_and_keys_of_other_sections(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -140,7 +140,7 @@ class Settings(unittest.TestCase):
             self.assertLess(text.index("planet/name=\"Mine\""), text.index("[rendering]"))
             self.assertIn('planet/name="no"', text)
             planet.set_setting(project, planet.NAME, "Again")
-            self.assertEqual(text.count("planet/"), (project / "project.godot").read_text().count("planet/"))
+            self.assertEqual(text.count("planet/"), (project / "project.godot").read_text(encoding="utf-8").count("planet/"))
 
     def test_carried_to_a_level_exported_again(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -220,7 +220,7 @@ class AddPlanet(unittest.TestCase):
             self.assertEqual(done["spawn"], [210.5, 170.25, 25.0])
             packs = overrides.load_state(into)["packs"]
             self.assertEqual([p["id"] for p in packs], [done["installed"]])
-            manifest = json.loads((into / "packs" / done["installed"] / overrides.MANIFEST).read_text())
+            manifest = json.loads((into / "packs" / done["installed"] / overrides.MANIFEST).read_text(encoding="utf-8"))
             self.assertEqual((manifest["format"], manifest["name"]), (overrides.DESTINATION_PACK_FORMAT, "Harbor"))
             self.assertEqual(manifest["export"], "destination:" + planet.settings(project)[planet.ID])
             self.assertEqual(manifest["map"]["level"], 2)
@@ -231,7 +231,7 @@ class AddPlanet(unittest.TestCase):
             packs = overrides.load_state(into)["packs"]
             self.assertEqual([p["id"] for p in packs], [done["installed"]])
             self.assertEqual(again["installed"], done["installed"])
-            manifest = json.loads((into / "packs" / done["installed"] / overrides.MANIFEST).read_text())
+            manifest = json.loads((into / "packs" / done["installed"] / overrides.MANIFEST).read_text(encoding="utf-8"))
             self.assertEqual(manifest["name"], "Harbor II")
 
             # Another level project with the same name: another planet.
@@ -243,7 +243,7 @@ class AddPlanet(unittest.TestCase):
             # Both planets stack beside each other, with the original Aridia kept.
             out = root / "session"
             overrides.stack(into, out)
-            registry = json.loads((out / "destinations.json").read_text())
+            registry = json.loads((out / "destinations.json").read_text(encoding="utf-8"))
             self.assertEqual(sorted(d["name"] for d in registry["destinations"]), ["Harbor II", "Harbor II"])
             self.assertFalse((out / "level_02").exists(), "the template planet is not replaced")
 
@@ -297,15 +297,15 @@ class Launcher(unittest.TestCase):
         mapping = ROOT / "launcher" / "src" / "lib" / "toolErrors.ts"
         if not mapping.is_file():
             self.skipTest("no launcher in this OpenRAC checkout")
-        known = set(re.findall(r'^\s+"?([a-z0-9-]+)"?: \{', mapping.read_text(), re.M))
+        known = set(re.findall(r'^\s+"?([a-z0-9-]+)"?: \{', mapping.read_text(encoding="utf-8"), re.M))
         raised = {planet.UNNAMED, planet.INVALID, planet.INCOMPLETE, planet.NO_PROJECT}
         for path in HERE.glob("*.py"):
             if not path.name.startswith("test_"):
-                raised |= set(re.findall(r'code="([a-z0-9-]+)"', path.read_text()))
+                raised |= set(re.findall(r'code="([a-z0-9-]+)"', path.read_text(encoding="utf-8")))
         self.assertLessEqual(raised, known, "codes the launcher has no sentence for")
 
     def test_the_action_adds_to_the_launchers_packs_folder(self):
-        actions = json.loads((HERE.parent / "editor.json").read_text())["versions"]
+        actions = json.loads((HERE.parent / "editor.json").read_text(encoding="utf-8"))["versions"]
         found = [(key, a) for key, listed in actions.items() for a in listed if a["id"] == "editor-new-planet"]
         self.assertEqual([key for key, _ in found], ["rac1/pal"], "ship destinations are PAL only")
         args = found[0][1]["args"]

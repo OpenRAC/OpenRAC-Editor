@@ -49,7 +49,7 @@ class Skins(unittest.TestCase):
         changes, problems = skins.write_skins(self.project, text, self.out, {"Vendor_as_RedShip": 300, "Vendor_0003": 3})
         self.assertEqual(problems, [])
         self.assertEqual(changes, ["Vendor_as_RedShip: drawn as rac1/pal/level_03/mobys/75"])
-        doc = json.loads((self.out / "skins.json").read_text())
+        doc = json.loads((self.out / "skins.json").read_text(encoding="utf-8"))
         self.assertEqual(doc["format"], 1)
         [entry] = doc["skins"]
         self.assertEqual((entry["spawn_id"], entry["scale"], entry["animations"]), (300, 2.0, [2, -1]))

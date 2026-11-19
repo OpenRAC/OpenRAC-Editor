@@ -55,11 +55,11 @@ class SecondExportTests(unittest.TestCase):
         self.assertIn("older extractor", said)
         backups = list((dest.parent / "pal-backups").glob("*/level_00/levels/level_00/level_00.tscn"))
         self.assertEqual(len(backups), 1)
-        self.assertEqual(backups[0].read_text(), "old scene with a moved crate")
+        self.assertEqual(backups[0].read_text(encoding="utf-8"), "old scene with a moved crate")
         self.scene(dest, 0).write_text("new 60 Hz scene with intended edits")
         said = oe.export_godot(dest, [0], True, True, fresh, gameplay_source="gameplay_ntsc")
         self.assertIn("1 level(s) kept", said)
-        self.assertEqual(self.scene(dest, 0).read_text(), "new 60 Hz scene with intended edits")
+        self.assertEqual(self.scene(dest, 0).read_text(encoding="utf-8"), "new 60 Hz scene with intended edits")
 
     def scene(self, dest: Path, i: int, split: bool = True) -> Path:
         project = dest / f"level_{i:02}" if split else dest
@@ -74,7 +74,7 @@ class SecondExportTests(unittest.TestCase):
         said = oe.export_godot(dest, [0, 1, 2], True, True, fake_godot(schema))
         self.assertIn("2 level(s) kept", said)
         self.assertIn("1 added", said)
-        self.assertIn("moved a crate", self.scene(dest, 0).read_text())
+        self.assertIn("moved a crate", self.scene(dest, 0).read_text(encoding="utf-8"))
         self.assertTrue(self.scene(dest, 2).is_file())
         self.assertTrue((dest / "level_00" / "rc1" / "level.gd").is_file())     # scripts refreshed
         self.assertFalse((self.data / "levels" / "pal-backups").exists())
@@ -89,14 +89,14 @@ class SecondExportTests(unittest.TestCase):
         self.assertEqual(oe.level_schema(self.scene(dest, 1).parent), oe.GODOT_SCHEMA)
         backups = list((self.data / "levels" / "pal-backups").iterdir())
         self.assertEqual(len(backups), 1)
-        self.assertIn("my edit", (backups[0] / "level_01" / "levels" / "level_01" / "level_01.tscn").read_text())
+        self.assertIn("my edit", (backups[0] / "level_01" / "levels" / "level_01" / "level_01.tscn").read_text(encoding="utf-8"))
 
     def test_godot_one_project_for_every_level(self):
         dest = self.data / "godot"
         oe.export_godot(dest, [0], True, False, fake_godot(oe.GODOT_SCHEMA, split=False))
         self.scene(dest, 0, split=False).write_text("; edited\n")
         oe.export_godot(dest, [0, 3], True, False, fake_godot(oe.GODOT_SCHEMA, split=False))
-        self.assertIn("edited", self.scene(dest, 0, split=False).read_text())
+        self.assertIn("edited", self.scene(dest, 0, split=False).read_text(encoding="utf-8"))
         self.assertTrue(self.scene(dest, 3, split=False).is_file())
 
     def test_a_folder_that_is_not_an_export_is_refused(self):
@@ -140,7 +140,7 @@ class ToolsSayIt(unittest.TestCase):
         self.assertEqual(carried, [0, 1])
         backups = list((self.dest.parent / "pal-backups").glob("*/level_01/levels/level_01/level_01.tscn"))
         self.assertEqual(len(backups), 1)
-        self.assertIn("moved a crate", backups[0].read_text())
+        self.assertIn("moved a crate", backups[0].read_text(encoding="utf-8"))
         steps = [(p["step"], p["done"], p["total"], p["level"]) for p in said(out.getvalue())]
         self.assertEqual(steps, [("carry", 0, 2, None), ("carry", 1, 2, 0), ("carry", 2, 2, 1)])
 
@@ -171,7 +171,7 @@ class OpenTests(unittest.TestCase):
             script.write_text("# an older editor's\n")
             (project / godot.PROJECT_STAMP).write_text("older\n")
             self.assertTrue(oe.sync_project(project))
-            self.assertNotEqual(script.read_text(), "# an older editor's\n")
+            self.assertNotEqual(script.read_text(encoding="utf-8"), "# an older editor's\n")
             self.assertFalse(oe.sync_project(project))
             self.assertFalse(oe.sync_project(Path(tmp) / "nothing"), "no project, nothing to do")
 

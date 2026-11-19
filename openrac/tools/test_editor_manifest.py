@@ -11,7 +11,7 @@ from openrac_root import API, ROOT
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-MANIFEST = json.loads((HERE.parent / "editor.json").read_text())
+MANIFEST = json.loads((HERE.parent / "editor.json").read_text(encoding="utf-8"))
 # The placeholders OpenRAC's launcher fills (launcher/core/src/actions.rs PLACEHOLDERS).
 PLACEHOLDERS = {"root", "dir", "python", "docker", "disc", "boot", "artifact", "serial", "key", "data", "level", "path",
                 "option", "editor", "editor_tools", "projects", "levels", "packed", "states"}
@@ -26,7 +26,7 @@ class EditorManifest(unittest.TestCase):
 
     def test_every_action_is_one_the_launcher_runs(self):
         keys = {f"{p.parent.name}/{v}" for p in (ROOT / "games").glob("*/game.json")
-                for v in json.loads(p.read_text())["versions"]}
+                for v in json.loads(p.read_text(encoding="utf-8"))["versions"]}
         for key, actions in MANIFEST["versions"].items():
             self.assertIn(key, keys)
             ids = [a["id"] for a in actions]
