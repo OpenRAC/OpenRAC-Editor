@@ -66,7 +66,7 @@ func _enter_tree() -> void:
 ## name in the ship's menu, and its id, which the first add sets so later ones update the same
 ## planet. In Project Settings, OpenRAC > Planet.
 static func add_planet_settings() -> void:
-	for entry in [["openrac/planet/name", "The name in the ship's menu (one line, at most 40 characters)"],
+	for entry in [["openrac/planet/name", "The name in the ship's menu (one line, at most 40 characters: plain letters A-Z, digits, spaces and punctuation, as the game's font has no others)"],
 			["openrac/planet/id", "Set when the planet is first added: the next add updates the same planet"]]:
 		if not ProjectSettings.has_setting(entry[0]):
 			ProjectSettings.set_setting(entry[0], "")

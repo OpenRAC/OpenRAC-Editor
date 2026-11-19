@@ -106,7 +106,10 @@ def main() -> None:
             program = program.with_suffix(".exe")
         if not program.is_file():
             sys.exit(f"no states program at {program}: build the port's openrac-rac1-{version}-states target")
-        result = states(program, args.data, args.levels, number, args.ticks)
+        try:
+            result = states(program, args.data, args.levels, number, args.ticks)
+        except (OSError, RuntimeError, subprocess.TimeoutExpired, ValueError) as error:
+            sys.exit(f"level {number}: moby start states failed ({error})")
         (folder / "moby_states.json").write_text(json.dumps(result, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
         print(f"level {number}: {len(result['mobys'])} mobys")
 

@@ -84,7 +84,11 @@ class DestinationPacks(unittest.TestCase):
             with self.assertRaisesRegex(overrides.PackError, 'editable level scene'):
                 map_mod.export_map(packed, r / 'project', r / 'bad', 'My new world', 2, [4, 5, 6], destination=True)
             (level / 'level_02.tscn').write_text('[node name="Ship" parent="Game/LevelSettings" type="Node3D"]\n'
-                'transform = Transform3D(1,0,0,0,1,0,0,0,1,4,5,6)\n')
+                'transform = Transform3D(1,0,0,0,1,0,0,0,1,0,0,0)\n')
+            with self.assertRaisesRegex(overrides.PackError, 'working Ship'):     # a level with no ship
+                map_mod.export_map(packed, r / 'project', r / 'noship', 'My new world', 2, [4, 5, 6], destination=True)
+            (level / 'level_02.tscn').write_text('[node name="Ship" parent="Game/LevelSettings" type="Node3D"]\n'
+                'transform = Transform3D(1,0,0,0,1,0,0,0,1,-4,5,6)\n')     # below zero on X is a place too
             result = map_mod.export_map(packed, r / 'project', r / 'export', 'My new world', 2, [4, 5, 6], destination=True)
             self.assertEqual(result['format'], 4)
             self.assertEqual(result['name'], 'My new world')

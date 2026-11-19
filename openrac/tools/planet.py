@@ -135,6 +135,12 @@ def planet_name(project: Path) -> str:
                           "Planet > Name, then save", UNNAMED)
     if len(name) > MOST_NAME or any(ord(c) < 32 for c in name):
         raise PlanetError(f"The planet's name must be one line of at most {MOST_NAME} characters", UNNAMED)
+    # The ship computer draws the name's bytes with the game's font, which has plain ASCII only: a
+    # letter such as "ł" or "é" would show as other glyphs.
+    odd = sorted({c for c in name if not 32 <= ord(c) < 127})
+    if odd:
+        raise PlanetError(f"The planet's name can use plain letters A-Z, digits, spaces and punctuation only "
+                          f"(the game's font has no {' '.join(odd)})", UNNAMED)
     return name
 
 
