@@ -43,7 +43,15 @@ func _initialize() -> void:
 
 	var level: String = "level_%02d" % args[0].to_int()
 	var path: String = "res://levels/%s/%s.tscn" % [level, level]
-	var scene: Node = (load(path) as PackedScene).instantiate()
+	var packed: PackedScene = load(path) as PackedScene
+
+	# A project not imported yet has no loader for its models: say so instead of waiting forever.
+	if packed == null:
+		printerr("cannot load %s: import the project once first (godot --headless --editor --quit)" % path)
+		quit(1)
+		return
+
+	var scene: Node = packed.instantiate()
 	var info: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://levels/%s/level.json" % level))
 	var expected: Dictionary = test_level(scene, info)
 	var classes: Dictionary = test_class("res://levels/%s/mobys" % level)
