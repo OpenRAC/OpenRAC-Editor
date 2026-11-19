@@ -303,6 +303,13 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     return edits
 
 
+def sharing(name: str, spawn_id: int, spawn_ids: dict[str, int]) -> str:
+    """What a change line adds when other mobys have NAME's spawn number (two of the disc's levels
+    have such a pair): the port finds a moby by it, so a skin or behaviour goes to them too."""
+    others = sorted(other for other, number in spawn_ids.items() if number == spawn_id and other != name)
+    return f" (also {', '.join(others)}: the same spawn number)" if others else ""
+
+
 def stable_spawn_ids(names: list[str], others: int, used: set[int]) -> list[int | None]:
     """A free spawn id for each added moby: one taken from its node's name, so deleting or adding
     another moby does not move it (a save remembers a destroyed moby by this id), then one for each

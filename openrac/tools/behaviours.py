@@ -23,7 +23,7 @@ import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
 import json
 from pathlib import Path
 
-from pack import scene_mobys
+from pack import scene_mobys, sharing
 
 # Each preset's numbers and their defaults (as the mod's presets.hpp has them).
 PRESETS: dict[str, dict[str, float]] = {
@@ -82,7 +82,7 @@ def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int]) -
         except ValueError as error:
             problems.append(f"{name}: behaviour not used: {error}")
             continue
-        changes.append(f"{name}: behaviour {entries[-1]['preset']}")
+        changes.append(f"{name}: behaviour {entries[-1]['preset']}" + sharing(name, spawn_id, spawn_ids))
     if entries:
         out.mkdir(parents=True, exist_ok=True)
         (out / "behaviours.json").write_text(json.dumps({"format": 1, "mobys": entries}, indent=1) + "\n", encoding="utf-8", newline="\n")

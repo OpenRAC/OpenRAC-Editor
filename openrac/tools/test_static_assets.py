@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import collision
 import collision_scene
@@ -89,6 +90,14 @@ class StaticAssets(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'unused'):
                 static_assets.import_asset(source, project, 2, 'Bridge', [1, 2, 3])
             self.assertEqual(scene.read_bytes(), kept)
+
+    def test_old_scene_backups_are_pruned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, level, scene, source = fixture(Path(tmp))
+            with mock.patch.object(static_assets, 'BACKUPS_KEPT', 3):
+                for n in range(5):
+                    static_assets.import_asset(source, project, 2, f'Bridge{n}', [n, 0, 0])
+            self.assertEqual(len(list((project / '.openrac-backups').glob('level_02-*.tscn'))), 3)
 
     def test_group_transforms_mirroring_and_collision_agree(self):
         with tempfile.TemporaryDirectory() as tmp:

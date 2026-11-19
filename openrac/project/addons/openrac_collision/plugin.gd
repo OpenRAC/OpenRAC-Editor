@@ -750,6 +750,12 @@ func mesh_part(triangles: PackedVector3Array, kind: int) -> Node3D:
 
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
 	var file := FileAccess.open(path, FileAccess.WRITE)
+
+	# A project folder that cannot be written: said in the dock, nothing made.
+	if file == null:
+		dock.show_report("Cannot write %s (is the project folder read-only or full?)." % path)
+		return null
+
 	file.store_string(ClassCollision.mesh_gltf(triangles, kind))
 	file.close()
 	var filesystem := EditorInterface.get_resource_filesystem()
