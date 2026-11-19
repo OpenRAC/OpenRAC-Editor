@@ -8,7 +8,7 @@ import unittest
 import gameplay as gp
 from godot import transform
 from mobys import FIELDS, POINTER, RECORD, SIZE, USUAL, moby_instances
-from pack import pack_level, placement, scene_mobys, virtual_range
+from pack import RAC1_SPAWN_ID_COUNT, pack_level, placement, scene_mobys, stable_spawn_ids, virtual_range
 
 
 def gameplay(records: list[dict]) -> bytes:
@@ -163,7 +163,10 @@ class AddAndDelete(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<i", out, gp.offset(out, gp.MOBYS) + 4)[0], 7)   # the spare mobys
         new = mobys[3]["fields"]
         self.assertEqual(mobys[3]["matrix"][12:15], [9.0, 8.0, 7.0])
-        self.assertEqual((new["spawn_id"], new["pvar_index"], new["group"]), (3, 2, 1))
+        self.assertEqual((new["pvar_index"], new["group"]), (2, 1))
+        used = {m["fields"]["spawn_id"] for m in moby_instances(self.data)}
+        self.assertEqual(new["spawn_id"], stable_spawn_ids(["Moby_0003"], 0, used)[0])
+        self.assertNotIn(new["spawn_id"], used)
         self.assertEqual(gp.groups(out), [None, [1, 2, 3]])
         self.assertEqual(self.pvar(out, 2), self.pvar(out, 1))                  # a block of its own, the same
         self.assertNotEqual(gp.pvar_table(out, 3)[2][0], gp.pvar_table(out, 3)[1][0])
@@ -178,7 +181,18 @@ class AddAndDelete(unittest.TestCase):
         out, changes, problems = pack_level(0, self.data, text)
         self.assertEqual((changes, problems), (["Crate: added, after moby 0"], []))
         new = moby_instances(out)[3]
-        self.assertEqual((new["class_id"], new["matrix"][12:15], new["fields"]["spawn_id"]), (500, [4.0, 5.0, 6.0], 3))
+        self.assertEqual((new["class_id"], new["matrix"][12:15]), (500, [4.0, 5.0, 6.0]))
+        used = {m["fields"]["spawn_id"] for m in moby_instances(self.data)}
+        self.assertEqual(new["fields"]["spawn_id"], stable_spawn_ids(["Crate"], 0, used)[0])
+
+    def test_an_added_mobys_spawn_number_does_not_move_when_another_is_deleted(self):
+        used = {0, 1, 2}
+        both = stable_spawn_ids(["Crate", "Crate2"], 0, used)
+        alone = stable_spawn_ids(["Crate2"], 0, used)
+        self.assertEqual(both[1], alone[0])
+        self.assertEqual(len(set(both)), 2)
+        self.assertFalse(set(both) & used)
+        self.assertEqual(stable_spawn_ids([], 1, set(range(RAC1_SPAWN_ID_COUNT))), [None])
 
     def test_a_skin_or_a_behaviour_is_not_a_value(self):
         text = scene(self.data, lambda i, node: node + ['metadata/rc1_behaviour = "spin"',

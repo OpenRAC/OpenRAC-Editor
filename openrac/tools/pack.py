@@ -303,6 +303,26 @@ def apply(node: dict, record: dict, original: dict | None, whole: bool, problems
     return edits
 
 
+def stable_spawn_ids(names: list[str], others: int, used: set[int]) -> list[int | None]:
+    """A free spawn id for each added moby: one taken from its node's name, so deleting or adding
+    another moby does not move it (a save remembers a destroyed moby by this id), then one for each
+    of the OTHERS (mobys an import brings). None where the 2,048 ids run out."""
+    import zlib
+    free = [i for i in range(RAC1_SPAWN_ID_COUNT) if i not in used]
+    taken: set[int] = set()
+    out: list[int | None] = []
+    for name in names + [None] * others:
+        if len(taken) == len(free):
+            out.append(None)
+            continue
+        at = zlib.crc32(name.encode("utf-8")) % len(free) if name is not None else 0
+        while free[at] in taken:
+            at = (at + 1) % len(free)
+        taken.add(free[at])
+        out.append(free[at])
+    return out
+
+
 def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: set[int] | None = None,
                node_names: list[str] | None = None,
                spawn_ids: dict[str, int] | None = None,
@@ -494,7 +514,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
     data = bytearray(gameplay[data_start:data_end]) if data_start > 0 else bytearray()
     used_spawn_ids = {m["fields"]["spawn_id"] for m in originals
                       if 0 <= m["fields"]["spawn_id"] < RAC1_SPAWN_ID_COUNT}
-    free_spawn_ids = [i for i in range(RAC1_SPAWN_ID_COUNT) if i not in used_spawn_ids]
+    free_spawn_ids = stable_spawn_ids(added_names, len(added) - len(added_names), used_spawn_ids)
     # A moby whose class changed: its own copy of the new class's pvar block, its links with it.
     for old, record in reclassed.items():
         source = record["pvar_index"]
@@ -515,8 +535,9 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
     without_save_id = 0
     placed_at: dict[int, int] = {}
     for record, model in added:
-        if free_spawn_ids:
-            record["spawn_id"] = free_spawn_ids.pop(0)
+        spawn_id = free_spawn_ids.pop(0) if free_spawn_ids else None
+        if spawn_id is not None:
+            record["spawn_id"] = spawn_id
         else:
             # The game's per-level and session killed-state bitsets hold 2,048 IDs. Keep
             # excess additions usable as non-persistent mobys instead of indexing past them.
