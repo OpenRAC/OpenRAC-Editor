@@ -46,10 +46,20 @@ class MobySceneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             write_project(Path(temp) / "one", [30], "NTSC-U", "rac2")
             write_project(Path(temp) / "all", [1, 2], "NTSC-U", "rac4")
-            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (NTSC-U, early access)"',
+            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (USA, early access)"',
                           (Path(temp) / "one/project.godot").read_text())
-            self.assertIn('config/name="Ratchet: Deadlocked levels (NTSC-U, early access)"',
+            self.assertIn('config/name="Ratchet: Deadlocked levels (USA, early access)"',
                           (Path(temp) / "all/project.godot").read_text())
+
+
+    def test_a_project_names_its_disc_by_market(self):
+        with tempfile.TemporaryDirectory() as temp:
+            for region, market in [("PAL", "Europe"), ("NTSC-U", "USA"), ("NTSC-J", "Japan"), ("NTSC-K", "Korea"),
+                                   ("Other", "Other")]:
+                write_project(Path(temp) / region, [3], region)
+                self.assertIn(f'config/name="Ratchet & Clank: Kerwan ({market})"',
+                              (Path(temp) / region / "project.godot").read_text())
+            self.assertNotIn("NTSC", (Path(temp) / "NTSC-U/project.godot").read_text().split("[rendering]")[0])
 
 
     def test_keeps_minus_zero_unlike_packs(self):

@@ -107,11 +107,11 @@ class LibraryOnProjects(unittest.TestCase):
     def test_finds_tells_and_brings_in(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "levels"
-            here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (NTSC-U)",
+            here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (USA)",
                                  {10: ("vendor", 0.25)}, [1000])
-            level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (PAL)",
+            level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (Europe)",
                           {10: ("vendor", 0.25), 75: ("red_ship", 0.5)}, [1000, 682])
-            level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (NTSC-U)",
+            level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (USA)",
                           {10: ("something", 1.0)}, [])
             (root / "rac1" / "ntsc-backups" / "old").mkdir(parents=True)
             out = Path(temp) / "result.json"

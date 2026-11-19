@@ -171,7 +171,7 @@ func handle_static_model_selected(path: String) -> void:
 		return
 	var packed_scene := ResourceLoader.load(path) as PackedScene
 	if packed_scene == null:
-		dock.show_report("Godot could not import this glTF model as a scene.")
+		dock.show_report("The editor could not import this glTF model as a scene.")
 		return
 	var instance := packed_scene.instantiate()
 	if not instance is Node3D:
@@ -199,7 +199,7 @@ func handle_static_model_selected(path: String) -> void:
 		suffix += 1
 	instance.name = node_name
 	var undo_redo := get_undo_redo()
-	var action := "Add spinning glTF prop to map" if animated_model_pick else "Add static glTF model to map"
+	var action := "Add a spinning glTF prop to the level" if animated_model_pick else "Add a static glTF model to the level"
 	undo_redo.create_action(action, UndoRedo.MERGE_DISABLE, scene_root)
 	if make_group:
 		undo_redo.add_do_method(game, "add_child", group)

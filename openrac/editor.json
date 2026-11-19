@@ -262,7 +262,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 19 levels on your NTSC-U disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "description": "Turns the 19 levels on your USA disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -485,7 +485,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "Turns the 19 levels on your PAL v1.00 disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
+        "description": "Turns the 19 levels on your European v1.00 disc into OpenRAC Editor projects, one per level, in your levels folder. About 20 seconds and 800 MB. Run it again to add levels or bring them up to date: levels you edited are kept, and one made by an older editor is backed up with your edits before it is written again.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -1655,7 +1655,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "description": "The level editor does not read this game's disc yet.",
         "kind": "edit",
         "area": "editor",
         "state": "planned",
@@ -1667,7 +1667,7 @@
       {
         "id": "editor-extract",
         "label": "Extract the levels",
-        "description": "The level editor reads the first game's PAL disc only, for now.",
+        "description": "The level editor does not read this game's disc yet.",
         "kind": "edit",
         "area": "editor",
         "state": "planned",

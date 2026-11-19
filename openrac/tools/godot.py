@@ -373,11 +373,21 @@ def project_files() -> str:
     return h.hexdigest()[:16]
 
 
+# A disc's region as players name the release (disc.Version.region -> the title's last part).
+MARKETS = {"PAL": "Europe", "NTSC-U": "USA", "NTSC-J": "Japan", "NTSC-K": "Korea"}
+
+
+def market(region: str) -> str:
+    """REGION ("NTSC-U") as the release's market ("USA"); a region not listed as it is."""
+    return MARKETS.get(region, region)
+
+
 def write_project(project: Path, levels: list[int], region: str = "PAL", game: str = "rac1") -> None:
     """project.godot and the rc1 scripts; the main scene is the first level. A project of one
-    level is named after it, and the disc's region (disc.Version.region); GAME names the game
-    (games.FORMATS) for the others'."""
+    level is named after it, and the disc's market (Europe, USA, Japan: market(disc.Version.region));
+    GAME names the game (games.FORMATS) for the others'."""
     project.mkdir(parents=True, exist_ok=True)
+    region = market(region)
     main = f"res://levels/level_{levels[0]:02}/level_{levels[0]:02}.tscn"
     if game == "rac1":
         name = (f"Ratchet & Clank: {LEVEL_NAMES[levels[0]]} ({region})" if len(levels) == 1

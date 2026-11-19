@@ -24,7 +24,7 @@ config_version=5
 
 [application]
 
-config/name="Ratchet & Clank: Aridia (PAL)"
+config/name="Ratchet & Clank: Aridia (Europe)"
 
 [editor_plugins]
 
@@ -112,7 +112,7 @@ class Settings(unittest.TestCase):
             # One [openrac] section, the other settings as they were.
             text = (project / "project.godot").read_text(encoding="utf-8")
             self.assertEqual(text.count("[openrac]"), 1)
-            self.assertIn('config/name="Ratchet & Clank: Aridia (PAL)"', text)
+            self.assertIn('config/name="Ratchet & Clank: Aridia (Europe)"', text)
 
     def test_a_value_godot_wrote_over_several_lines(self):
         with tempfile.TemporaryDirectory() as temp:

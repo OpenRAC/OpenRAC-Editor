@@ -74,20 +74,20 @@ XVFB_RUN = shutil.which("xvfb-run")
 
 def projects(root: Path) -> Path:
     """Four levels of two games and two discs; the first is the one edited."""
-    here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (NTSC-U)", {11: ("vendor", 0.25)}, [1000])
-    level_project(root, "rac1", "ntsc", 3, "Ratchet & Clank: Kerwan (NTSC-U)",
+    here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (USA)", {11: ("vendor", 0.25)}, [1000])
+    level_project(root, "rac1", "ntsc", 3, "Ratchet & Clank: Kerwan (USA)",
                   {11: ("vendor", 0.25), 75: ("red_ship", 0.5), 1430: ("codebot_slot", 1.0)}, [682, 1000])
-    level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (PAL)", {1201: ("turret", 0.5)}, [])
-    level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (NTSC-U)",
+    level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (Europe)", {1201: ("turret", 0.5)}, [])
+    level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (USA)",
                   {10: ("something", 1.0)}, [])
     # Broken assets: a model whose texture is gone, and a file that is no model.
-    broken = level_project(root, "rac1", "ntsc", 6, "Ratchet & Clank: Blarg Station (NTSC-U)",
+    broken = level_project(root, "rac1", "ntsc", 6, "Ratchet & Clank: Blarg Station (USA)",
                            {29: ("turret", 1.0), 30: ("gun", 1.0)}, [])
     (broken / "levels" / "level_06" / "textures" / "t.png").unlink()
     (broken / "levels" / "level_06" / "mobys" / "moby_30.glb").write_bytes(b"not a model")
     # Many levels of another game, for the list's speed.
     for number in range(STRESS_LEVELS):
-        level_project(root, "rac4", "ntsc", number, f"Ratchet: Deadlocked: Arena {number} (NTSC-U)",
+        level_project(root, "rac4", "ntsc", number, f"Ratchet: Deadlocked: Arena {number} (USA)",
                       {100 + i: (f"thing_{i}", 1.0) for i in range(STRESS_MOBYS)}, [])
     (here / "levels" / "level_05" / "level_05.tscn").write_text(LEVEL)
 

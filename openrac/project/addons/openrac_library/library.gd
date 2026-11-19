@@ -18,6 +18,16 @@ extends RefCounted
 
 const KINDS: PackedStringArray = ["mobys", "ties", "shrubs"]
 
+## Each game's name, as the dock shows it (games/<game>/game.json's title).
+const GAME_TITLES: Dictionary = {"rac1": "Ratchet & Clank", "rac2": "Ratchet & Clank: Going Commando",
+	"rac3": "Ratchet & Clank: Up Your Arsenal", "rac4": "Ratchet: Deadlocked",
+	"rac5": "Ratchet & Clank: Size Matters", "rac6": "Ratchet & Clank: Secret Agent Clank"}
+
+## Each disc's name by its market, as players know the release; a second release of one market
+## carries its version (game.json's versions).
+const DISC_NAMES: Dictionary = {"pal": "Europe", "pal1": "Europe v1.00", "ntsc": "USA",
+	"ntsc2": "USA v2.00", "jp": "Japan"}
+
 const FULL: String = "full"
 const LOOK: String = "look"
 
@@ -136,7 +146,24 @@ static func levels_in(game: String, folder: String) -> Array:
 	return levels
 
 
-## project.godot's config/name ("Ratchet & Clank: Rilgar (NTSC-U)").
+## GAME's name ("Ratchet & Clank"); a game not listed by its folder's name.
+static func game_title(game: String) -> String:
+	return GAME_TITLES.get(game, game)
+
+
+## DISC's name ("USA" for ntsc); a disc not listed by its folder's name, in capitals.
+static func disc_name(disc: String) -> String:
+	return DISC_NAMES.get(disc, disc.to_upper())
+
+
+## Where ASSET comes from, for the dock's texts: "Ratchet & Clank (USA), level 05 (Rilgar)".
+static func origin(asset: Dictionary) -> String:
+	var name: String = String(asset.get("level_name", ""))
+	return "%s (%s), level %02d%s" % [game_title(String(asset["game"])), disc_name(String(asset["disc"])),
+		int(asset["level"]), "" if name.is_empty() else " (%s)" % name]
+
+
+## project.godot's config/name ("Ratchet & Clank: Rilgar (USA)").
 static func project_title(project: String) -> String:
 	var text: String = FileAccess.get_file_as_string(project.path_join("project.godot"))
 	var at: int = text.find("config/name=\"")

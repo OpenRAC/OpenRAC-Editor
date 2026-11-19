@@ -284,10 +284,8 @@ func show_selected() -> void:
 	var status: String = Library.status(asset, here)
 	var refusal: String = Library.import_refusal(asset, here)
 	var colour: Color = FULL_COLOUR if status == Library.FULL else (IMPORT_COLOUR if refusal.is_empty() else LOOK_COLOUR)
-	var level_name: String = String(asset["level_name"])
-	details.text = "[b][color=#%s]%s[/color][/b]  class %d\n%s %s, level %02d%s" % [colour.to_html(false),
-		asset["name"], int(asset["class"]), asset["game"], asset["disc"], int(asset["level"]),
-		"" if level_name.is_empty() else " (%s)" % level_name]
+	details.text = "[b][color=#%s]%s[/color][/b]  class %d\n%s" % [colour.to_html(false),
+		asset["name"], int(asset["class"]), Library.origin(asset)]
 
 	add_button.disabled = here.is_empty()
 	add_button.text = "Add in front of the camera" + (" (with its logic)" if status == Library.FULL else " (look only)")
@@ -360,13 +358,13 @@ func rescan() -> void:
 
 		if not items.has(game_key):
 			var game_item: TreeItem = tree.create_item(root)
-			game_item.set_text(0, game_key)
+			game_item.set_text(0, Library.game_title(game_key))
 			game_item.set_metadata(0, {"game": game_key})
 			items[game_key] = game_item
 
 		if not items.has(disc_key):
 			var disc_item: TreeItem = tree.create_item(items[game_key])
-			disc_item.set_text(0, String(level["disc"]))
+			disc_item.set_text(0, Library.disc_name(String(level["disc"])))
 			disc_item.set_metadata(0, {"game": game_key, "disc": level["disc"]})
 			disc_item.collapsed = true
 			items[disc_key] = disc_item
@@ -554,8 +552,7 @@ func is_here(level: Dictionary) -> bool:
 
 
 func tooltip(asset: Dictionary, status: String) -> String:
-	var where: String = "%s %s, level %02d%s" % [asset["game"], asset["disc"], int(asset["level"]),
-		"" if String(asset["level_name"]).is_empty() else " (%s)" % asset["level_name"]]
+	var where: String = Library.origin(asset)
 	var does: String = ("In this level: placed as the game's own %s, with its logic." % asset["kind"].trim_suffix("s")
 		if status == Library.FULL else
 		"Placed as static scenery: look only, no logic."

@@ -155,7 +155,7 @@ buffer files are flattened into the project-local import. Unsupported animation,
 skinning and behavior are refused.
 
 For a model already in the Godot project, open the extracted level scene and
-choose **Add static glTF model to map** in the Collision dock. The editor instances it
+choose **Add a static glTF model to the level** in the Collision dock. The editor instances it
 under **Game/StaticAssets**, where you can position, rotate and scale it. This
 is undoable and keeps the model linked to its project asset. For a donor model
 outside the project, use the import command below to copy it and its textures
@@ -191,8 +191,8 @@ so donor per-instance lighting is not transplanted. The imported result is
 static: skeletons, animations and behaviors are refused. Generated meshes,
 textures and packed collision remain private like the rest of the map.
 
-For visual motion without a native moby class, use **Add spinning glTF prop to
-map** in the Collision dock. The prop appears under **Game/AnimatedAssets** and
+For visual motion without a native moby class, use **Add a spinning glTF prop to
+the level** in the Collision dock. The prop appears under **Game/AnimatedAssets** and
 rotates around its configured world-space axis through its origin at runtime. In the Inspector, adjust its metadata:
 `rc1_spin_x`, `rc1_spin_y`, `rc1_spin_z` define the axis, `rc1_spin_speed` is
 radians per second (positive or negative, up to 100), and `rc1_spin_phase` is

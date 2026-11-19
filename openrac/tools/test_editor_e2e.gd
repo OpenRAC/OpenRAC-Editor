@@ -457,6 +457,25 @@ func planet_and_tree() -> void:
 			level_item = item
 		item = item.get_next_in_tree()
 
+	# The tree names games and discs as players do, not by their folders (rac1, ntsc).
+	var disc_item: TreeItem = level_item.get_parent().get_parent()
+	check("the tree names the game and the disc",
+		disc_item.get_text(0) == "USA" and disc_item.get_parent().get_text(0) == "Ratchet & Clank",
+		[disc_item.get_parent().get_text(0), disc_item.get_text(0)])
+	var labels: PackedStringArray = []
+	item = dock.tree.get_root().get_first_child()
+
+	while item != null:
+		labels.append(item.get_text(0))
+		for disc in item.get_children():
+			labels.append("  " + disc.get_text(0))
+		item = item.get_next()
+	check("every game and disc has a name", not labels.has("rac1") and not labels.has("rac3") and not labels.has("  ntsc")
+		and not labels.has("  pal") and labels.has("Ratchet & Clank: Up Your Arsenal") and labels.has("  Europe"), labels)
+	check("the details say where an asset comes from",
+		Library.origin({"game": "rac1", "disc": "pal1", "level": 3, "level_name": "Kerwan"}) == "Ratchet & Clank (Europe v1.00), level 03 (Kerwan)"
+		and Library.origin({"game": "rac9", "disc": "xx", "level": 0, "level_name": ""}) == "rac9 (XX), level 00",
+		Library.origin({"game": "rac1", "disc": "pal1", "level": 3, "level_name": "Kerwan"}))
 	level_item.get_parent().get_parent().collapsed = false
 	level_item.get_parent().collapsed = false
 	level_item.select(0)

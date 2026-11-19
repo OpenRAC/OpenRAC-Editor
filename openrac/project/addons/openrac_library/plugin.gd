@@ -300,7 +300,7 @@ func add_in_view(asset: Dictionary) -> void:
 	var scene := ResourceLoader.load(path) as PackedScene
 
 	if scene == null:
-		dock.show_report("Godot could not load %s." % path, true)
+		dock.show_report("The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
@@ -364,7 +364,7 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	var host_scene := ResourceLoader.load(host_path) as PackedScene
 
 	if host_scene == null:
-		dock.show_report("Godot could not load %s." % host_path, true)
+		dock.show_report("The editor could not load %s." % host_path, true)
 		return
 
 	var host: Dictionary = {"name": "Class %d" % host_class, "scale": 1.0}
@@ -449,7 +449,7 @@ func add_foreign(asset: Dictionary) -> void:
 	var scene := ResourceLoader.load(path) as PackedScene if not path.is_empty() else null
 
 	if scene == null:
-		dock.show_report(" ".join(error) if not error.is_empty() else "Godot could not load %s." % path, true)
+		dock.show_report(" ".join(error) if not error.is_empty() else "The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
