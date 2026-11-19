@@ -33,16 +33,16 @@ class DestinationPacks(unittest.TestCase):
             raw = pack(r / 'raw', 'Authoring output', 68, format=1)
             (raw / 'packed.json').write_text('{"version":"pal"}')
             overrides.stack(folder, out, packed=raw)
-            registry = json.loads((out / 'destinations.json').read_text())
+            registry = json.loads((out / 'destinations.json').read_text(encoding="utf-8"))
             self.assertEqual([m['id'] for m in registry['destinations']], sorted([a, b]))
             self.assertFalse((out / 'map.json').exists())
             self.assertFalse((out / 'level_02/core_pal.bin').exists())
             # What a party compares: every world, and the edit they share; the raw output is no layer.
-            layers = {layer['id']: layer for layer in json.loads((out / 'stack.json').read_text())['layers']}
+            layers = {layer['id']: layer for layer in json.loads((out / 'stack.json').read_text(encoding="utf-8"))['layers']}
             self.assertEqual(len(layers), 3)
             self.assertTrue(all(layer['gameplay'] and len(layer['digest']) == 64 for layer in layers.values()))
             self.assertNotEqual(layers[a]['digest'], layers[b]['digest'])
-            self.assertNotIn('200\t', (out / 'patches.tsv').read_text())
+            self.assertNotIn('200\t', (out / 'patches.tsv').read_text(encoding="utf-8"))
             for ident, value in ((a, 65), (b, 66)):
                 mount = out / 'destinations' / ident
                 self.assertEqual((mount / 'level_02/core_pal.bin').read_bytes(), bytes([value]) * 2048)
@@ -52,7 +52,7 @@ class DestinationPacks(unittest.TestCase):
             overrides.save_state(folder, state)
             overrides.stack(folder, out)
             self.assertFalse((out / 'destinations' / b).exists())
-            self.assertEqual(len(json.loads((out / 'destinations.json').read_text())['destinations']), 1)
+            self.assertEqual(len(json.loads((out / 'destinations.json').read_text(encoding="utf-8"))['destinations']), 1)
 
     def test_standalone_mix_is_rejected_without_replacing_the_previous_stack(self):
         with tempfile.TemporaryDirectory() as d:

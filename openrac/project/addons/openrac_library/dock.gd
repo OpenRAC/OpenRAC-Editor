@@ -23,6 +23,9 @@ const IMPORT_COLOUR: Color = Color(0.55, 0.78, 1.0)
 ## The rest: its look only.
 const LOOK_COLOUR: Color = Color(0.92, 0.92, 0.92)
 
+## The legend's text, a little smaller than the editor's: this times the editor's font size.
+const LEGEND_FONT: float = 12.0 / 14.0
+
 ## Rows the level tree grows to before it scrolls (fit_tree()).
 const TREE_ROWS: int = 8
 
@@ -75,6 +78,8 @@ var details: RichTextLabel
 ## What the list says when it has no assets to show.
 var note: Label
 var classes_menu: PopupMenu
+## The colour legend's lines.
+var legend: VBoxContainer
 
 
 func _init() -> void:
@@ -82,7 +87,7 @@ func _init() -> void:
 	default_slot = EditorDock.DOCK_SLOT_LEFT_BR
 	# Wide enough for two columns of assets and a button's label on one line or two, never wider:
 	# the dock's long labels wrap instead.
-	custom_minimum_size.x = 250.0 * EditorInterface.get_editor_scale()
+	custom_minimum_size.x = px(250.0)
 	var box := VBoxContainer.new()
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(box)
@@ -136,7 +141,7 @@ func _init() -> void:
 	box.add_child(planet)
 
 	# What each colour means, one line each.
-	var legend := VBoxContainer.new()
+	legend = VBoxContainer.new()
 	legend.add_theme_constant_override("separation", 0)
 	for entry in [[FULL_COLOUR, "In this level: works as in the game."],
 			[IMPORT_COLOUR, "From another level: can bring its logic."],
@@ -144,9 +149,8 @@ func _init() -> void:
 		var line := Label.new()
 		line.text = "\u25A0 " + entry[1]
 		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		line.custom_minimum_size = Vector2(160, 0)
+		line.custom_minimum_size = Vector2(px(160.0), 0)
 		line.add_theme_color_override("font_color", entry[0])
-		line.add_theme_font_size_override("font_size", 12)
 		legend.add_child(line)
 	box.add_child(legend)
 
@@ -169,8 +173,8 @@ func _init() -> void:
 	list.icon_mode = ItemList.ICON_MODE_TOP
 	list.max_columns = 0
 	list.same_column_width = true
-	list.fixed_column_width = 96
-	list.fixed_icon_size = Vector2i(80, 80)
+	list.fixed_column_width = roundi(px(96.0))
+	list.fixed_icon_size = Vector2i(roundi(px(80.0)), roundi(px(80.0)))
 	list.max_text_lines = 2
 	list.item_activated.connect(func(index: int) -> void: add(index))
 	list.item_selected.connect(func(index: int) -> void:
@@ -182,7 +186,7 @@ func _init() -> void:
 			plugin.prepare.call_deferred(asset))
 	split.add_child(list)
 	note = Label.new()
-	note.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 8)
+	note.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, roundi(px(8.0)))
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -196,11 +200,11 @@ func _init() -> void:
 	details.fit_content = true
 	details.scroll_active = false
 	details.selection_enabled = true
-	details.custom_minimum_size = Vector2(160, 0)
+	details.custom_minimum_size = Vector2(px(160.0), 0)
 	box.add_child(details)
 
 	var buttons := VBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 2)
+	buttons.add_theme_constant_override("separation", roundi(px(2.0)))
 	box.add_child(buttons)
 	add_button = action_button(buttons, "Add in front of the camera",
 		func() -> void: with_selected(func(asset: Dictionary) -> void: plugin.add_in_view(asset)))
@@ -214,9 +218,15 @@ func _init() -> void:
 
 	report = Label.new()
 	report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	report.custom_minimum_size = Vector2(160, 0)
+	report.custom_minimum_size = Vector2(px(160.0), 0)
 	box.add_child(report)
 	show_selected()
+
+
+## VALUE pixels at the editor's scale (Editor Settings, Display Scale), so the dock looks the same
+## on a 4K screen as on a small one.
+static func px(value: float) -> float:
+	return value * EditorInterface.get_editor_scale()
 
 
 ## A button of the actions under the list, full width, its text left.
@@ -249,14 +259,14 @@ func _notification(what: int) -> void:
 	add_button.icon = get_theme_icon("Add", "EditorIcons")
 	own_button.icon = get_theme_icon("Script", "EditorIcons")
 	as_button.icon = get_theme_icon("Skeleton3D", "EditorIcons")
-	placeholder = waiting_picture(get_theme_color("font_disabled_color", "Editor"))
+	placeholder = waiting_picture(get_theme_color("font_disabled_color", "Editor"), list.fixed_icon_size.x)
+	# The editor's own font size already follows its scale and its font size setting.
+	var legend_size: int = maxi(roundi(get_theme_font_size("font_size", "Label") * LEGEND_FONT), 1)
+
+	for line in legend.get_children():
+		line.add_theme_font_size_override("font_size", legend_size)
+
 	note.add_theme_color_override("font_color", get_theme_color("font_disabled_color", "Editor"))
-	# Room for one whole row of assets, however small the dock: a cut-off row is hard to pick.
-	var font: Font = list.get_theme_font("font")
-	var line: float = font.get_height(list.get_theme_font_size("font_size")) + list.get_theme_constant("line_separation")
-	list.custom_minimum_size.y = ceilf(list.fixed_icon_size.y + list.get_theme_constant("icon_margin")
-		+ list.max_text_lines * line + list.get_theme_constant("v_separation")
-		+ list.get_theme_stylebox("panel").get_minimum_size().y)
 
 
 ## Shows what the selected asset is and which ways of adding it work here, and why not the others.
@@ -274,10 +284,8 @@ func show_selected() -> void:
 	var status: String = Library.status(asset, here)
 	var refusal: String = Library.import_refusal(asset, here)
 	var colour: Color = FULL_COLOUR if status == Library.FULL else (IMPORT_COLOUR if refusal.is_empty() else LOOK_COLOUR)
-	var level_name: String = String(asset["level_name"])
-	details.text = "[b][color=#%s]%s[/color][/b]  class %d\n%s %s, level %02d%s" % [colour.to_html(false),
-		asset["name"], int(asset["class"]), asset["game"], asset["disc"], int(asset["level"]),
-		"" if level_name.is_empty() else " (%s)" % level_name]
+	details.text = "[b][color=#%s]%s[/color][/b]  class %d\n%s" % [colour.to_html(false),
+		asset["name"], int(asset["class"]), Library.origin(asset)]
 
 	add_button.disabled = here.is_empty()
 	add_button.text = "Add in front of the camera" + (" (with its logic)" if status == Library.FULL else " (look only)")
@@ -350,13 +358,13 @@ func rescan() -> void:
 
 		if not items.has(game_key):
 			var game_item: TreeItem = tree.create_item(root)
-			game_item.set_text(0, game_key)
+			game_item.set_text(0, Library.game_title(game_key))
 			game_item.set_metadata(0, {"game": game_key})
 			items[game_key] = game_item
 
 		if not items.has(disc_key):
 			var disc_item: TreeItem = tree.create_item(items[game_key])
-			disc_item.set_text(0, String(level["disc"]))
+			disc_item.set_text(0, Library.disc_name(String(level["disc"])))
 			disc_item.set_metadata(0, {"game": game_key, "disc": level["disc"]})
 			disc_item.collapsed = true
 			items[disc_key] = disc_item
@@ -544,8 +552,7 @@ func is_here(level: Dictionary) -> bool:
 
 
 func tooltip(asset: Dictionary, status: String) -> String:
-	var where: String = "%s %s, level %02d%s" % [asset["game"], asset["disc"], int(asset["level"]),
-		"" if String(asset["level_name"]).is_empty() else " (%s)" % asset["level_name"]]
+	var where: String = Library.origin(asset)
 	var does: String = ("In this level: placed as the game's own %s, with its logic." % asset["kind"].trim_suffix("s")
 		if status == Library.FULL else
 		"Placed as static scenery: look only, no logic."
@@ -588,7 +595,7 @@ func show_classes() -> void:
 		classes_menu.add_item("%s (class %d)" % entry if entry[0] != "Class %d" % entry[1] else entry[0], entry[1])
 
 	classes_menu.position = Vector2i(as_button.get_screen_position() + Vector2(0, as_button.size.y))
-	classes_menu.max_size = Vector2i(400, 500)
+	classes_menu.max_size = Vector2i(roundi(px(400.0)), roundi(px(500.0)))
 	classes_menu.popup()
 
 
@@ -791,8 +798,8 @@ func fit_tree() -> void:
 	var row: float = tree.get_item_area_rect(first).size.y if first != null else 0.0
 
 	if row <= 0.0:
-		row = tree.get_theme_font("font").get_height(tree.get_theme_font_size("font_size")) + 4.0
+		row = tree.get_theme_font("font").get_height(tree.get_theme_font_size("font_size")) + px(4.0)
 
 	var panel: StyleBox = tree.get_theme_stylebox("panel")
 	var margins: float = panel.get_minimum_size().y if panel != null else 0.0
-	tree.custom_minimum_size.y = ceilf(clampi(rows, 1, TREE_ROWS) * (row + gap) + margins + 4.0)
+	tree.custom_minimum_size.y = ceilf(clampi(rows, 1, TREE_ROWS) * (row + gap) + margins + px(4.0))

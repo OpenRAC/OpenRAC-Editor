@@ -14,6 +14,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/gui/menu_button.h"
 #include "scene/gui/popup_menu.h"
 #include "scene/resources/font.h"
@@ -89,6 +90,8 @@ void CutsceneEditorPlugin::forward_3d_force_draw_over_viewport(Control *p_overla
 		cutscene = Object::cast_to<Cutscene>(n);
 	}
 	const Vector2 size = p_overlay->get_size();
+	// Lines one pixel wide at 100%, wider on a scaled (4K) editor.
+	const real_t line = MAX(1.0f, Math::round(EDSCALE));
 	const Rect2 frame = Cutscene::game_frame(size, wide);
 	// Outside the game's picture: dimmed.
 	const Color dim(0, 0, 0, 0.6);
@@ -96,7 +99,7 @@ void CutsceneEditorPlugin::forward_3d_force_draw_over_viewport(Control *p_overla
 	p_overlay->draw_rect(Rect2(frame.get_end().x, 0, size.x - frame.get_end().x, size.y), dim);
 	p_overlay->draw_rect(Rect2(frame.position.x, 0, frame.size.x, frame.position.y), dim);
 	p_overlay->draw_rect(Rect2(frame.position.x, frame.get_end().y, frame.size.x, size.y - frame.get_end().y), dim);
-	p_overlay->draw_rect(frame, Color(1, 1, 1, 0.5), false, 1.0);
+	p_overlay->draw_rect(frame, Color(1, 1, 1, 0.5), false, line);
 	// The letterbox as the player draws it: 12% of the height, top and bottom.
 	if (letterbox && cutscene != nullptr && cutscene->get_letterbox()) {
 		const real_t bar = frame.size.y * 0.12f;
@@ -109,10 +112,10 @@ void CutsceneEditorPlugin::forward_3d_force_draw_over_viewport(Control *p_overla
 	if (safe_areas) {
 		// Title safe (90%) and the subtitles' band: their three rows around 80% of the height.
 		const Rect2 title = hud_rect.grow_individual(-hud_rect.size.x * 0.05f, -hud_rect.size.y * 0.05f, -hud_rect.size.x * 0.05f, -hud_rect.size.y * 0.05f);
-		p_overlay->draw_rect(title, Color(1, 0.8, 0.2, 0.6), false, 1.0);
+		p_overlay->draw_rect(title, Color(1, 0.8, 0.2, 0.6), false, line);
 		const Rect2 band(hud_rect.position.x + hud_rect.size.x * 0.1f, hud_rect.position.y + hud_rect.size.y * (0.80f - 0.0825f - 0.03f),
 				hud_rect.size.x * 0.8f, hud_rect.size.y * (0.165f + 0.06f));
-		p_overlay->draw_rect(band, Color(1, 1, 1, 0.35), false, 1.0);
+		p_overlay->draw_rect(band, Color(1, 1, 1, 0.35), false, line);
 	}
 	if (subtitles && cutscene != nullptr) {
 		const PackedStringArray rows = cutscene->subtitles_at(cutscene->get_timeline_position());
@@ -122,7 +125,7 @@ void CutsceneEditorPlugin::forward_3d_force_draw_over_viewport(Control *p_overla
 		for (int r = 0; r < n; r++) {
 			const real_t y = hud_rect.position.y + hud_rect.size.y * (0.80f + 0.055f * r - 0.0275f * (n - 1));
 			const Vector2 at(hud_rect.position.x, y + font_size * 0.35f);
-			p_overlay->draw_string_outline(font, at, rows[r], HORIZONTAL_ALIGNMENT_CENTER, hud_rect.size.x, font_size, 4, Color(0, 0, 0, 0.75));
+			p_overlay->draw_string_outline(font, at, rows[r], HORIZONTAL_ALIGNMENT_CENTER, hud_rect.size.x, font_size, MAX(2, font_size / 5), Color(0, 0, 0, 0.75));
 			p_overlay->draw_string(font, at, rows[r], HORIZONTAL_ALIGNMENT_CENTER, hud_rect.size.x, font_size, Color(0.94, 0.94, 0.94));
 		}
 	}

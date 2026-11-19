@@ -28,18 +28,20 @@ func section(node: Node3D) -> Control:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.55, 0.78, 1.0, 0.12)
 	style.border_color = Color(0.55, 0.78, 1.0, 0.6)
-	style.border_width_left = 3
-	style.content_margin_left = 8
-	style.content_margin_right = 6
-	style.content_margin_top = 4
-	style.content_margin_bottom = 4
+	# Sizes at the editor's scale, so the section looks the same on a 4K screen.
+	var px: float = EditorInterface.get_editor_scale()
+	style.border_width_left = maxi(roundi(3 * px), 1)
+	style.content_margin_left = 8 * px
+	style.content_margin_right = 6 * px
+	style.content_margin_top = 4 * px
+	style.content_margin_bottom = 4 * px
 	panel.add_theme_stylebox_override("panel", style)
 
 	var text := RichTextLabel.new()
 	text.bbcode_enabled = true
 	text.fit_content = true
 	text.scroll_active = false
-	text.custom_minimum_size = Vector2(160, 0)
+	text.custom_minimum_size = Vector2(160 * px, 0)
 	var level: int = int(node.get_meta("rc1_foreign_level", -1))
 	var name: String = String(level_name.call(level))
 	text.text = ("[b]Imported class[/b]\nRuns its own logic from level %02d%s. "

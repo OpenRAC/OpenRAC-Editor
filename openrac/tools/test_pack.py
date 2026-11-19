@@ -317,15 +317,15 @@ class PackDisc(unittest.TestCase):
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
                 self.assertEqual(pack(image, survey, project, out), (1, 1))
                 name = f"level_00/gameplay_{version.key}.wad"
-                self.assertEqual((out / "patches.tsv").read_text().splitlines()[1], f"{lba}\t{sectors}\t{name}")
+                self.assertEqual((out / "patches.tsv").read_text(encoding="utf-8").splitlines()[1], f"{lba}\t{sectors}\t{name}")
                 self.assertEqual(moby_instances(wad((out / name).read_bytes()))[1]["matrix"][12:15], [5.0, 6.0, 7.0])
                 self.assertEqual(moby_instances(wad((out / name).read_bytes()))[0], moby_instances(data)[0])
                 self.assertEqual(reads, [100])
-                self.assertEqual(json.loads((out / "packed.json").read_text())["version"], version.key)
+                self.assertEqual(json.loads((out / "packed.json").read_text(encoding="utf-8"))["version"], version.key)
                 # An unedited scene must not import the other copy's differences.
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data))
                 self.assertEqual(pack(image, survey, project, Path(tmp) / "untouched"), (0, 0))
-                self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text().splitlines()), 1)
+                self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text(encoding="utf-8").splitlines()), 1)
 
     def test_gameplay_larger_than_its_disc_slot_uses_virtual_sectors_and_a_header_patch(self):
         import tempfile
@@ -369,14 +369,14 @@ class PackDisc(unittest.TestCase):
                     patch("static_assets.write_packed", return_value=None):
                 self.assertEqual(pack_module.pack(Disc(), survey, project, out), (1, 1))
             first, count, filename, level, slot, original_first, original_count = \
-                (out / "virtual.tsv").read_text().splitlines()[1].split("\t")
+                (out / "virtual.tsv").read_text(encoding="utf-8").splitlines()[1].split("\t")
             self.assertEqual((int(first), int(count), filename, int(level), int(slot),
                               int(original_first), int(original_count)),
                              (0x10000000, 2, "level_00/gameplay_ntsc.wad", 0, 1, 100, 1))
             patched_header = (out / "level_00/header_ntsc.bin").read_bytes()
             self.assertEqual(struct.unpack_from("<II", patched_header, 8 + int(slot) * 8),
                              (int(first), int(count)))
-            self.assertEqual((out / "patches.tsv").read_text().splitlines()[1],
+            self.assertEqual((out / "patches.tsv").read_text(encoding="utf-8").splitlines()[1],
                              "50\t5\tlevel_00/header_ntsc.bin")
             self.assertEqual((out / filename).stat().st_size, int(count) * disc.SECTOR)
 
@@ -545,6 +545,6 @@ class PackCutscenes(unittest.TestCase):
             (level / "cutscenes" / "intro.cutscene").write_text(json.dumps({"format": "openrac-cutscene", "length": 60}))
             self.assertEqual(pack(Disc(), survey, project, out), (1, 1))
             self.assertTrue((out / "level_00/cutscenes/intro.cutscene").is_file())
-            self.assertIn("cutscene intro", (out / "changes.txt").read_text())
+            self.assertIn("cutscene intro", (out / "changes.txt").read_text(encoding="utf-8"))
             # Nothing else changed: no sector of the disc is replaced.
-            self.assertEqual(len((out / "patches.tsv").read_text().splitlines()), 1)
+            self.assertEqual(len((out / "patches.tsv").read_text(encoding="utf-8").splitlines()), 1)

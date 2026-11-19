@@ -168,7 +168,7 @@ class SceneTests(unittest.TestCase):
         self.assertEqual(sum(t["triangles"] for t in self.manifest["tiles"].values()),
                          len(col.block_triangles(sample())))
         self.assertEqual(list(self.manifest["hero_walls"]), ["HeroWall_000"])
-        written = json.loads((self.level_dir / "collision" / "collision.json").read_text())
+        written = json.loads((self.level_dir / "collision" / "collision.json").read_text(encoding="utf-8"))
         self.assertEqual(written, self.manifest)
         self.assertIn('metadata/rc1_collision = 1', self.text)
 

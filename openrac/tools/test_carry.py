@@ -109,8 +109,8 @@ class CarryProject(unittest.TestCase):
                 (folder / "level_03.tscn").write_text(text)
             report = carry.carry_project(old.parent, old, new, OLD, NEW, Path(tmp) / "backup")
             self.assertEqual(report["carried"], ["Moby_0000: moved"])
-            self.assertEqual(json.loads((new / carry.REPORT).read_text())["level"], 3)
-            self.assertIn("5, 6, 7", (new / "level_03.tscn").read_text())
+            self.assertEqual(json.loads((new / carry.REPORT).read_text(encoding="utf-8"))["level"], 3)
+            self.assertIn("5, 6, 7", (new / "level_03.tscn").read_text(encoding="utf-8"))
 
 
 class UpdateGodot(unittest.TestCase):
@@ -143,6 +143,21 @@ class UpdateGodot(unittest.TestCase):
                                           carry=broken)
             self.assertTrue(report["carried"][0]["failed"])
             self.assertEqual(openrac_editor.level_schema(dest / "level_00" / "levels" / "level_00"), openrac_editor.GODOT_SCHEMA)
+
+
+    def test_a_level_exported_again_stays_the_same_planet(self):
+        import planet
+        from test_openrac_editor import fake_godot
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp).resolve() / "levels" / "pal"
+            export = fake_godot(openrac_editor.GODOT_SCHEMA)
+            openrac_editor.export_godot(dest, [0, 1], True, True, export)
+            planet.set_setting(dest / "level_00", planet.NAME, "Kept")
+            planet.set_setting(dest / "level_00", planet.ID, "kept.0001")
+            report = openrac_editor.update_godot(dest, [0, 1], True, export, openrac_editor.GODOT_SCHEMA, again=True)
+            self.assertEqual(report["replaced"], [0, 1])
+            self.assertEqual(planet.settings(dest / "level_00"), {"planet/name": "Kept", "planet/id": "kept.0001"})
+            self.assertEqual(planet.settings(dest / "level_01"), {})
 
 
 class Repair(unittest.TestCase):

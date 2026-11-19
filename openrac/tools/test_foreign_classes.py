@@ -220,7 +220,7 @@ class ForeignClasses(unittest.TestCase):
             out = Path(temp) / "level_05"
             done = foreign_classes.write(out, {909: (3, b"\x01" * 0x60)})
             self.assertEqual(done, ["class 909: imported from level 03"])
-            self.assertEqual((out / "classes.tsv").read_text().splitlines()[1], "909\t3")
+            self.assertEqual((out / "classes.tsv").read_text(encoding="utf-8").splitlines()[1], "909\t3")
             self.assertEqual((out / "classes" / "909.bin").read_bytes(), b"\x01" * 0x60)
             foreign_classes.write(out, {})
             self.assertFalse((out / "classes.tsv").exists())

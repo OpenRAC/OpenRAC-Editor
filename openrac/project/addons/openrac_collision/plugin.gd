@@ -94,7 +94,7 @@ const OVERLAY_NAME: String = "OpenRACCollisionOverlay"
 ## The most lines a report shows.
 const REPORT_LINES: int = 12
 
-## Must match editor/static_assets.py and port/scene/level.cpp.
+## Must match openrac/tools/static_assets.py and port/scene/level.cpp.
 const MAX_RENDERED_INSTANCES: int = 2147483647
 
 # =============================================================================
@@ -171,7 +171,7 @@ func handle_static_model_selected(path: String) -> void:
 		return
 	var packed_scene := ResourceLoader.load(path) as PackedScene
 	if packed_scene == null:
-		dock.show_report("Godot could not import this glTF model as a scene.")
+		dock.show_report("The editor could not import this glTF model as a scene.")
 		return
 	var instance := packed_scene.instantiate()
 	if not instance is Node3D:
@@ -199,7 +199,7 @@ func handle_static_model_selected(path: String) -> void:
 		suffix += 1
 	instance.name = node_name
 	var undo_redo := get_undo_redo()
-	var action := "Add spinning glTF prop to map" if animated_model_pick else "Add static glTF model to map"
+	var action := "Add a spinning glTF prop to the level" if animated_model_pick else "Add a static glTF model to the level"
 	undo_redo.create_action(action, UndoRedo.MERGE_DISABLE, scene_root)
 	if make_group:
 		undo_redo.add_do_method(game, "add_child", group)
@@ -912,7 +912,7 @@ func _forward_3d_force_draw_over_viewport(viewport_control: Control) -> void:
 	if is_dragging:
 		var rect := Rect2(drag_from, drag_to - drag_from).abs()
 		viewport_control.draw_rect(rect, Color(DRAG_COLOUR, 0.15), true)
-		viewport_control.draw_rect(rect, DRAG_COLOUR, false, 1.0)
+		viewport_control.draw_rect(rect, DRAG_COLOUR, false, maxf(roundf(EditorInterface.get_editor_scale()), 1.0))
 
 
 func _exit_tree() -> void:

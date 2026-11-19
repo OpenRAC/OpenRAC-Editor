@@ -527,7 +527,7 @@ Array EditorMCPServer::_tool_list() const {
 	tools.push_back(_tool("screenshot", "Take a PNG picture of a 3D viewport or the whole editor window.", p, {}, true));
 
 	p = Dictionary();
-	p["expression"] = _prop("string", "A Godot Expression, e.g. get_child_count() or Vector3(1, 2, 3).length().");
+	p["expression"] = _prop("string", "An engine Expression, e.g. get_child_count() or Vector3(1, 2, 3).length()."); // OpenRAC Editor: its own name.
 	p["path"] = _prop("string", "Node the expression runs on (default: the scene root).");
 	tools.push_back(_tool("eval", "Evaluate an expression on a node and return the value.", p, { "expression" }, false));
 

@@ -1333,7 +1333,7 @@ PackedByteArray GLTFAccessor::encode_floats_as_bytes(const PackedFloat64Array &p
 				*(uint64_t *)&ret_write[ret_byte_offset] = filtered_numbers[i];
 			} break;
 			default: {
-				ERR_FAIL_V_MSG(ret, "glTF export: Godot does not support writing glTF accessor components of type '" + itos(component_type) + "'.");
+				ERR_FAIL_V_MSG(ret, "glTF export: OpenRAC Editor does not support writing glTF accessor components of type '" + itos(component_type) + "'."); // OpenRAC Editor: its own name.
 			} break;
 		}
 		ret_byte_offset += bytes_per_component;
@@ -1401,7 +1401,7 @@ PackedByteArray GLTFAccessor::encode_ints_as_bytes(const PackedInt64Array &p_inp
 				*(uint64_t *)&ret_write[ret_byte_offset] = p_input_numbers[i];
 			} break;
 			default: {
-				ERR_FAIL_V_MSG(ret, "glTF export: Godot does not support writing glTF accessor components of type '" + itos(component_type) + "'.");
+				ERR_FAIL_V_MSG(ret, "glTF export: OpenRAC Editor does not support writing glTF accessor components of type '" + itos(component_type) + "'."); // OpenRAC Editor: its own name.
 			} break;
 		}
 		ret_byte_offset += bytes_per_component;

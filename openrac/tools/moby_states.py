@@ -8,7 +8,7 @@ on each level of the Godot project PROJECT (one project, or a folder of per-leve
 loads the level, runs the mobys' updates for a few ticks and writes each placed moby's state. The
 result goes to levels/level_NN/moby_states.json beside level.json, where rc1/moby.gd reads it.
 
-Packing a level (extract.py pack --states FILE --data DIR --levels DIR) works its mobys out again
+Packing a level (openrac_editor.py pack --states FILE --data DIR --levels DIR) works its mobys out again
 from the packed level (after_pack): the packed table's order differs from the disc's once mobys
 are added or deleted, so each entry also names its moby's node.
 """

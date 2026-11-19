@@ -48,7 +48,7 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 	if icon != null:
 		var picture := TextureRect.new()
 		picture.texture = icon
-		picture.custom_minimum_size = Vector2(64, 64)
+		picture.custom_minimum_size = Vector2.ONE * 64.0 * EditorInterface.get_editor_scale()
 		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		preview.add_child(picture)
@@ -63,3 +63,15 @@ func _get_drag_data(at_position: Vector2) -> Variant:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_DRAG_END and dock != null and dock.plugin != null:
 		dock.plugin.stop_turning_drops()
+	elif what == NOTIFICATION_THEME_CHANGED:
+		fit_one_row()
+
+
+## Room for one whole row of assets, however small the dock: a cut-off row is hard to pick. Worked
+## out from the list's own theme each time it changes: the dock's theme comes before the editor's
+## reaches the list, and its sizes are not the editor's at its display scale.
+func fit_one_row() -> void:
+	var font: Font = get_theme_font("font")
+	var line: float = font.get_height(get_theme_font_size("font_size")) + get_theme_constant("line_separation")
+	custom_minimum_size.y = ceilf(fixed_icon_size.y + get_theme_constant("icon_margin") + max_text_lines * line
+		+ get_theme_constant("v_separation") + get_theme_stylebox("panel").get_minimum_size().y)

@@ -1,6 +1,6 @@
 """The Assets dock's library (addons/openrac_library/library.gd) on hand-built level projects of
 two games and two discs: it finds them, tells what a placed asset does in the edited level, and
-brings another level's skinned moby in as a still model that editor/static_assets.py packs. Runs
+brings another level's skinned moby in as a still model that openrac/tools/static_assets.py packs. Runs
 the library headless in Godot, so only when told where Godot is (no disc needed):
 
     OPENRAC_GODOT=/path/to/godot python3 -m unittest test_library_dock
@@ -107,11 +107,11 @@ class LibraryOnProjects(unittest.TestCase):
     def test_finds_tells_and_brings_in(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp) / "levels"
-            here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (NTSC-U)",
+            here = level_project(root, "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (USA)",
                                  {10: ("vendor", 0.25)}, [1000])
-            level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (PAL)",
+            level_project(root, "rac1", "pal", 3, "Ratchet & Clank: Kerwan (Europe)",
                           {10: ("vendor", 0.25), 75: ("red_ship", 0.5)}, [1000, 682])
-            level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (NTSC-U)",
+            level_project(root, "rac3", "ntsc", 1, "Ratchet & Clank: Up Your Arsenal: Veldin (USA)",
                           {10: ("something", 1.0)}, [])
             (root / "rac1" / "ntsc-backups" / "old").mkdir(parents=True)
             out = Path(temp) / "result.json"
@@ -119,7 +119,7 @@ class LibraryOnProjects(unittest.TestCase):
                                   str(HERE / "test_library_dock.gd"), "--", str(out)],
                                  capture_output=True, text=True, timeout=300)
             self.assertTrue(out.is_file(), run.stdout + run.stderr)
-            result = json.loads(out.read_text())
+            result = json.loads(out.read_text(encoding="utf-8"))
 
             self.assertEqual(result["place"], {"game": "rac1", "disc": "ntsc"})
             self.assertEqual(sorted(result["levels"]), ["rac1 ntsc 5 Rilgar", "rac1 pal 3 Kerwan",
@@ -140,7 +140,7 @@ class LibraryOnProjects(unittest.TestCase):
             document = static_assets.read_model(copy, here)
             static_assets.validate(document)
             self.assertEqual(sum(len(order) // 3 for _, order, _ in static_assets.triangles(document, gltf_read.trs())), 1)
-            self.assertEqual(json.loads(copy.with_suffix(".source.json").read_text())["class"], 75)
+            self.assertEqual(json.loads(copy.with_suffix(".source.json").read_text(encoding="utf-8"))["class"], 75)
             # Its indices stay whole numbers (Godot reads every JSON number as a float).
             self.assertIsInstance(document.doc["accessors"][0]["count"], int)
 

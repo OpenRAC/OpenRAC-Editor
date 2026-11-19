@@ -263,7 +263,7 @@ class SceneTest(unittest.TestCase):
 
     def test_scene_has_the_contract(self):
         _project, _level_dir, _level, path = self.export(crate_bytes())
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         self.assertIn('[node name="Collision" type="Node3D" parent="."]', text)
         self.assertIn("visible = false", text)
         self.assertIn('[node name="Mesh_7f" parent="Collision"', text)
@@ -280,7 +280,7 @@ class SceneTest(unittest.TestCase):
 
     def test_primitives_read_back(self):
         project, level_dir, level, path = self.export(creature_bytes(), 6)
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         disc = mc.parse(creature_bytes())
         positions = mcs.joint_positions(level.core, 0x40)
         self.assertEqual([round(c) for c in positions[3]], [300, 0, 0])
@@ -304,7 +304,7 @@ class SceneTest(unittest.TestCase):
 
     def test_delete_and_add(self):
         project, level_dir, level, path = self.export(creature_bytes(), 6)
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         disc = mc.parse(creature_bytes())
         positions = mcs.joint_positions(level.core, 0x40)
         gone = re.sub(r'\[node name="Capsule_03"[^\[]*', "", text)
@@ -328,7 +328,7 @@ class SceneTest(unittest.TestCase):
         project, _level_dir, level, path = self.export(creature_bytes(), 6)
         positions = mcs.joint_positions(level.core, 0x40)
         tilted = re.sub(r'(\[node name="Cylinder_02"[^\n]*\]\ntransform = Transform3D\()[^)]*\)',
-                        r"\g<1>1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)", path.read_text())
+                        r"\g<1>1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0)", path.read_text(encoding="utf-8"))
         edited, blob, problems = mcs.scene_blob(project, tilted, mc.parse(creature_bytes()), positions)
         self.assertFalse(edited)
         self.assertIn("upright", problems[0])
@@ -336,7 +336,7 @@ class SceneTest(unittest.TestCase):
     def test_triangles_edit(self):
         project, level_dir, level, path = self.export(crate_bytes())
         # Scale the crate's mesh node by two: every corner moves out.
-        text = path.read_text().replace('metadata/rc1_collision_kind = "mesh"',
+        text = path.read_text(encoding="utf-8").replace('metadata/rc1_collision_kind = "mesh"',
                                         'transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)\n'
                                         'metadata/rc1_collision_kind = "mesh"')
         path.write_text(text)
@@ -355,7 +355,7 @@ class SceneTest(unittest.TestCase):
         project, level_dir, level, path = self.export(crate_bytes())
         blob = mc.generate(cube(0.5), "mesh", 0x08, 0.5)
         mcs.replace_in_scene(path, blob)
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         self.assertEqual(len(re.findall(r'parent="Collision"', text)), 1)
         self.assertNotIn("moby_500_7f.glb", text)
         edits, _changes, problems = mcs.pack_classes(level, project, level_dir)
@@ -383,7 +383,7 @@ class SceneTest(unittest.TestCase):
             self.assertEqual(mc.main(["generate", str(model), "--out", str(out), "--axes", "game"]), 0)
             self.assertEqual(mc.main(["generate", str(model), "--scene", str(path), "--mode", "cylinder"]), 0)
         self.assertEqual(len(mc.parse(out.read_bytes()).faces), 12)
-        self.assertIn("Cylinder_00", path.read_text())
+        self.assertIn("Cylinder_00", path.read_text(encoding="utf-8"))
 
 
 class CoreTest(unittest.TestCase):

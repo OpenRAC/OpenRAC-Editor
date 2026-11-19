@@ -1,7 +1,7 @@
 """Export a creator's Godot world as an added ship destination or a standalone map.
 
-Pack the edited project with extract.py first, then:
-  python editor/map_mod.py --destination --packed PACKED --project PROJECT --template-level 2 \
+Pack the edited project with openrac_editor.py pack first, then:
+  python3 openrac/tools/map_mod.py --destination --packed PACKED --project PROJECT --template-level 2 \
       --name "My world" --map-id "author.my-world" --out build/my-world
 Arrival defaults to Ratchet's placement. Omit --destination for a standalone map.
 Add the resulting folder (or a zip of its contents) in the launcher's Mods tab.
@@ -26,13 +26,15 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
         raise overrides.PackError(f"{out} already exists; choose a new export folder")
     note = overrides.read_json(packed / overrides.PACKED)
     if note.get("game", "rac1") != "rac1" or note.get("version") not in ("pal", "ntsc"):
-        raise overrides.PackError("Pack this project's Ratchet & Clank level first (extract.py pack)")
+        raise overrides.PackError("Pack this project's Ratchet & Clank level first (openrac_editor.py pack)")
     manifest = {"format": overrides.DESTINATION_PACK_FORMAT if destination else overrides.MAP_PACK_FORMAT,
                 "game": "rac1", "version": note["version"], "name": name,
                 "map": {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies,
                         "skip_cutscenes": skip_cutscenes}}
     prefix = f"level_{level:02}"
-    level_dir = next((p for p in (project / "levels" / prefix, project / prefix, project)
+    # The level's project, the folder of every level's project (--split), or the level folder itself.
+    level_dir = next((p for p in (project / "levels" / prefix, project / prefix / "levels" / prefix,
+                                  project / prefix, project)
                       if (p / "terrain.glb").is_file()), None)
     if level_dir is None:
         raise overrides.PackError(f"{project} has no {prefix}/terrain.glb")

@@ -17,9 +17,10 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"details", "add_full", "add_look", "own_logic_after_pick", "class_logic", "drag_to_view", "drag_to_scene_dock",
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
-	"layout", "looks", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
+	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
 
-## The dock's narrowest sensible width: a dock column a person has not widened.
+## The dock's narrowest sensible width at 100%: a dock column a person has not widened (narrow()
+## gives it at the editor's display scale).
 const NARROW: float = 280.0
 
 ## test_editor_e2e.py's STRESS_MOBYS: each of its many levels has the same classes.
@@ -28,6 +29,9 @@ const STRESS_MOBYS: int = 40
 var dock: Control
 var plugin: EditorPlugin
 var checks: Array = []
+## ui_sizes()'s measures of every control the editor's own docks and Inspector sections make, by
+## where it is: test_editor_e2e.py compares two runs at different display scales.
+var sizes: Dictionary = {}
 var times: Dictionary = {}
 var scenario: String = ""
 var out_path: String = ""
@@ -67,7 +71,7 @@ func run() -> void:
 
 	if dock != null:
 		# Room for the whole dock: a headless editor's window is small.
-		get_tree().root.size = Vector2i(1280, 960)
+		get_tree().root.size = Vector2i(Vector2(1280, 960) * EditorInterface.get_editor_scale())
 		show_dock()
 		await frames(2)
 
@@ -89,9 +93,15 @@ func finish() -> void:
 	finished = true
 	var file := FileAccess.open(out_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"checks": checks, "times": times, "total_ms": Time.get_ticks_msec() - started,
-		"stopped_in": scenario if not times.has(scenario) else "", "editor_start_ms": started}))
+		"stopped_in": scenario if not times.has(scenario) else "", "editor_start_ms": started, "sizes": sizes,
+		"editor_scale": EditorInterface.get_editor_scale()}))
 	file.close()
 	get_tree().quit()
+
+
+## NARROW at the editor's display scale.
+static func narrow() -> float:
+	return NARROW * EditorInterface.get_editor_scale()
 
 
 func check(name: String, ok: bool, detail: Variant = "") -> void:
@@ -447,6 +457,25 @@ func planet_and_tree() -> void:
 			level_item = item
 		item = item.get_next_in_tree()
 
+	# The tree names games and discs as players do, not by their folders (rac1, ntsc).
+	var disc_item: TreeItem = level_item.get_parent().get_parent()
+	check("the tree names the game and the disc",
+		disc_item.get_text(0) == "USA" and disc_item.get_parent().get_text(0) == "Ratchet & Clank",
+		[disc_item.get_parent().get_text(0), disc_item.get_text(0)])
+	var labels: PackedStringArray = []
+	item = dock.tree.get_root().get_first_child()
+
+	while item != null:
+		labels.append(item.get_text(0))
+		for disc in item.get_children():
+			labels.append("  " + disc.get_text(0))
+		item = item.get_next()
+	check("every game and disc has a name", not labels.has("rac1") and not labels.has("rac3") and not labels.has("  ntsc")
+		and not labels.has("  pal") and labels.has("Ratchet & Clank: Up Your Arsenal") and labels.has("  Europe"), labels)
+	check("the details say where an asset comes from",
+		Library.origin({"game": "rac1", "disc": "pal1", "level": 3, "level_name": "Kerwan"}) == "Ratchet & Clank (Europe v1.00), level 03 (Kerwan)"
+		and Library.origin({"game": "rac9", "disc": "xx", "level": 0, "level_name": ""}) == "rac9 (XX), level 00",
+		Library.origin({"game": "rac1", "disc": "pal1", "level": 3, "level_name": "Kerwan"}))
 	level_item.get_parent().get_parent().collapsed = false
 	level_item.get_parent().collapsed = false
 	level_item.select(0)
@@ -715,7 +744,7 @@ func previews() -> void:
 	var plain: Dictionary = flat.duplicate()
 	plain["class"] = 75
 	check("a named front gets its own cached picture", dock.cache_path(flat) != dock.cache_path(plain))
-	check("the waiting picture is sharp at the list's size", dock.placeholder != null and dock.placeholder.get_width() == 80)
+	check("the waiting picture is sharp at the list's size", dock.placeholder != null and dock.placeholder.get_width() == dock.list.fixed_icon_size.x)
 
 
 func class_menu_names() -> void:
@@ -983,14 +1012,14 @@ func layout() -> void:
 		dock.planet.select(i)
 		dock.planet.item_selected.emit(i)
 		await frame()
-		if dock.get_combined_minimum_size().x > NARROW:
+		if dock.get_combined_minimum_size().x > narrow():
 			wide.append([dock.planet.get_item_text(i), dock.get_combined_minimum_size().x])
 
 	for i in range(dock.filter.item_count):
 		dock.filter.select(i)
 		dock.filter.item_selected.emit(i)
 		await frame()
-		if dock.get_combined_minimum_size().x > NARROW:
+		if dock.get_combined_minimum_size().x > narrow():
 			wide.append([dock.filter.get_item_text(i), dock.get_combined_minimum_size().x])
 
 	dock.filter.select(dock.filter.get_item_index(Dock.SHOW_ALL))
@@ -1004,10 +1033,10 @@ func layout() -> void:
 
 	await pick(longest)
 	await frames(2)
-	check("a long name's details fit a narrow dock", dock.get_combined_minimum_size().x <= NARROW, [longest, dock.get_combined_minimum_size().x])
+	check("a long name's details fit a narrow dock", dock.get_combined_minimum_size().x <= narrow(), [longest, dock.get_combined_minimum_size().x])
 	dock.report.text = "Could not bring this asset in: its model failed to import. Pick it again after the import ends."
 	await frame()
-	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= NARROW, dock.get_combined_minimum_size().x)
+	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= narrow(), dock.get_combined_minimum_size().x)
 	var hidden: Array = []
 
 	for button in [dock.add_button, dock.own_button, dock.as_button]:
@@ -1035,6 +1064,110 @@ func layout() -> void:
 
 ## The dock as drawn (only when the editor draws, under a display): something is on screen in each
 ## state, and each picture is saved for a person to look at when OPENRAC_E2E_SHOTS names a folder.
+## Every control of the OpenRAC docks and Inspector sections, measured: its minimum size, fixed
+## icon and column sizes, overridden gaps and margins, and the font size it draws with. Nothing is
+## smaller than the editor's text, and test_editor_e2e.py checks every number grows with the display
+## scale (a size typed in pixels does not, and is tiny on a 4K screen).
+func ui_sizes() -> void:
+	reset_dock()
+	await frames(2)
+	var roots: Dictionary = {"assets": dock}
+
+	for node in EditorInterface.get_base_control().find_children("*", "", true, false):
+		var script: Script = node.get_script()
+
+		if script != null and String(script.resource_path).ends_with("openrac_collision/dock.gd"):
+			roots["collision"] = node
+		elif node.get_class() == "CutsceneTimeline":
+			roots["cutscene"] = node
+
+	check("the Collision and Cutscene docks are there", roots.has("collision") and roots.has("cutscene"), roots.keys())
+	# The Inspector's sections, for a moby with a behaviour and one with its own logic.
+	var moby := Node3D.new()
+	moby.set_meta("rc1_behaviour", "patrol")
+	moby.set_meta("rc1_foreign_level", 3)
+	roots["behaviour"] = plugin.behaviour_inspector.section(moby)
+	roots["foreign"] = plugin.foreign_inspector.section(moby)
+
+	for name in ["behaviour", "foreign"]:
+		dock.add_child(roots[name])
+
+	await frames(2)
+	var text_size: int = EditorInterface.get_base_control().get_theme_font_size("main_size", "EditorFonts")
+	var small: Array = []
+
+	for name in roots:
+		var measured: Dictionary = {}
+
+		for control in [roots[name]] + roots[name].find_children("*", "Control", true, false):
+			var entry: Dictionary = measure(control)
+			measured[place(roots[name], control)] = entry
+
+			if entry.has("font") and control.is_visible_in_tree() and entry["font"] < text_size * 0.8:
+				small.append([name, place(roots[name], control), entry["font"], text_size])
+
+		sizes[name] = measured
+
+	check("no text is much smaller than the editor's", small.is_empty(), small)
+
+	for name in ["behaviour", "foreign"]:
+		roots[name].queue_free()
+
+	moby.free()
+	await frame()
+
+
+## Where NODE is under ROOT, the same in every run: each step its class and place among its
+## siblings (generated node names carry a number that changes from run to run).
+static func place(root: Node, node: Node) -> String:
+	var steps: PackedStringArray = []
+
+	while node != root and node != null:
+		steps.insert(0, "%s%d" % [node.get_class(), node.get_index(true)])
+		node = node.get_parent()
+
+	return "/".join(steps)
+
+
+## The level's name as a new planet is in Project Settings, OpenRAC > Planet, shown without
+## Advanced Settings (planet.py reads them from project.godot).
+func planet_settings() -> void:
+	for key in ["openrac/planet/name", "openrac/planet/id"]:
+		check("%s is a project setting" % key, ProjectSettings.has_setting(key))
+		check("%s starts empty" % key, String(ProjectSettings.get_setting(key, "x")).is_empty())
+
+
+## CONTROL's sizes that should follow the editor's scale.
+static func measure(control: Control) -> Dictionary:
+	var entry: Dictionary = {"min_x": control.custom_minimum_size.x, "min_y": control.custom_minimum_size.y}
+
+	if control is ItemList:
+		entry["icon"] = control.fixed_icon_size.x
+		entry["column"] = control.fixed_column_width
+
+	if control is Label or control is Button or control is LineEdit:
+		entry["font"] = control.get_theme_font_size("font_size")
+	elif control is RichTextLabel:
+		entry["font"] = control.get_theme_font_size("normal_font_size")
+
+	for constant in ["separation", "h_separation", "v_separation"]:
+		if control.has_theme_constant_override(constant):
+			entry["constant_" + constant] = control.get_theme_constant(constant)
+
+	if control.has_theme_stylebox_override("panel"):
+		var style: StyleBox = control.get_theme_stylebox("panel")
+		entry["margin_left"] = style.content_margin_left
+		entry["margin_top"] = style.content_margin_top
+
+		if style is StyleBoxFlat:
+			entry["border_left"] = style.border_width_left
+
+	if control.get_class() == "CutsceneTimelineView":
+		entry["timeline_min_x"] = control.get_minimum_size().x
+
+	return entry
+
+
 func looks() -> void:
 	if DisplayServer.get_name() == "headless":
 		return

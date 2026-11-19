@@ -24,7 +24,7 @@ class GodotWriter(unittest.TestCase):
             writer.finish()
             self.assertTrue((writer.dir / "level_03.tscn").is_file())
             self.assertTrue((writer.dir / "level.json").is_file())
-            self.assertIn("Tie_0000", (writer.dir / "level_03.tscn").read_text())
+            self.assertIn("Tie_0000", (writer.dir / "level_03.tscn").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

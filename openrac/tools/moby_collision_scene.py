@@ -185,7 +185,7 @@ def add_class_collision_nodes(scene, blob: mc.Blob | None, joints: list, class_s
     from godot import transform
     description = ("The class's collision, as every moby of this class in this level has it (moby_collision.py). "
                    "Move, resize, delete or add spheres, cylinders and capsules here, or edit a Mesh_XX glTF; "
-                   "extract.py pack writes it back.")
+                   "openrac_editor.py pack writes it back.")
     s = class_scale
     scene.node("Collision", ".", "Node3D", visible=False, editor_description=description,
                transform=transform([s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0, 0, 0, 0, 1]),
@@ -456,7 +456,7 @@ def replace_in_scene(path: Path, blob: mc.Blob) -> None:
     class_id, level_dir = int(found.group(1)), path.parent.parent
     project = next((p for p in path.parents if (p / "project.godot").is_file()), None)
     if project is None:
-        raise FormatError(f"{path}: not inside a Godot project")
+        raise FormatError(f"{path}: not inside an OpenRAC Editor project")
     blocks = [b for b in re.split(r"\n+(?=\[)", text.strip("\n"))]
     blocks = [b for b in blocks if not (b.startswith("[node ") and 'parent="Collision"' in b.splitlines()[0])]
     while True:  # resources no remaining block refers to

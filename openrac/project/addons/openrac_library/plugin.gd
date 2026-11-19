@@ -4,7 +4,7 @@ extends EditorPlugin
 ## only. library.gd finds the assets and brings them into the project; this file puts them where
 ## the packer reads them:
 ## - a class this level has goes under Game/Mobys, Game/Ties or Game/Shrubs, as the game's own;
-## - anything else goes under Game/StaticAssets as static scenery (editor/static_assets.py),
+## - anything else goes under Game/StaticAssets as static scenery (openrac/tools/static_assets.py),
 ##   with the class scale its own scene gives it and collision on for mobys and ties.
 ## Godot's own drop (from the dock into the 3D view or the Scene dock) may put the node anywhere:
 ## it is moved to its group right after, keeping where it was dropped.
@@ -19,7 +19,7 @@ const ForeignInspector = preload("foreign_inspector.gd")
 ## The groups under Game, by kind, for an asset the level has.
 const GROUPS: Dictionary = {"mobys": "Mobys", "ties": "Ties", "shrubs": "Shrubs"}
 
-## Static scenery (editor/static_assets.py GROUP).
+## Static scenery (openrac/tools/static_assets.py GROUP).
 const STATIC_GROUP: String = "StaticAssets"
 
 ## How far in front of the 3D view's camera Add places an asset, in the game's units.
@@ -59,6 +59,21 @@ func _enter_tree() -> void:
 	scene_changed.connect(handle_scene_changed)
 	get_tree().node_added.connect(handle_node_added)
 	handle_scene_changed(EditorInterface.get_edited_scene_root())
+	add_planet_settings()
+
+
+## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
+## name in the ship's menu, and its id, which the first add sets so later ones update the same
+## planet. In Project Settings, OpenRAC > Planet.
+static func add_planet_settings() -> void:
+	for entry in [["openrac/planet/name", "The name in the ship's menu (one line, at most 40 characters)"],
+			["openrac/planet/id", "Set when the planet is first added: the next add updates the same planet"]]:
+		if not ProjectSettings.has_setting(entry[0]):
+			ProjectSettings.set_setting(entry[0], "")
+		ProjectSettings.set_initial_value(entry[0], "")
+		ProjectSettings.set_as_basic(entry[0], true)
+		ProjectSettings.add_property_info({"name": entry[0], "type": TYPE_STRING, "hint": PROPERTY_HINT_PLACEHOLDER_TEXT,
+			"hint_string": entry[1]})
 
 
 func _exit_tree() -> void:
@@ -285,7 +300,7 @@ func add_in_view(asset: Dictionary) -> void:
 	var scene := ResourceLoader.load(path) as PackedScene
 
 	if scene == null:
-		dock.show_report("Godot could not load %s." % path, true)
+		dock.show_report("The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
@@ -349,7 +364,7 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	var host_scene := ResourceLoader.load(host_path) as PackedScene
 
 	if host_scene == null:
-		dock.show_report("Godot could not load %s." % host_path, true)
+		dock.show_report("The editor could not load %s." % host_path, true)
 		return
 
 	var host: Dictionary = {"name": "Class %d" % host_class, "scale": 1.0}
@@ -434,7 +449,7 @@ func add_foreign(asset: Dictionary) -> void:
 	var scene := ResourceLoader.load(path) as PackedScene if not path.is_empty() else null
 
 	if scene == null:
-		dock.show_report(" ".join(error) if not error.is_empty() else "Godot could not load %s." % path, true)
+		dock.show_report(" ".join(error) if not error.is_empty() else "The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
