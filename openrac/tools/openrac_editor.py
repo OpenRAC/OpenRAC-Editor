@@ -6,6 +6,7 @@ for the game. They read the disc with OpenRAC's extractor (openrac_root.py finds
   openrac_editor.py pack ISO PROJECT OUT             the edited levels, packed for the game
   openrac_editor.py open EDITOR --path PROJECT ...   the editor on a project, its files brought up to date
   openrac_editor.py planet ISO PROJECT OVERRIDES      one level's project packed and added as a new planet
+                                                     (ISO "remembered": the disc the projects came from)
   openrac_editor.py check LEVEL_PROJECT              what of the edits cannot be packed (the disc it was read from)
   openrac_editor.py play LEVEL_PROJECT --packed ...  packed, then the game started on that level
 
@@ -402,6 +403,9 @@ def check_or_play(args) -> int:
     if args.command == "check":
         print("Every edit packs.")
         return 0
+    if getattr(args, "no_start", False):
+        print(f"Packed into {result['dest']}.")
+        return 0
     game = args.game.resolve()
     if not game.is_file() and game.with_suffix(".exe").is_file():
         game = game.with_suffix(".exe")
@@ -451,7 +455,7 @@ def main() -> None:
     packing.add_argument("--data", type=Path, help="the port's game data, for --states")
     packing.add_argument("--levels", type=Path, help="the port's levels, for --states")
     adding = commands.add_parser("planet", help="pack one level's project and add it as a new planet (planet.py)")
-    adding.add_argument("iso", type=Path)
+    adding.add_argument("iso", type=Path, help="the disc, or \"remembered\": the one the projects were read from")
     adding.add_argument("project", type=Path, help="one level's project (a project per level)")
     adding.add_argument("overrides", type=Path, help="the launcher's packs folder (<data>/overrides) to add it to")
     adding.add_argument("--anywhere", action="store_true", help="accepted for the launcher; the planet goes to OVERRIDES")
@@ -462,10 +466,19 @@ def main() -> None:
         sub.add_argument("project", type=Path, help="one level's project (a project per level)")
         if name == "play":
             sub.add_argument("--packed", type=Path, required=True, help="the packed levels folder (written again)")
-            sub.add_argument("--game", type=Path, required=True, help="the game program (openrac-rac1-<version>)")
-            sub.add_argument("--data", type=Path, required=True, help="the port's game data")
-            sub.add_argument("--levels", type=Path, required=True, help="the port's levels")
+            sub.add_argument("--game", type=Path, help="the game program (openrac-rac1-<version>)")
+            sub.add_argument("--data", type=Path, help="the port's game data")
+            sub.add_argument("--levels", type=Path, help="the port's levels")
+            sub.add_argument("--no-start", action="store_true", help="pack only: the game is not started")
     args = parser.parse_args()
+    if args.command == "play" and not args.no_start and None in (args.game, args.data, args.levels):
+        parser.error("play needs --game, --data and --levels (or --no-start)")
+    if args.command == "planet" and str(args.iso) == "remembered":
+        try:
+            args.iso = remembered_disc(args.project.resolve())
+        except FormatError as exc:
+            errors.say(exc)
+            parser.exit(1, f"openrac_editor: {exc}\n")
     if args.command in ("check", "play"):
         try:
             sys.exit(check_or_play(args))

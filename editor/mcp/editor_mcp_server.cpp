@@ -38,7 +38,12 @@ static Array _make(std::initializer_list<Variant> p_values) {
 	return a;
 }
 
+EditorMCPServer *EditorMCPServer::singleton = nullptr;
+
 static const int LOG_KEEP = 2000;
+static const int JOB_LINES_KEEP = 400;
+static const int JOBS_KEEP = 50;
+static const uint64_t WAIT_MAX_MSEC = 120000;
 static const int MAX_REQUEST_BYTES = 64 * 1024 * 1024;
 static const uint64_t CONNECTION_TIMEOUT_MSEC = 30000;
 
@@ -50,7 +55,10 @@ static const char *SERVER_INSTRUCTIONS =
 		"{\"basis\": [[x], [y], [z]], \"origin\": [x, y, z]}, resources as {\"resource\": \"res://...\"}, "
 		"nodes as {\"node\": \"path\"}. Every change made with node_set, node_create, node_delete, "
 		"node_reparent and node_duplicate can be undone (undo, redo). Use class_info to learn what any "
-		"node can do, node_call for methods, eval and run_gdscript for anything else.";
+		"node can do, node_call for methods, eval and run_gdscript for anything else. "
+		"The level's own tools (project_info, moby_add, cutscene_*, level_check...) speak the game's terms and "
+		"coordinates; prefer them. Long work answers with a job id: follow it with job_wait. "
+		"Read openrac://guide/ai first, and the prompts for whole tasks (new_planet, cutscene_dialogue).";
 
 /* Log capture. */
 
@@ -145,6 +153,7 @@ void EditorMCPServer::_poll() {
 		return;
 	}
 	polling = true;
+	_poll_jobs();
 	while (server->is_connection_available()) {
 		Connection c;
 		c.peer = server->take_connection();
@@ -199,6 +208,29 @@ bool EditorMCPServer::_handle_connection(Connection &p_conn) {
 		return false;
 	}
 
+	if (!p_conn.wait_job.is_empty()) {
+		// OpenRAC Editor: a job_wait, answered once its job ends or its time is up.
+		if (job_running(p_conn.wait_job) && OS::get_singleton()->get_ticks_msec() < p_conn.wait_until_msec) {
+			return true;
+		}
+		Dictionary args;
+		args["id"] = p_conn.wait_job;
+		Dictionary res;
+		res["jsonrpc"] = "2.0";
+		res["id"] = p_conn.wait_rpc_id;
+		res["result"] = _tool_job_status(args);
+		p_conn.wait_job = String();
+		CharString payload = JSON::stringify(res, "", false).utf8();
+		String header = vformat("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: %d\r\nConnection: close\r\nCache-Control: no-store\r\n\r\n", payload.length());
+		CharString header_utf8 = header.utf8();
+		p_conn.out.resize(header_utf8.length() + payload.length());
+		memcpy(p_conn.out.ptrw(), header_utf8.get_data(), header_utf8.length());
+		memcpy(p_conn.out.ptrw() + header_utf8.length(), payload.get_data(), payload.length());
+		p_conn.responded = true;
+		p_conn.out_pos = 0;
+		return _handle_connection(p_conn);
+	}
+
 	if (OS::get_singleton()->get_ticks_msec() - p_conn.started_msec > CONNECTION_TIMEOUT_MSEC) {
 		return false;
 	}
@@ -246,7 +278,16 @@ bool EditorMCPServer::_handle_connection(Connection &p_conn) {
 
 	int http_status = 200;
 	Vector<String> extra_headers;
+	deferred_job = String();
 	String response = _handle_http(request_line[0], request_line[1], headers, body, http_status, extra_headers);
+	if (!deferred_job.is_empty()) {
+		// OpenRAC Editor: job_wait on a running job: answer later (the response is the request's id).
+		p_conn.wait_job = deferred_job;
+		p_conn.wait_until_msec = deferred_until_msec;
+		p_conn.wait_rpc_id = JSON::parse_string(response);
+		deferred_job = String();
+		return true;
+	}
 
 	String reason = http_status == 200 ? "OK" : (http_status == 202 ? "Accepted" : (http_status == 401 ? "Unauthorized" : (http_status == 403 ? "Forbidden" : (http_status == 404 ? "Not Found" : (http_status == 405 ? "Method Not Allowed" : "Bad Request")))));
 	CharString payload = response.utf8();
@@ -309,6 +350,7 @@ String EditorMCPServer::_handle_http(const String &p_method, const String &p_pat
 		for (int i = 0; i < batch.size(); i++) {
 			bool notification = false;
 			Variant res = batch[i].get_type() == Variant::DICTIONARY ? _handle_rpc(batch[i], notification) : Variant(_rpc_error(Variant(), -32600, "Invalid request."));
+			deferred_job = String(); // A wait inside a JSON-RPC batch answers at once.
 			if (!notification) {
 				out.push_back(res);
 			}
@@ -325,10 +367,20 @@ String EditorMCPServer::_handle_http(const String &p_method, const String &p_pat
 		return JSON::stringify(_rpc_error(Variant(), -32700, "Parse error."));
 	}
 	bool notification = false;
+	deferred_job = String();
 	Variant res = _handle_rpc(parsed, notification);
 	if (notification) {
 		r_status = 202;
 		return String();
+	}
+	if (!deferred_job.is_empty()) {
+		// Answered later by _handle_connection; hand it the request's id.
+		Dictionary req = parsed;
+		Variant id = req.get("id", Variant());
+		if (id.get_type() == Variant::FLOAT && double(id) == Math::floor(double(id))) {
+			id = int64_t(double(id));
+		}
+		return JSON::stringify(id);
 	}
 	Dictionary req = parsed;
 	if (String(req.get("method", "")) == "initialize") {
@@ -376,6 +428,13 @@ Variant EditorMCPServer::_handle_rpc(const Dictionary &p_request, bool &r_is_not
 		tools["listChanged"] = false;
 		Dictionary caps;
 		caps["tools"] = tools;
+		Dictionary resources;
+		resources["listChanged"] = false;
+		resources["subscribe"] = false;
+		caps["resources"] = resources;
+		Dictionary prompts;
+		prompts["listChanged"] = false;
+		caps["prompts"] = prompts;
 		Dictionary server_info;
 		server_info["name"] = "openrac-editor";
 		server_info["title"] = "OpenRAC Editor";
@@ -393,9 +452,24 @@ Variant EditorMCPServer::_handle_rpc(const Dictionary &p_request, bool &r_is_not
 		Dictionary args = params.get("arguments", Dictionary());
 		result = _call_tool(name, args);
 	} else if (method == "resources/list") {
-		result["resources"] = Array();
+		result["resources"] = _resource_list();
+	} else if (method == "resources/templates/list") {
+		result["resourceTemplates"] = Array();
+	} else if (method == "resources/read") {
+		String error;
+		Dictionary contents = _resource_read(params.get("uri", ""), error);
+		if (!error.is_empty()) {
+			return _rpc_error(id, -32002, error);
+		}
+		result["contents"] = _make({ contents });
 	} else if (method == "prompts/list") {
-		result["prompts"] = Array();
+		result["prompts"] = _prompt_list();
+	} else if (method == "prompts/get") {
+		String error;
+		result = _prompt_get(params.get("name", ""), params.get("arguments", Dictionary()), error);
+		if (!error.is_empty()) {
+			return _rpc_error(id, -32602, error);
+		}
 	} else {
 		return _rpc_error(id, -32601, "Method not found: " + method);
 	}
@@ -443,6 +517,23 @@ static Dictionary _tool(const String &p_name, const String &p_description, const
 Array EditorMCPServer::_tool_list() const {
 	Array tools;
 	Dictionary p;
+
+	// OpenRAC Editor: batches and jobs.
+	p = Dictionary();
+	p["calls"] = _prop("array", "The calls, in order: [{\"name\": tool, \"arguments\": {...}}, ...].");
+	p["undo_on_error"] = _prop("boolean", "On an error, undo the steps the earlier calls made (default true).");
+	tools.push_back(_tool("batch", "Run several tool calls in one request, in order; stops at the first error. Answers each call's result.", p, { "calls" }, false));
+	p = Dictionary();
+	p["id"] = _prop("string", "The job's id (a tool that starts long work answers with it).");
+	p["from_line"] = _prop("integer", "Only progress lines from this one on (default 0).");
+	tools.push_back(_tool("job_status", "A long job's state (running, done, failed, cancelled), its progress lines and, once ended, its result. Without id: every job.", p, {}, true));
+	p = Dictionary();
+	p["id"] = _prop("string", "The job's id.");
+	p["seconds"] = _prop("number", "Wait at most this long (default 60, at most 120).");
+	tools.push_back(_tool("job_wait", "Wait until a job ends (or the time is up), then answer as job_status.", p, { "id" }, true));
+	p = Dictionary();
+	p["id"] = _prop("string", "The job's id.");
+	tools.push_back(_tool("job_cancel", "Stop a running job.", p, { "id" }, false));
 
 	tools.push_back(_tool("editor_state", "Open scenes, the edited scene, the selection, the project folder and the editor version.", Dictionary(), {}, true));
 
@@ -517,7 +608,9 @@ Array EditorMCPServer::_tool_list() const {
 	p["inherited"] = _prop("boolean", "Include inherited members (default false).");
 	tools.push_back(_tool("class_info", "Describe a class: parent classes, properties, methods with arguments, signals and constants.", p, { "class" }, true));
 
-	tools.push_back(_tool("undo", "Undo the last action in the edited scene's history.", Dictionary(), {}, false));
+	p = Dictionary();
+	p["steps"] = _prop("integer", "How many steps (default 1).");
+	tools.push_back(_tool("undo", "Undo the last action(s) in the edited scene's history.", p, {}, false));
 	tools.push_back(_tool("redo", "Redo the last undone action.", Dictionary(), {}, false));
 
 	p = Dictionary();
@@ -573,11 +666,35 @@ Array EditorMCPServer::_tool_list() const {
 	p["limit"] = _prop("integer", "At most this many (default 100).");
 	tools.push_back(_tool("level_find", "Find level objects by class, spawn id or place. Returns path, class, spawn id, group and position.", p, {}, true));
 
+	// OpenRAC Editor: the tools addons registered.
+	for (const String &name : script_tool_order) {
+		tools.push_back(script_tools[name].definition);
+	}
 	return tools;
 }
 
 Dictionary EditorMCPServer::_call_tool(const String &p_name, const Dictionary &p_args) {
-	if (p_name == "editor_state") {
+	if (script_tools.has(p_name)) {
+		// OpenRAC Editor: an addon's tool.
+		const Callable &c = script_tools[p_name].callable;
+		if (!c.is_valid()) {
+			return _error_result("The tool " + p_name + " is gone (its addon was turned off).");
+		}
+		uint64_t errors_before = log_total;
+		Variant ret = c.call(p_args);
+		if (ret.get_type() == Variant::NIL && log_total > errors_before && log_lines.size() > 0 && log_lines[log_lines.size() - 1].begins_with("SCRIPT ERROR")) {
+			return _error_result("The tool failed: " + log_lines[log_lines.size() - 1]);
+		}
+		return _script_result(ret);
+	} else if (p_name == "batch") {
+		return _tool_batch(p_args);
+	} else if (p_name == "job_status") {
+		return _tool_job_status(p_args);
+	} else if (p_name == "job_wait") {
+		return _tool_job_wait(p_args);
+	} else if (p_name == "job_cancel") {
+		return _tool_job_cancel(p_args);
+	} else if (p_name == "editor_state") {
 		return _tool_editor_state(p_args);
 	} else if (p_name == "scene_open") {
 		return _tool_scene_open(p_args);
@@ -1732,8 +1849,14 @@ Dictionary EditorMCPServer::_tool_class_info(const Dictionary &p_args) {
 
 Dictionary EditorMCPServer::_tool_undo(const Dictionary &p_args) {
 	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+	int steps = MAX(1, int(p_args.get("steps", 1)));
+	int undone = 0;
+	while (undone < steps && ur->undo()) {
+		undone++;
+	}
 	Dictionary d;
-	d["undone"] = ur->undo();
+	d["undone"] = undone > 0;
+	d["steps"] = undone;
 	return _text_result(d);
 }
 
@@ -2112,6 +2235,7 @@ void EditorMCPServer::_notification(int p_what) {
 }
 
 EditorMCPServer::EditorMCPServer() {
+	singleton = this;
 	set_name("MCPServer");
 	EDITOR_DEF("openrac/mcp/enabled", true);
 	EDITOR_DEF("openrac/mcp/port", 7420);
@@ -2132,6 +2256,471 @@ EditorMCPServer::EditorMCPServer() {
 }
 
 EditorMCPServer::~EditorMCPServer() {
+	for (KeyValue<String, Job> &E : jobs) {
+		if (E.value.pid != 0 && OS::get_singleton()->is_process_running(E.value.pid)) {
+			OS::get_singleton()->kill(E.value.pid);
+		}
+	}
+	if (singleton == this) {
+		singleton = nullptr;
+	}
 	remove_print_handler(&print_handler);
 	remove_error_handler(&error_handler);
+}
+
+/* OpenRAC Editor: tools, resources and prompts from addons. */
+
+void EditorMCPServer::register_tool(const String &p_name, const String &p_description, const Dictionary &p_input_schema, const Callable &p_callable, const Dictionary &p_annotations) {
+	ERR_FAIL_COND_MSG(p_name.is_empty() || !p_callable.is_valid(), "An MCP tool needs a name and a callable.");
+	Dictionary schema = p_input_schema.duplicate(true);
+	if (!schema.has("type")) {
+		// The properties alone, as _tool takes them.
+		Dictionary whole;
+		whole["type"] = "object";
+		whole["properties"] = schema.has("properties") ? Variant(schema["properties"]) : Variant(schema);
+		whole["required"] = Array();
+		schema = whole;
+	}
+	Dictionary annotations = p_annotations.duplicate();
+	if (!annotations.has("readOnlyHint")) {
+		annotations["readOnlyHint"] = false;
+	}
+	Dictionary t;
+	t["name"] = p_name;
+	t["description"] = p_description;
+	t["inputSchema"] = schema;
+	t["annotations"] = annotations;
+	if (!script_tools.has(p_name)) {
+		script_tool_order.push_back(p_name);
+	}
+	script_tools[p_name] = ScriptTool{ t, p_callable };
+}
+
+void EditorMCPServer::unregister_tool(const String &p_name) {
+	script_tools.erase(p_name);
+	script_tool_order.erase(p_name);
+}
+
+void EditorMCPServer::register_resource(const String &p_uri, const String &p_name, const String &p_description, const String &p_mime_type, const Variant &p_source) {
+	ERR_FAIL_COND_MSG(p_uri.is_empty(), "An MCP resource needs a URI.");
+	Dictionary d;
+	d["uri"] = p_uri;
+	d["name"] = p_name;
+	d["description"] = p_description;
+	d["mimeType"] = p_mime_type.is_empty() ? String("text/markdown") : p_mime_type;
+	if (!script_resources.has(p_uri)) {
+		script_resource_order.push_back(p_uri);
+	}
+	script_resources[p_uri] = ScriptResource{ d, p_source };
+}
+
+void EditorMCPServer::unregister_resource(const String &p_uri) {
+	script_resources.erase(p_uri);
+	script_resource_order.erase(p_uri);
+}
+
+void EditorMCPServer::register_prompt(const String &p_name, const String &p_description, const Array &p_arguments, const Callable &p_callable) {
+	ERR_FAIL_COND_MSG(p_name.is_empty() || !p_callable.is_valid(), "An MCP prompt needs a name and a callable.");
+	Dictionary d;
+	d["name"] = p_name;
+	d["description"] = p_description;
+	d["arguments"] = p_arguments;
+	if (!script_prompts.has(p_name)) {
+		script_prompt_order.push_back(p_name);
+	}
+	script_prompts[p_name] = ScriptPrompt{ d, p_callable };
+}
+
+void EditorMCPServer::unregister_prompt(const String &p_name) {
+	script_prompts.erase(p_name);
+	script_prompt_order.erase(p_name);
+}
+
+Dictionary EditorMCPServer::_script_result(const Variant &p_value) const {
+	if (p_value.get_type() == Variant::DICTIONARY) {
+		Dictionary d = p_value;
+		if (d.has("content") && d["content"].get_type() == Variant::ARRAY) {
+			// Already MCP content (pictures).
+			if (!d.has("isError")) {
+				d["isError"] = false;
+			}
+			return d;
+		}
+		if (d.size() == 1 && d.has("error")) {
+			return _error_result(String(d["error"]));
+		}
+		if (d.has("error") && d.get("ok", true) == Variant(false)) {
+			return _text_result(_to_json(d), true);
+		}
+	}
+	if (p_value.get_type() == Variant::NIL) {
+		return _text_result("Done.");
+	}
+	return _text_result(_to_json(p_value));
+}
+
+Array EditorMCPServer::_resource_list() const {
+	Array out;
+	for (const String &uri : script_resource_order) {
+		out.push_back(script_resources[uri].definition);
+	}
+	return out;
+}
+
+Dictionary EditorMCPServer::_resource_read(const String &p_uri, String &r_error) const {
+	if (!script_resources.has(p_uri)) {
+		r_error = "No resource " + p_uri + " (resources/list lists them).";
+		return Dictionary();
+	}
+	const ScriptResource &r = script_resources[p_uri];
+	String text;
+	if (r.source.get_type() == Variant::CALLABLE) {
+		Callable c = r.source;
+		Variant v = c.is_valid() ? c.call() : Variant();
+		text = v.get_type() == Variant::STRING ? String(v) : JSON::stringify(_to_json(v), "\t", false);
+	} else {
+		String path = r.source;
+		if (!FileAccess::exists(path)) {
+			r_error = "The file of " + p_uri + " is missing: " + path;
+			return Dictionary();
+		}
+		text = FileAccess::get_file_as_string(path);
+	}
+	Dictionary c;
+	c["uri"] = p_uri;
+	c["mimeType"] = r.definition["mimeType"];
+	c["text"] = text;
+	return c;
+}
+
+Array EditorMCPServer::_prompt_list() const {
+	Array out;
+	for (const String &name : script_prompt_order) {
+		out.push_back(script_prompts[name].definition);
+	}
+	return out;
+}
+
+Dictionary EditorMCPServer::_prompt_get(const String &p_name, const Dictionary &p_args, String &r_error) const {
+	if (!script_prompts.has(p_name)) {
+		r_error = "No prompt " + p_name + " (prompts/list lists them).";
+		return Dictionary();
+	}
+	const ScriptPrompt &pr = script_prompts[p_name];
+	Variant v = pr.callable.is_valid() ? pr.callable.call(p_args) : Variant();
+	Dictionary result;
+	result["description"] = pr.definition["description"];
+	if (v.get_type() == Variant::ARRAY) {
+		result["messages"] = v;
+	} else {
+		Dictionary content;
+		content["type"] = "text";
+		content["text"] = String(v);
+		Dictionary message;
+		message["role"] = "user";
+		message["content"] = content;
+		result["messages"] = _make({ message });
+	}
+	return result;
+}
+
+/* OpenRAC Editor: jobs. */
+
+String EditorMCPServer::job_create(const String &p_title) {
+	// The oldest ended jobs go once there are too many.
+	if (jobs.size() >= JOBS_KEEP) {
+		String oldest;
+		uint64_t at = UINT64_MAX;
+		for (const KeyValue<String, Job> &E : jobs) {
+			if (E.value.state != "running" && E.value.started_msec < at) {
+				at = E.value.started_msec;
+				oldest = E.key;
+			}
+		}
+		if (!oldest.is_empty()) {
+			jobs.erase(oldest);
+		}
+	}
+	Job j;
+	j.id = vformat("job-%d", ++job_counter);
+	j.title = p_title;
+	j.started_msec = OS::get_singleton()->get_ticks_msec();
+	jobs[j.id] = j;
+	return j.id;
+}
+
+void EditorMCPServer::job_progress(const String &p_id, const String &p_line) {
+	if (!jobs.has(p_id)) {
+		return;
+	}
+	Job &j = jobs[p_id];
+	j.lines.push_back(p_line);
+	j.line_total++;
+	if (j.lines.size() > JOB_LINES_KEEP) {
+		j.lines.remove_at(0);
+	}
+}
+
+void EditorMCPServer::job_finish(const String &p_id, const Variant &p_result, bool p_failed) {
+	if (!jobs.has(p_id)) {
+		return;
+	}
+	Job &j = jobs[p_id];
+	if (j.state != "running") {
+		return;
+	}
+	j.result = _to_json(p_result);
+	j.state = p_failed ? "failed" : "done";
+	j.ended_msec = OS::get_singleton()->get_ticks_msec();
+}
+
+bool EditorMCPServer::job_running(const String &p_id) const {
+	return jobs.has(p_id) && jobs[p_id].state == "running";
+}
+
+String EditorMCPServer::job_run_process(const String &p_title, const String &p_program, const PackedStringArray &p_arguments, const Callable &p_done) {
+	String id = job_create(p_title);
+	List<String> args;
+	for (const String &a : p_arguments) {
+		args.push_back(a);
+	}
+	Dictionary started = OS::get_singleton()->execute_with_pipe(p_program, args, false);
+	Job &j = jobs[id];
+	j.done = p_done;
+	if (started.is_empty() || !started.has("pid")) {
+		j.state = "failed";
+		j.result = "Could not start " + p_program + ".";
+		j.ended_msec = OS::get_singleton()->get_ticks_msec();
+		return id;
+	}
+	j.out = started["stdio"];
+	j.err = started["stderr"];
+	j.pid = int64_t(started["pid"]);
+	return id;
+}
+
+void EditorMCPServer::_read_pipe(Job &p_job, Ref<FileAccess> p_pipe, String &r_partial, bool p_flush) {
+	if (p_pipe.is_null()) {
+		return;
+	}
+	while (true) {
+		uint64_t n = p_pipe->get_length();
+		if (n == 0) {
+			break;
+		}
+		Vector<uint8_t> buf;
+		buf.resize(MIN(n, (uint64_t)65536));
+		uint64_t got = p_pipe->get_buffer(buf.ptrw(), buf.size());
+		if (got == 0 || got == (uint64_t)-1) {
+			break;
+		}
+		r_partial += String::utf8((const char *)buf.ptr(), got);
+	}
+	Vector<String> parts = r_partial.replace("\r\n", "\n").split("\n");
+	r_partial = p_flush ? String() : parts[parts.size() - 1];
+	int end = p_flush ? parts.size() : parts.size() - 1;
+	for (int i = 0; i < end; i++) {
+		if (parts[i].is_empty()) {
+			continue;
+		}
+		p_job.output.push_back(parts[i]);
+		p_job.lines.push_back(parts[i]);
+		p_job.line_total++;
+		if (p_job.lines.size() > JOB_LINES_KEEP) {
+			p_job.lines.remove_at(0);
+		}
+	}
+}
+
+void EditorMCPServer::_end_process_job(Job &p_job) {
+	_read_pipe(p_job, p_job.out, p_job.out_partial, true);
+	_read_pipe(p_job, p_job.err, p_job.err_partial, true);
+	p_job.exit_code = OS::get_singleton()->get_process_exit_code(p_job.pid);
+	p_job.pid = 0;
+	p_job.out.unref();
+	p_job.err.unref();
+	if (p_job.state != "running") {
+		return; // Cancelled.
+	}
+	Variant result;
+	bool failed = p_job.exit_code != 0;
+	if (p_job.done.is_valid()) {
+		result = p_job.done.call(p_job.exit_code, p_job.output);
+		if (result.get_type() == Variant::DICTIONARY && Dictionary(result).has("error")) {
+			failed = true;
+		}
+		if (result.get_type() == Variant::DICTIONARY && Dictionary(result).has("ok")) {
+			failed = !bool(Dictionary(result)["ok"]);
+		}
+	} else {
+		Dictionary d;
+		d["exit_code"] = p_job.exit_code;
+		d["output"] = p_job.output;
+		result = d;
+	}
+	p_job.result = _to_json(result);
+	p_job.state = failed ? "failed" : "done";
+	p_job.ended_msec = OS::get_singleton()->get_ticks_msec();
+}
+
+void EditorMCPServer::_poll_jobs() {
+	for (KeyValue<String, Job> &E : jobs) {
+		Job &j = E.value;
+		if (j.pid == 0) {
+			continue;
+		}
+		_read_pipe(j, j.out, j.out_partial, false);
+		_read_pipe(j, j.err, j.err_partial, false);
+		if (!OS::get_singleton()->is_process_running(j.pid)) {
+			_end_process_job(j);
+		}
+	}
+}
+
+Dictionary EditorMCPServer::_job_info(const Job &p_job, int p_from_line) const {
+	Dictionary d;
+	d["id"] = p_job.id;
+	d["title"] = p_job.title;
+	d["state"] = p_job.state;
+	uint64_t end = p_job.ended_msec ? p_job.ended_msec : OS::get_singleton()->get_ticks_msec();
+	d["seconds"] = double(end - p_job.started_msec) / 1000.0;
+	// Line numbers count from the job's first line; the oldest may be gone.
+	int64_t first = int64_t(p_job.line_total) - p_job.lines.size();
+	Array lines;
+	for (int i = 0; i < p_job.lines.size(); i++) {
+		if (first + i >= p_from_line) {
+			lines.push_back(p_job.lines[i]);
+		}
+	}
+	d["lines"] = lines;
+	d["next_line"] = int64_t(p_job.line_total);
+	if (p_job.state != "running") {
+		d["result"] = p_job.result;
+	}
+	return d;
+}
+
+Dictionary EditorMCPServer::_tool_job_status(const Dictionary &p_args) {
+	String id = p_args.get("id", "");
+	if (id.is_empty()) {
+		Array all;
+		for (const KeyValue<String, Job> &E : jobs) {
+			Dictionary d;
+			d["id"] = E.key;
+			d["title"] = E.value.title;
+			d["state"] = E.value.state;
+			all.push_back(d);
+		}
+		Dictionary d;
+		d["jobs"] = all;
+		return _text_result(d);
+	}
+	if (!jobs.has(id)) {
+		return _error_result("No job " + id + ".");
+	}
+	const Job &j = jobs[id];
+	Dictionary info = _job_info(j, p_args.get("from_line", 0));
+	if (j.state == "done" && j.result.get_type() == Variant::DICTIONARY && Dictionary(j.result).has("content")) {
+		// A picture (cutscene_frame): the job's own content, then what the job was.
+		Dictionary res = Dictionary(j.result).duplicate();
+		Array content = Array(res["content"]).duplicate();
+		info.erase("result");
+		Dictionary text;
+		text["type"] = "text";
+		text["text"] = JSON::stringify(info, "", false);
+		content.push_back(text);
+		res["content"] = content;
+		res["isError"] = false;
+		return res;
+	}
+	return _text_result(info, j.state == "failed");
+}
+
+Dictionary EditorMCPServer::_tool_job_wait(const Dictionary &p_args) {
+	String id = p_args.get("id", "");
+	if (!jobs.has(id)) {
+		return _error_result("No job " + id + ".");
+	}
+	if (jobs[id].state == "running") {
+		double seconds = CLAMP(double(p_args.get("seconds", 60.0)), 0.0, double(WAIT_MAX_MSEC) / 1000.0);
+		deferred_job = id;
+		deferred_until_msec = OS::get_singleton()->get_ticks_msec() + uint64_t(seconds * 1000.0);
+		return Dictionary();
+	}
+	return _tool_job_status(p_args);
+}
+
+Dictionary EditorMCPServer::_tool_job_cancel(const Dictionary &p_args) {
+	String id = p_args.get("id", "");
+	if (!jobs.has(id)) {
+		return _error_result("No job " + id + ".");
+	}
+	Job &j = jobs[id];
+	if (j.state != "running") {
+		return _text_result(_job_info(j, 0));
+	}
+	if (j.pid != 0) {
+		OS::get_singleton()->kill(j.pid);
+	}
+	j.state = "cancelled";
+	j.ended_msec = OS::get_singleton()->get_ticks_msec();
+	return _text_result(_job_info(j, 0));
+}
+
+Dictionary EditorMCPServer::_tool_batch(const Dictionary &p_args) {
+	Array calls = p_args.get("calls", Array());
+	bool undo_on_error = p_args.get("undo_on_error", true);
+	EditorUndoRedoManager *ur = EditorUndoRedoManager::get_singleton();
+	Array results;
+	int steps_before = 0;
+	Node *root = _scene_root();
+	UndoRedo *history = nullptr;
+	if (root) {
+		history = ur->get_history_undo_redo(ur->get_history_id_for_object(root));
+		steps_before = history ? history->get_history_count() : 0;
+	}
+	for (int i = 0; i < calls.size(); i++) {
+		Dictionary call = calls[i];
+		String name = call.get("name", "");
+		if (name == "batch" || name == "job_wait") {
+			return _error_result(vformat("Call %d: %s cannot run inside a batch.", i, name));
+		}
+		Dictionary res = _call_tool(name, call.get("arguments", Dictionary()));
+		Dictionary entry;
+		entry["name"] = name;
+		entry["result"] = res.has("structuredContent") ? res["structuredContent"] : Variant(res["content"]);
+		entry["error"] = res.get("isError", false);
+		results.push_back(entry);
+		if (bool(res.get("isError", false))) {
+			int undone = 0;
+			if (undo_on_error && history) {
+				while (history->get_history_count() > steps_before && ur->undo()) {
+					undone++;
+				}
+			}
+			Dictionary d;
+			d["results"] = results;
+			d["failed_at"] = i;
+			d["undone_steps"] = undone;
+			return _text_result(d, true);
+		}
+	}
+	Dictionary d;
+	d["results"] = results;
+	return _text_result(d);
+}
+
+void EditorMCPServer::_bind_methods() {
+	ClassDB::bind_static_method("EditorMCPServer", D_METHOD("get_singleton"), &EditorMCPServer::get_singleton);
+	ClassDB::bind_method(D_METHOD("register_tool", "name", "description", "input_schema", "callable", "annotations"), &EditorMCPServer::register_tool, DEFVAL(Dictionary()));
+	ClassDB::bind_method(D_METHOD("unregister_tool", "name"), &EditorMCPServer::unregister_tool);
+	ClassDB::bind_method(D_METHOD("register_resource", "uri", "name", "description", "mime_type", "source"), &EditorMCPServer::register_resource);
+	ClassDB::bind_method(D_METHOD("unregister_resource", "uri"), &EditorMCPServer::unregister_resource);
+	ClassDB::bind_method(D_METHOD("register_prompt", "name", "description", "arguments", "callable"), &EditorMCPServer::register_prompt);
+	ClassDB::bind_method(D_METHOD("unregister_prompt", "name"), &EditorMCPServer::unregister_prompt);
+	ClassDB::bind_method(D_METHOD("job_create", "title"), &EditorMCPServer::job_create);
+	ClassDB::bind_method(D_METHOD("job_progress", "id", "line"), &EditorMCPServer::job_progress);
+	ClassDB::bind_method(D_METHOD("job_finish", "id", "result", "failed"), &EditorMCPServer::job_finish, DEFVAL(false));
+	ClassDB::bind_method(D_METHOD("job_run_process", "title", "program", "arguments", "done"), &EditorMCPServer::job_run_process, DEFVAL(Callable()));
+	ClassDB::bind_method(D_METHOD("job_running", "id"), &EditorMCPServer::job_running);
 }

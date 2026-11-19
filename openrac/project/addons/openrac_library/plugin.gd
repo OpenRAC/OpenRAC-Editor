@@ -48,6 +48,14 @@ var placing: bool = false
 ## Nodes settle() moves, by instance id: moving one adds it to the tree again, which is no drop.
 var settling: Dictionary = {}
 
+## The MCP job (mcp_tools.gd) the add under way finishes, the node it added and its result.
+var active_job: String = ""
+var last_added: Node = null
+var last_result: Dictionary = {}
+
+## The level's tools for AI assistants (MCP), when the editor has its MCP server.
+var mcp_tools: Array[RefCounted] = []
+
 
 func _enter_tree() -> void:
 	dock = Dock.new()
@@ -66,6 +74,23 @@ func _enter_tree() -> void:
 	add_planet_settings()
 	play = Play.new()
 	add_control_to_container(CONTAINER_TOOLBAR, play)
+	register_mcp()
+
+
+## Gives the editor's MCP server (docs/MCP.md) the level's tools, cutscene tools, guides and prompts.
+func register_mcp() -> void:
+	var mcp: Object = mcp_server()
+
+	if mcp == null:
+		return
+
+	var level_tools: RefCounted = preload("mcp_tools.gd").new()
+	level_tools.register(mcp, self)
+	var cutscene_tools: RefCounted = preload("mcp_cutscene_tools.gd").new()
+	cutscene_tools.register(mcp, self)
+	var knowledge: RefCounted = preload("mcp_knowledge.gd").new()
+	knowledge.register(mcp, level_tools)
+	mcp_tools = [level_tools, cutscene_tools, knowledge]
 
 
 ## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
@@ -83,6 +108,11 @@ static func add_planet_settings() -> void:
 
 
 func _exit_tree() -> void:
+	for part in mcp_tools:
+		part.unregister()
+
+	mcp_tools.clear()
+
 	if get_tree().node_added.is_connected(handle_node_added):
 		get_tree().node_added.disconnect(handle_node_added)
 
@@ -103,14 +133,14 @@ func _exit_tree() -> void:
 ## folder takes a scan of its own), says so and calls AGAIN once it is imported (up to a minute).
 func ready_to_place(path: String, again: Callable) -> bool:
 	if waiting_for_import:
-		dock.show_report("Still bringing the last asset in; try again in a moment.")
+		report("Still bringing the last asset in; try again in a moment.", true)
 		return false
 
 	if Library.imported(path) or not FileAccess.file_exists(path):
 		return true
 
 	waiting_for_import = true
-	dock.show_report("Importing %s; it is placed when ready..." % path.get_file())
+	report("Importing %s; it is placed when ready..." % path.get_file(), false, false)
 	wait_for_import(path, again)
 	return false
 
@@ -121,7 +151,7 @@ func wait_until_imported(path: String, name: String) -> void:
 		return
 
 	waiting_for_import = true
-	wait_for_import(path, func() -> void: dock.show_report("%s is ready: drag it in." % name))
+	wait_for_import(path, func() -> void: report("%s is ready: drag it in." % name, false, false))
 
 
 ## Waits for PATH's import, then calls AGAIN (ready_to_place()).
@@ -144,7 +174,7 @@ func wait_for_import(path: String, again: Callable) -> void:
 			return
 
 	waiting_for_import = false
-	dock.show_report("The editor could not import %s." % path, true)
+	report("The editor could not import %s." % path, true)
 
 
 ## The name of LEVEL of the edited level's disc, as the dock read it, or "".
@@ -156,6 +186,53 @@ func level_name(level: int) -> String:
 			return String(entry["name"])
 
 	return ""
+
+
+## Says TEXT in the dock; a FINAL one also ends the add under way (its MCP job, last_result).
+func report(text: String, failed: bool = false, final: bool = true) -> void:
+	if dock != null:
+		dock.show_report(text, failed)
+
+	if not final:
+		return
+
+	last_result = {"ok": not failed, "message": text}
+	var root: Node = EditorInterface.get_edited_scene_root()
+
+	if failed:
+		last_result["error"] = text
+	elif last_added != null and is_instance_valid(last_added) and root != null and root.is_ancestor_of(last_added):
+		last_result["node"] = String(root.get_path_to(last_added))
+
+	if not active_job.is_empty():
+		var mcp: Object = mcp_server()
+
+		if mcp != null:
+			mcp.job_finish(active_job, last_result, failed)
+
+		active_job = ""
+
+
+## The editor's MCP server (EditorMCPServer), or null in an editor without one.
+static func mcp_server() -> Object:
+	if not ClassDB.class_exists("EditorMCPServer"):
+		return null
+
+	return ClassDB.class_call_static("EditorMCPServer", "get_singleton")
+
+
+## Where an add puts NODE: PLACE ({"position": game coordinates, "yaw": degrees about the game's
+## up}) when given, else AT in front of the 3D view's camera, facing it.
+func placement(game: Node3D, asset: Dictionary, node: Node3D, camera: Camera3D, at: Vector3, place: Variant) -> Transform3D:
+	if place is Dictionary:
+		var position: Vector3 = place.get("position", Vector3.ZERO)
+		var turn := Basis(Vector3(0, 0, 1), deg_to_rad(float(place.get("yaw", 0.0))))
+		return game.global_transform * Transform3D(turn * node.basis, position)
+
+	if camera != null:
+		return Transform3D(facing(game.global_basis, at, camera.global_position, Library.front_for(asset)) * node.basis, at)
+
+	return Transform3D(game.global_basis * node.basis, at)
 
 
 func handle_scene_changed(root: Node) -> void:
@@ -217,7 +294,7 @@ func stand_up_lying(root: Node = null) -> void:
 	undo_redo.commit_action()
 
 	if dock != null:
-		dock.show_report("Stood up %d asset%s placed lying down by an older editor. Ctrl+Z puts them back." % [
+		report("Stood up %d asset%s placed lying down by an older editor. Ctrl+Z puts them back." % [
 			nodes.size(), "" if nodes.size() == 1 else "s"])
 
 
@@ -278,7 +355,7 @@ func prepare(asset: Dictionary) -> String:
 	dock.importing = false
 
 	if path.is_empty():
-		dock.show_report(" ".join(error), true)
+		report(" ".join(error), true)
 		return ""
 
 	pending[path] = asset
@@ -290,12 +367,14 @@ func prepare(asset: Dictionary) -> String:
 # =============================================================================
 
 ## Adds ASSET in front of the 3D view's camera, as an undoable edit.
-func add_in_view(asset: Dictionary) -> void:
+func add_in_view(asset: Dictionary, place: Variant = null, job: String = "") -> void:
+	active_job = job
+	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
 	var game: Node3D = root.get_node_or_null("Game") as Node3D if root != null else null
 
 	if game == null:
-		dock.show_report("Open a level scene first.", true)
+		report("Open a level scene first.", true)
 		return
 
 	var path: String = prepare(asset)
@@ -303,13 +382,13 @@ func add_in_view(asset: Dictionary) -> void:
 	if path.is_empty():
 		return
 
-	if not ready_to_place(path, add_in_view.bind(asset)):
+	if not ready_to_place(path, add_in_view.bind(asset, place, job)):
 		return
 
 	var scene := ResourceLoader.load(path) as PackedScene
 
 	if scene == null:
-		dock.show_report("The editor could not load %s." % path, true)
+		report("The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
@@ -328,10 +407,7 @@ func add_in_view(asset: Dictionary) -> void:
 
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
-	undo_redo.add_do_property(node, "global_position", at)
-	if camera != null:
-		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_for(asset)) * node.basis)
+	undo_redo.add_do_property(node, "global_transform", placement(game, asset, node, camera, at, place))
 	add_metadata(undo_redo, node, asset, path)
 	undo_redo.add_do_reference(node)
 	undo_redo.add_undo_method(group, "remove_child", node)
@@ -345,19 +421,22 @@ func add_in_view(asset: Dictionary) -> void:
 	pending.erase(path)
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
-	dock.show_report(placed_report(asset, node))
+	last_added = node
+	report(placed_report(asset, node))
 
 
 ## Adds ASSET's model, as it is (animated), on the logic of HOST_CLASS, a moby class this level
 ## has: a moby of that class under Game/Mobys, which the game draws as ASSET's model (a skin:
 ## editor/skins.py packs it, the port draws it). Undoable.
-func add_as(asset: Dictionary, host_class: int) -> void:
+func add_as(asset: Dictionary, host_class: int, place: Variant = null, job: String = "") -> void:
+	active_job = job
+	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
 	var game: Node3D = root.get_node_or_null("Game") as Node3D if root != null else null
 	var level: Dictionary = here()
 
 	if game == null or level.is_empty():
-		dock.show_report("Open a level scene first.", true)
+		report("Open a level scene first.", true)
 		return
 
 	var host_path: String = String(level["classes"]["mobys"].get(host_class, ""))
@@ -367,13 +446,13 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	dock.importing = false
 
 	if host_path.is_empty() or skin_path.is_empty():
-		dock.show_report(" ".join(error) if not error.is_empty() else "This level has no moby class %d." % host_class, true)
+		report(" ".join(error) if not error.is_empty() else "This level has no moby class %d." % host_class, true)
 		return
 
 	var host_scene := ResourceLoader.load(host_path) as PackedScene
 
 	if host_scene == null:
-		dock.show_report("The editor could not load %s." % host_path, true)
+		report("The editor could not load %s." % host_path, true)
 		return
 
 	var host: Dictionary = {"name": "Class %d" % host_class, "scale": 1.0}
@@ -402,10 +481,7 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
-	undo_redo.add_do_property(node, "global_position", at)
-	if camera != null:
-		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_for(asset)) * node.basis)
+	undo_redo.add_do_property(node, "global_transform", placement(game, asset, node, camera, at, place))
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin", skin_path)
 	undo_redo.add_do_method(node, "set_meta", "rc1_skin_asset", "%s/%s/level_%02d/%s/%d" % [asset["game"],
 		asset["disc"], int(asset["level"]), asset["kind"], int(asset["class"])])
@@ -425,7 +501,8 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 	placing = false
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
-	dock.show_report(("Added %s: a %s of this level that looks like %s from %s. "
+	last_added = node
+	report(("Added %s: a %s of this level that looks like %s from %s. "
 		+ "Set its animations in the Inspector (rc1_skin_animations). Pack, then play.") % [node.name,
 		host["name"], asset["name"], asset["level_name"] if not String(asset["level_name"]).is_empty() else "its level"])
 
@@ -433,18 +510,20 @@ func add_as(asset: Dictionary, host_class: int) -> void:
 ## Adds ASSET, a moby of another level of this disc, with its own class and logic: a moby of its
 ## class under Game/Mobys with rc1_foreign_level, which editor/foreign_classes.py packs and the
 ## port runs in its own level's program. Undoable.
-func add_foreign(asset: Dictionary) -> void:
+func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> void:
+	active_job = job
+	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
 	var game: Node3D = root.get_node_or_null("Game") as Node3D if root != null else null
 
 	if game == null:
-		dock.show_report("Open a level scene first.", true)
+		report("Open a level scene first.", true)
 		return
 
 	var refusal: String = Library.import_refusal(asset, here())
 
 	if not refusal.is_empty():
-		dock.show_report(refusal, true)
+		report(refusal, true)
 		return
 
 	var error: Array = []
@@ -452,13 +531,13 @@ func add_foreign(asset: Dictionary) -> void:
 	var path: String = Library.prepare(asset, here(), error)
 	dock.importing = false
 
-	if not path.is_empty() and not ready_to_place(path, add_foreign.bind(asset)):
+	if not path.is_empty() and not ready_to_place(path, add_foreign.bind(asset, place, job)):
 		return
 
 	var scene := ResourceLoader.load(path) as PackedScene if not path.is_empty() else null
 
 	if scene == null:
-		dock.show_report(" ".join(error) if not error.is_empty() else "The editor could not load %s." % path, true)
+		report(" ".join(error) if not error.is_empty() else "The editor could not load %s." % path, true)
 		return
 
 	var node := scene.instantiate() as Node3D
@@ -482,10 +561,7 @@ func add_foreign(asset: Dictionary) -> void:
 
 	undo_redo.add_do_method(group, "add_child", node)
 	undo_redo.add_do_property(node, "owner", root)
-	undo_redo.add_do_property(node, "global_position", at)
-	if camera != null:
-		undo_redo.add_do_property(node, "global_basis", facing(game.global_basis, at, camera.global_position,
-			Library.front_for(asset)) * node.basis)
+	undo_redo.add_do_property(node, "global_transform", placement(game, asset, node, camera, at, place))
 	# Drawn at its class's size, as in the game: the packed moby's own scale is this over that.
 	var scale: float = float(asset["scale"])
 	undo_redo.add_do_property(node, "scale", Vector3(scale, scale, scale))
@@ -502,7 +578,8 @@ func add_foreign(asset: Dictionary) -> void:
 	placing = false
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
-	dock.show_report("Added %s with its own logic from %s. Pack, then play." % [
+	last_added = node
+	report("Added %s with its own logic from %s. Pack, then play." % [
 		node.name, asset["level_name"] if not String(asset["level_name"]).is_empty() else "level %02d" % int(asset["level"])])
 
 
@@ -741,4 +818,4 @@ func settle() -> void:
 
 	if not moved.is_empty():
 		var asset: Dictionary = pending.get(moved[0].scene_file_path, {})
-		dock.show_report(placed_report(asset, moved[0]))
+		report(placed_report(asset, moved[0]))
