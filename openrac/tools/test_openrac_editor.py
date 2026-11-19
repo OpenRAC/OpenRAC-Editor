@@ -270,6 +270,53 @@ class CheckAndPlay(unittest.TestCase):
             self.assertTrue((Path(tmp) / "packed" / "packed.json").is_file())
             self.assertIn("Started the game on level 00", out.getvalue())
 
+    @unittest.skipUnless(os.environ.get("OPENRAC_RAC1_PAL_DISC"), "set OPENRAC_RAC1_PAL_DISC")
+    def test_check_and_play_take_the_other_european_and_the_japanese_disc(self):
+        # No Europe v1.00 or Japan disc here: the Europe v2.00 one stands in, read as each of them.
+        # Their table of contents and level headers have its layout (extractor/disc.py), and the
+        # packer reads only sectors through them, so what is left to check is that every file,
+        # the pack's note and the game started are that version's.
+        import argparse
+        import re
+        import subprocess
+        import sys
+        from disc import JP, PAL1, Disc
+        tool = Path(__file__).with_name("openrac_editor.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            projects = Path(tmp) / "pal"
+            done = subprocess.run([sys.executable, str(tool), "projects", os.environ["OPENRAC_RAC1_PAL_DISC"],
+                                   str(projects), "--level", "0", "--split", "--anywhere"],
+                                  capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            level = projects / "level_00"
+            scene = level / "levels" / "level_00" / "level_00.tscn"
+            text = scene.read_text(encoding="utf-8")
+            found = re.search(r'\[node name="(\w+)" parent="Game/Mobys"[^\n]*\]\n(?:[^\[\n][^\n]*\n)*?'
+                              r'transform = Transform3D\(([^)]*)\)', text)
+            values = [float(v) for v in found.group(2).split(",")]
+            values[9] += 1.0
+            scene.write_text(text[:found.start(2)] + ", ".join(map(str, values)) + text[found.end(2):], encoding="utf-8")
+            stats = level / "levels" / "level_00" / "level.json"
+            original = json.loads(stats.read_text(encoding="utf-8"))
+            for version in (PAL1, JP):
+                with self.subTest(version=version.key):
+                    stats.write_text(json.dumps({**original, "version": version.key}), encoding="utf-8")
+                    packed = Path(tmp) / f"packed_{version.key}"
+                    game = Path(tmp) / f"openrac-rac1-{version.key}"
+                    game.write_text("")
+                    args = argparse.Namespace(command="play", project=level, packed=packed, game=game,
+                                              data=Path(tmp) / "data", levels=Path(tmp) / "levels")
+                    with mock.patch.object(Disc, "version", new_callable=mock.PropertyMock, return_value=version), \
+                            mock.patch.object(oe.subprocess, "Popen") as popen, redirect_stdout(io.StringIO()) as out:
+                        self.assertEqual(oe.check_or_play(args), 0, out.getvalue())
+                    self.assertEqual(json.loads((packed / "packed.json").read_text(encoding="utf-8"))["version"],
+                                     version.key)
+                    written = [p.name for p in (packed / "level_00").iterdir()]
+                    self.assertIn(f"gameplay_{version.key}.wad", written)
+                    self.assertFalse([name for name in written if "_pal." in name or "_pal_" in name], written)
+                    self.assertEqual(popen.call_args.args[0][0], str(game.resolve()))
+                    self.assertIn("openrac-check: 1 level(s), 1 edit(s)", out.getvalue())
+
 
 class CommandNames(unittest.TestCase):
     def test_projects_and_its_old_name_godot_both_run(self):

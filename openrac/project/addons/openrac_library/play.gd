@@ -9,9 +9,6 @@ extends HBoxContainer
 ## editor-open): --openrac-python, --openrac-tools, --openrac-packed, and for Play --openrac-data,
 ## --openrac-levels and --openrac-states (the game program sits beside the states program).
 
-## The discs Play runs on (the ones the launcher packs for).
-const PLAYABLE: PackedStringArray = ["pal", "ntsc"]
-
 var check_button: Button
 var play_button: Button
 var dialog: AcceptDialog
@@ -91,9 +88,6 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 	if kind == "play":
 		var states: String = user_arg("--openrac-states")
 		var game: String = states.replace("-states", "")
-
-		if not level["version"] in PLAYABLE:
-			return "Play runs the Europe and USA discs for now; Check works on this one."
 
 		if user_arg("--openrac-packed") == "" or user_arg("--openrac-data") == "" or game == "":
 			return "Open the level from the launcher (Mods, Level editor, Open) to play it."

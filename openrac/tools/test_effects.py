@@ -3,6 +3,7 @@
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
 import math
 import struct
+import json
 import unittest
 from types import SimpleNamespace
 
@@ -87,8 +88,24 @@ class ElectricGate(unittest.TestCase):
 
     def test_another_level_or_disc_has_none(self):
         self.assertIsNone(effects.electric_gate(self.level(gate_program(), number=4)))
-        self.assertIsNone(effects.electric_gate(self.level(gate_program(), version="jp")))
+        self.assertIsNone(effects.electric_gate(self.level(gate_program(), version="kr")))
         self.assertIsNone(effects.electric_gate(self.level(b"")))
+
+    def test_the_other_discs_addresses_are_pals_moved_by_their_release_table(self):
+        # OpenRAC's port/game/rac1-<version>/release_names.json: each PAL name and the release's
+        # name for it (a name it does not list stays where PAL has it).
+        from openrac_root import ROOT
+        for version in ("pal1", "jp"):
+            table = ROOT / "port" / "game" / f"rac1-{version}" / "release_names.json"
+            if not table.is_file():
+                self.skipTest(f"no {table}")
+            names = json.loads(table.read_text(encoding="utf-8"))["names"]
+            for part, address in effects.GATE_ADDRESSES["pal"].items():
+                name = f"D_L05_{address:08X}"
+                moved = names.get(name, name)
+                with self.subTest(version=version, part=part):
+                    self.assertRegex(moved, r"^D_L05_[0-9A-F]{8}$")
+                    self.assertEqual(effects.GATE_ADDRESSES[version][part], int(moved[6:], 16))
 
     def test_a_program_of_another_layout_has_none(self):
         self.assertIsNone(effects.electric_gate(self.level(gate_program(outer_x=3.0))))
