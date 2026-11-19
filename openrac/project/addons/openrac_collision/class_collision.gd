@@ -64,33 +64,45 @@ static func class_id(root: Node) -> int:
 	return int(root.get_meta("rc1_class", -1))
 
 
-## The children of a class collision node, described: name, kind, radius, height, position,
-## queries, surface, the node itself.
+## The parts of a class collision node, described: name, kind, radius, height, position,
+## queries, surface, the node itself. A folder's children count, at any depth, in the collision
+## node's space (moby_collision_scene.scene_blob reads them the same way).
 static func parts(layer: Node3D) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
+	var pending: Array[Node] = layer.get_children()
 
-	for child in layer.get_children():
-		var node := child as Node3D
+	while not pending.is_empty():
+		var node := pending.pop_front() as Node3D
 
 		# Only 3D nodes are collision.
 		if node == null:
 			continue
 
+		# A folder: a plain 3D node holding parts.
+		var is_folder: bool = not node is MeshInstance3D and node.scene_file_path.is_empty() \
+			and not node.has_meta("rc1_collision_kind") and node.get_child_count() > 0
+
+		if is_folder:
+			pending.append_array(node.get_children())
+			continue
+
+		var place: Transform3D = LevelFaces.relative(node, layer)
+		var scale: Vector3 = place.basis.get_scale()
 		var entry: Dictionary = {"name": String(node.name), "node": node,
 			"kind": String(node.get_meta("rc1_collision_kind", "mesh")),
 			"surface": int(node.get_meta("rc1_surface", Surfaces.DEFAULT_SURFACE)),
-			"queries": int(node.get_meta("rc1_queries", ALL_QUERIES)), "position": node.position,
+			"queries": int(node.get_meta("rc1_queries", ALL_QUERIES)), "position": place.origin,
 			"radius": 0.0, "height": 0.0}
 		var mesh: Mesh = (node as MeshInstance3D).mesh if node is MeshInstance3D else null
 
 		# The size is the primitive mesh's, times the node's scale.
 		if mesh is SphereMesh:
-			entry.radius = (mesh as SphereMesh).radius * node.scale.x
+			entry.radius = (mesh as SphereMesh).radius * scale.x
 		elif mesh is CylinderMesh:
-			entry.radius = (mesh as CylinderMesh).top_radius * node.scale.x
-			entry.height = (mesh as CylinderMesh).height * node.scale.y
+			entry.radius = (mesh as CylinderMesh).top_radius * scale.x
+			entry.height = (mesh as CylinderMesh).height * scale.y
 		elif mesh is CapsuleMesh:
-			entry.radius = (mesh as CapsuleMesh).radius * node.scale.x
+			entry.radius = (mesh as CapsuleMesh).radius * scale.x
 
 		out.append(entry)
 

@@ -24,7 +24,10 @@ claude mcp add --transport http openrac-editor http://127.0.0.1:7420/mcp \
   --header "Authorization: Bearer <token>"
 ```
 
-**Editor Settings > OpenRAC > MCP** turns it off, or changes the port or the token.
+**Editor Settings > OpenRAC > MCP** turns it off, or changes the port or the token. Without a
+token the server does not start. It refuses requests from web pages: a request with an `Origin`
+header is answered only when that origin is this computer (`http://127.0.0.1`, `http://localhost`
+or `http://[::1]`, with any port). `mcp.json` is readable by your user only.
 
 ## Tools
 

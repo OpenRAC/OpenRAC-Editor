@@ -65,13 +65,15 @@ them apart by the executable's size and SHA-1.
 | Table of contents | sector 1500, 0x2960 bytes, levels at 0x28c8 | the same | the same | the same |
 | Gameplay copy the native port loads at 60 Hz (each level header has both) | `gameplay_ntsc` on the PAL disc | `gameplay_ntsc` on the NTSC-U disc | `gameplay_ntsc` (inferred) | `gameplay_ntsc` (inferred; 100 sectors in level 0 against the PAL copy's 210) |
 | (cos, sin) table the lighting reads | 0x165600 | 0x165500 (the same values) | 0x165480 (the same values) | 0x165600 (the same values) |
+| Pack, Check level, Play level | yes | yes | yes (not yet run on this disc) | yes (not yet run on this disc) |
 
 The table's address is where `func_0020DFF8` forms it in each executable (its
 copy in PAL v1.00 is at 0x20CCB0, in the Japanese one at 0x20EEF0); the
 2,048 bytes there are PAL's. The gameplay copy of the two newer discs is read
-from the shared source and was not run on a console: no native program plays
-them yet, so only the extraction is checked (all 21 levels of each disc read
-without an error, and both place the same number of meshes in every level).
+from the shared source and was not run on a console. Packing writes only disc
+sectors found through the table of contents, which has PAL v2.00's layout, so
+the tests pack and play with the PAL v2.00 disc read as each of the two
+(test_openrac_editor); a run on the discs themselves is still owed.
 
 The NTSC-U side follows ReRAC's disc layout (`docs/formats/disc_layout.md`)
 and the NTSC decomp's `load_level_gameplay`, which loads the NTSC copy
@@ -223,6 +225,30 @@ in as the game's own, with its logic; anything else as static scenery
 ([MAP_MODDING.md](MAP_MODDING.md#the-assets-dock)). A moby's Inspector also has a
 **Behaviour** section (spin, bob, patrol, orbit, face or follow the hero), which
 the editor-runtime mod plays.
+
+## Check and play from the editor
+
+The editor's toolbar has **Check level** and **Play level** (the Assets plugin, `play.gd`). Both
+save your scenes first, and run in the background:
+
+- **Check level** packs every level of the folder into a throwaway folder and lists each edit the
+  game cannot take, such as a mirrored object or a value out of range. Click one to select its
+  node, fix it and check again.
+- **Play level** packs into your packed levels folder (as the launcher's Pack does) and starts the
+  game on this level with your edits, movies skipped. Every disc of the game: Europe, Europe v1.00, USA and Japan.
+
+They work on a level opened from the launcher, which tells the editor where Python, the editor's
+tools, the game and your folders are. The projects folder remembers the disc it was read from
+(`.openrac/disc.json`, written by Extract), so a folder extracted by an older editor needs one
+more Extract (levels you edited are kept). From a shell:
+
+```sh
+python3 <editor>/openrac/tools/openrac_editor.py check <levels>/level_03
+python3 <editor>/openrac/tools/openrac_editor.py play <levels>/level_03 --packed <packed> \
+    --game <port>/openrac-rac1-pal --data <data> --levels <port levels>
+```
+
+`check` prints each refused edit as `openrac-problem: <node>: <why>` and exits with 1 when any.
 
 ## Pack your edits
 

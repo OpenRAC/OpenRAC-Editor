@@ -63,7 +63,8 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
             raise overrides.PackError("A destination needs its editable level scene with a return ship")
         _, _, nodes = collision_scene.read_scene(scene.read_text(encoding="utf-8"))
         ship = next((n for n in nodes if n["name"] == "Ship" and n["parent"] == "Game/LevelSettings"), None)
-        if ship is None or collision_scene.transform_of(ship)[9] <= 0:
+        # A level without a ship has it at the origin; any other place is one the player can land at.
+        if ship is None or not any(collision_scene.transform_of(ship)[9:12]):
             raise overrides.PackError("Keep a working Ship under Game/LevelSettings for the return journey")
     files = {rel: path for rel, path in overrides.layer_files(packed).items()
              if rel.startswith(prefix + "/")}

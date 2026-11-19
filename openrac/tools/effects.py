@@ -155,7 +155,13 @@ def nanotech(level: Level) -> dict | None:
 GATE_ADDRESSES = {"ntsc": {"uvs": 0x0020B740, "outer": 0x0020B760, "inner": 0x0020B7A0,
                            "colours": 0x00161D3C, "texture": 0x00161D98},
                   "pal": {"uvs": 0x0020BA80, "outer": 0x0020BAA0, "inner": 0x0020BAE0,
-                          "colours": 0x00161DFC, "texture": 0x00161E58}}
+                          "colours": 0x00161DFC, "texture": 0x00161E58},
+                  # Europe v1.00 and Japan: PAL's names moved by each release's table in OpenRAC
+                  # (port/game/rac1-<version>/release_names.json; test_effects checks them).
+                  "pal1": {"uvs": 0x0020B6C0, "outer": 0x0020B6E0, "inner": 0x0020B720,
+                           "colours": 0x00161CFC, "texture": 0x00161D58},
+                  "jp": {"uvs": 0x0020BE80, "outer": 0x0020BEA0, "inner": 0x0020BEE0,
+                         "colours": 0x00161DFC, "texture": 0x00161E58}}
 GATE_LEVEL = 5
 
 

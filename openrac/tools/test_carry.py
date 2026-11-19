@@ -113,6 +113,22 @@ class CarryProject(unittest.TestCase):
             self.assertIn("5, 6, 7", (new / "level_03.tscn").read_text(encoding="utf-8"))
 
 
+    def test_a_carried_edit_the_packer_refuses_is_kept_and_said(self):
+        def edit(index, node):
+            if index == 0:
+                node[2] = "transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 6, 7)"
+            return node
+        with tempfile.TemporaryDirectory() as tmp:
+            old, new = Path(tmp) / "old" / "level_03", Path(tmp) / "new" / "level_03"
+            for folder, text in ((old, edited(edit)), (new, fresh())):
+                folder.mkdir(parents=True)
+                (folder / "level_03.tscn").write_text(text)
+            report = carry.carry_project(old.parent, old, new, OLD, NEW, Path(tmp) / "backup")
+            self.assertEqual(report["carried"], ["Moby_0000: moved"])
+            self.assertTrue(any(line.startswith("to fix before packing:") and "mirrored" in line
+                                for line in report["not_carried"]), report["not_carried"])
+            self.assertIn("-1, 0, 0", (new / "level_03.tscn").read_text(encoding="utf-8"))
+
 class UpdateGodot(unittest.TestCase):
     def test_a_replaced_level_is_handed_to_carry_with_its_backup(self):
         from test_openrac_editor import fake_godot
@@ -158,6 +174,24 @@ class UpdateGodot(unittest.TestCase):
             self.assertEqual(report["replaced"], [0, 1])
             self.assertEqual(planet.settings(dest / "level_00"), {"planet/name": "Kept", "planet/id": "kept.0001"})
             self.assertEqual(planet.settings(dest / "level_01"), {})
+
+
+class FailedExport(unittest.TestCase):
+    def test_a_failed_export_leaves_the_project_as_it_was(self):
+        from test_openrac_editor import fake_godot
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp).resolve() / "levels" / "pal"
+            openrac_editor.export_godot(dest, [0], True, True, fake_godot(openrac_editor.GODOT_SCHEMA - 1))
+            scene = dest / "level_00" / "levels" / "level_00" / "level_00.tscn"
+            scene.write_text("[gd_scene format=3]\n; my edits\n")
+
+            def failing(out, levels):
+                raise OSError("the disc could not be read")
+            with self.assertRaises(OSError):
+                openrac_editor.update_godot(dest, [0], True, failing, openrac_editor.GODOT_SCHEMA)
+            self.assertIn("my edits", scene.read_text())
+            self.assertFalse((dest.parent / f"{dest.name}-backups").exists())
+            self.assertEqual([p.name for p in dest.parent.iterdir()], ["pal"])     # no temporary folder left
 
 
 class Repair(unittest.TestCase):

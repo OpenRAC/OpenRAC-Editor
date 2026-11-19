@@ -167,7 +167,7 @@ class Names(unittest.TestCase):
     def test_a_name_is_needed_and_checked(self):
         with tempfile.TemporaryDirectory() as temp:
             project = level_project(Path(temp))
-            for bad in ["", "   ", "x" * (planet.MOST_NAME + 1), "two\nlines", "tab\there"]:
+            for bad in ["", "   ", "x" * (planet.MOST_NAME + 1), "two\nlines", "tab\there", "Złota Wyspa", "Café"]:
                 with self.subTest(name=bad):
                     planet.set_setting(project, planet.NAME, bad)
                     with self.assertRaises(planet.PlanetError) as caught:

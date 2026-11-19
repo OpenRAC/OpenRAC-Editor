@@ -337,7 +337,14 @@ static func prepare(asset: Dictionary, here: Dictionary, error: Array) -> String
 static func prepare_skin(asset: Dictionary, error: Array) -> String:
 	if not FileAccess.file_exists(SKINS_DIR.path_join(".gdignore")):
 		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(SKINS_DIR))
-		FileAccess.open(SKINS_DIR.path_join(".gdignore"), FileAccess.WRITE).close()
+		var ignore := FileAccess.open(SKINS_DIR.path_join(".gdignore"), FileAccess.WRITE)
+
+		# A project folder that cannot be written: said, not a script error.
+		if ignore == null:
+			error.append("Cannot write in %s (is the project folder read-only or full?)." % SKINS_DIR)
+			return ""
+
+		ignore.close()
 
 	return copy_in(asset, String(asset["model"]).get_file(), false, error, SKINS_DIR)
 
@@ -390,6 +397,11 @@ static func copy_in(asset: Dictionary, name: String, still_model: bool, error: A
 			DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(to.get_base_dir()))
 			var data: PackedByteArray = FileAccess.get_file_as_bytes(from)
 			var file := FileAccess.open(to, FileAccess.WRITE)
+
+			if file == null:
+				error.append("Cannot write %s." % to)
+				return ""
+
 			file.store_buffer(data)
 			file.close()
 
@@ -407,6 +419,11 @@ static func copy_in(asset: Dictionary, name: String, still_model: bool, error: A
 
 	# Where it came from, for the pack and for whoever shares the level.
 	var note := FileAccess.open(target.trim_suffix(".glb") + ".source.json", FileAccess.WRITE)
+
+	if note == null:
+		error.append("Cannot write %s." % target.trim_suffix(".glb"))
+		return ""
+
 	note.store_string(JSON.stringify({"format": 1, "game": asset["game"], "disc": asset["disc"],
 		"level": asset["level"], "kind": asset["kind"], "class": asset["class"], "name": asset["name"]}, "  ") + "\n")
 	note.close()

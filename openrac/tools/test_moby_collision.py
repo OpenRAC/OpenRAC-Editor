@@ -320,6 +320,14 @@ class SceneTest(unittest.TestCase):
         self.assertEqual(problems, [])
         self.assertEqual((blob.primitives[-1].kind, blob.primitives[-1].radius, blob.primitives[-1].centre),
                          (mc.SPHERE, 2048.0, (0.0, 0.0, 3072.0)))
+        # The same sphere in a folder lifted 1 unit: read, with the folder's lift.
+        foldered = added.replace('[node name="New" type="MeshInstance3D" parent="Collision"]',
+                                 '[node name="Extra" type="Node3D" parent="Collision"]\n'
+                                 'transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1)\n\n'
+                                 '[node name="New" type="MeshInstance3D" parent="Collision/Extra"]')
+        _edited, blob, problems = mcs.scene_blob(project, foldered, disc, positions)
+        self.assertEqual(problems, [])
+        self.assertEqual((blob.primitives[-1].kind, blob.primitives[-1].centre), (mc.SPHERE, (0.0, 0.0, 4096.0)))
         empty = re.sub(r'\[node name="\w+_\d\d" type="MeshInstance3D" parent="Collision"[^\[]*', "", text)
         edited, blob, _ = mcs.scene_blob(project, empty, disc, positions)
         self.assertEqual((edited, blob), (True, None))

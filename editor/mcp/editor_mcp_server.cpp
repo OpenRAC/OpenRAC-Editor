@@ -100,6 +100,11 @@ void EditorMCPServer::_start() {
 			EditorSettings::get_singleton()->save();
 		}
 	}
+	// OpenRAC Editor: never serve without a token (no entropy, no server).
+	if (token.is_empty()) {
+		WARN_PRINT("OpenRAC Editor MCP: no token could be made, so the server is not started.");
+		return;
+	}
 
 	server.instantiate();
 	Error err = server->listen(port, IPAddress("127.0.0.1"));
@@ -118,6 +123,9 @@ void EditorMCPServer::_start() {
 	Ref<FileAccess> f = FileAccess::open(get_info_path(), FileAccess::WRITE);
 	if (f.is_valid()) {
 		f->store_string(JSON::stringify(info, "\t"));
+		f.unref();
+		// OpenRAC Editor: the token is for this user's tools only (where the system has such permissions).
+		FileAccess::set_unix_permissions(get_info_path(), FileAccess::UNIX_READ_OWNER | FileAccess::UNIX_WRITE_OWNER);
 	}
 	print_line(vformat("OpenRAC Editor MCP: listening on http://127.0.0.1:%d/mcp", port));
 	set_process(true);
@@ -262,7 +270,12 @@ String EditorMCPServer::_handle_http(const String &p_method, const String &p_pat
 	// Refuse web pages: a browser sends an Origin header (DNS rebinding guard).
 	if (p_headers.has("origin")) {
 		String origin = p_headers["origin"];
-		if (!origin.begins_with("http://127.0.0.1") && !origin.begins_with("http://localhost")) {
+		// OpenRAC Editor: the host exactly (http://localhost.example.com is another site).
+		bool local = false;
+		for (const String &host : { String("http://127.0.0.1"), String("http://localhost"), String("http://[::1]") }) {
+			local = local || origin == host || origin.begins_with(host + ":");
+		}
+		if (!local) {
 			r_status = 403;
 			return JSON::stringify(_rpc_error(Variant(), -32000, "Origin not allowed."));
 		}

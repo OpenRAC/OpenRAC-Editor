@@ -133,7 +133,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -384,7 +390,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -604,7 +616,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -616,6 +634,40 @@
         "artifact": "{projects}/level_{level}/project.godot",
         "detached": true,
         "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in OpenRAC Editor back into the game's level data, in your packed levels folder; your disc image is never changed. Packs the objects you moved, turned, scaled, changed, added or deleted.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "pack",
+          "{disc}",
+          "{projects}",
+          "{packed}",
+          "--states",
+          "{states}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{levels}",
+          "--anywhere"
+        ],
+        "output": "{packed}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_00/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Not run on a Europe v1.00 disc yet (none in the test machine). Its files, pack note and Play were checked with the Europe v2.00 disc read as this version (test_openrac_editor), whose table of contents and level headers have the same layout."
       },
       {
         "id": "editor-show-packs",
@@ -787,7 +839,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -799,6 +857,40 @@
         "artifact": "{projects}/level_{level}/project.godot",
         "detached": true,
         "docs": "docs/LEVEL_EDITOR.md"
+      },
+      {
+        "id": "editor-pack",
+        "label": "Pack your edited levels",
+        "description": "Turns the levels you edited in OpenRAC Editor back into the game's level data, in your packed levels folder; your disc image is never changed. Packs the objects you moved, turned, scaled, changed, added or deleted.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "pack",
+          "{disc}",
+          "{projects}",
+          "{packed}",
+          "--states",
+          "{states}",
+          "--data",
+          "{data}",
+          "--levels",
+          "{levels}",
+          "--anywhere"
+        ],
+        "output": "{packed}",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_00/project.godot",
+        "docs": "docs/LEVEL_EDITOR.md",
+        "todo": "Not run on a Japan disc yet (none in the test machine). Its files, pack note and Play were checked with the Europe v2.00 disc read as this version (test_openrac_editor), whose table of contents and level headers have the same layout."
       },
       {
         "id": "editor-show-packs",

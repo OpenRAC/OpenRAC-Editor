@@ -8,7 +8,7 @@ import unittest
 import gameplay as gp
 from godot import transform
 from mobys import FIELDS, POINTER, RECORD, SIZE, USUAL, moby_instances
-from pack import pack_level, placement, scene_mobys, virtual_range
+from pack import RAC1_SPAWN_ID_COUNT, pack_level, placement, scene_mobys, stable_spawn_ids, virtual_range
 
 
 def gameplay(records: list[dict]) -> bytes:
@@ -163,7 +163,10 @@ class AddAndDelete(unittest.TestCase):
         self.assertEqual(struct.unpack_from("<i", out, gp.offset(out, gp.MOBYS) + 4)[0], 7)   # the spare mobys
         new = mobys[3]["fields"]
         self.assertEqual(mobys[3]["matrix"][12:15], [9.0, 8.0, 7.0])
-        self.assertEqual((new["spawn_id"], new["pvar_index"], new["group"]), (3, 2, 1))
+        self.assertEqual((new["pvar_index"], new["group"]), (2, 1))
+        used = {m["fields"]["spawn_id"] for m in moby_instances(self.data)}
+        self.assertEqual(new["spawn_id"], stable_spawn_ids(["Moby_0003"], 0, used)[0])
+        self.assertNotIn(new["spawn_id"], used)
         self.assertEqual(gp.groups(out), [None, [1, 2, 3]])
         self.assertEqual(self.pvar(out, 2), self.pvar(out, 1))                  # a block of its own, the same
         self.assertNotEqual(gp.pvar_table(out, 3)[2][0], gp.pvar_table(out, 3)[1][0])
@@ -178,7 +181,18 @@ class AddAndDelete(unittest.TestCase):
         out, changes, problems = pack_level(0, self.data, text)
         self.assertEqual((changes, problems), (["Crate: added, after moby 0"], []))
         new = moby_instances(out)[3]
-        self.assertEqual((new["class_id"], new["matrix"][12:15], new["fields"]["spawn_id"]), (500, [4.0, 5.0, 6.0], 3))
+        self.assertEqual((new["class_id"], new["matrix"][12:15]), (500, [4.0, 5.0, 6.0]))
+        used = {m["fields"]["spawn_id"] for m in moby_instances(self.data)}
+        self.assertEqual(new["fields"]["spawn_id"], stable_spawn_ids(["Crate"], 0, used)[0])
+
+    def test_an_added_mobys_spawn_number_does_not_move_when_another_is_deleted(self):
+        used = {0, 1, 2}
+        both = stable_spawn_ids(["Crate", "Crate2"], 0, used)
+        alone = stable_spawn_ids(["Crate2"], 0, used)
+        self.assertEqual(both[1], alone[0])
+        self.assertEqual(len(set(both)), 2)
+        self.assertFalse(set(both) & used)
+        self.assertEqual(stable_spawn_ids([], 1, set(range(RAC1_SPAWN_ID_COUNT))), [None])
 
     def test_a_skin_or_a_behaviour_is_not_a_value(self):
         text = scene(self.data, lambda i, node: node + ['metadata/rc1_behaviour = "spin"',
@@ -234,6 +248,34 @@ class Placement(unittest.TestCase):
         from formats import FormatError
         with self.assertRaises(FormatError):
             placement((2, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0))
+
+    def test_a_mirror_is_refused(self):
+        from formats import FormatError
+        for mirrored in ((-1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0), (0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0),
+                         (-1, 0, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0)):
+            with self.assertRaisesRegex(FormatError, "mirrored"):
+                placement(mirrored)
+        # Two mirrors are a turn: that one packs.
+        self.assertAlmostEqual(placement((-1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0))[1][2], math.pi)
+
+    def test_records_in_a_folder_are_refused_not_lost(self):
+        import gamedata
+        from formats import FormatError
+        from pack import validate_record_folders
+        text = ('[node name="Game" type="Node3D" parent="."]\n'
+                '[node name="Mobys" type="Node3D" parent="Game"]\n'
+                '[node name="Moby_0000" parent="Game/Mobys" instance=ExtResource("1")]\nmetadata/rc1_index = 0\n'
+                '[node name="Light" type="OmniLight3D" parent="Game/Mobys/Moby_0000"]\n'
+                '[node name="Folder" type="Node3D" parent="Game/Mobys"]\n')
+        nodes, _ = gamedata.parse_scene(text)
+        validate_record_folders(nodes, 0)    # a light under a moby and an empty folder are fine
+        for moved in ('[node name="Moby_0001" parent="Game/Mobys/Folder" instance=ExtResource("1")]\n',
+                      '[node name="Copy" type="Node3D" parent="Game/Mobys/Folder"]\nmetadata/rc1_index = 3\n',
+                      '[node name="Cuboid_0002" type="MeshInstance3D" parent="Game/Volumes/Cuboids/Folder"]\n'
+                      'metadata/rc1_index = 2\n'):
+            nodes, _ = gamedata.parse_scene(text + moved)
+            with self.assertRaisesRegex(FormatError, "directly under their group"):
+                validate_record_folders(nodes, 0)
 
     def test_scene_reader(self):
         nodes = scene_mobys('[node name="X" parent="Game/Mobys"]\nmetadata/rc1_index = 4\nmetadata/rc1_colour = [1, 2, 3]\n')
@@ -326,6 +368,19 @@ class PackDisc(unittest.TestCase):
                 (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data))
                 self.assertEqual(pack(image, survey, project, Path(tmp) / "untouched"), (0, 0))
                 self.assertEqual(len((Path(tmp) / "untouched/patches.tsv").read_text(encoding="utf-8").splitlines()), 1)
+                # Untouched since: not read again (the disc's copy neither), and the same pack.
+                reads.clear()
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "again"), (0, 0))
+                self.assertEqual(reads, [])
+                self.assertEqual((Path(tmp) / "again/patches.tsv").read_bytes(),
+                                 (Path(tmp) / "untouched/patches.tsv").read_bytes())
+                # A file of the level changed (a collision tile, a class scene): packed in full again.
+                (project / "level_00/levels/level_00/extra.glb").write_bytes(b"x")
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "third"), (0, 0))
+                self.assertEqual(reads, [100])
+                # And an edit after that is packed, never taken for the untouched level.
+                (project / "level_00/levels/level_00/level_00.tscn").write_text(scene(data, move))
+                self.assertEqual(pack(image, survey, project, Path(tmp) / "fourth"), (1, 1))
 
     def test_gameplay_larger_than_its_disc_slot_uses_virtual_sectors_and_a_header_patch(self):
         import tempfile
@@ -404,8 +459,9 @@ class PackCutscenes(unittest.TestCase):
             (cutscenes / "audio" / "line_en.wav").write_bytes(b"RIFF")
             (cutscenes / "audio" / "line_en.wav.import").write_text("[remap]")
             (cutscenes / ".hidden").write_text("x")
-            changes, problems = pack_cutscenes(scene_dir, out)
+            changes, problems, notes = pack_cutscenes(scene_dir, out)
             self.assertEqual(changes, ["cutscene hello"])
+            self.assertEqual(notes, [])
             self.assertEqual(len(problems), 3, problems)
             self.assertTrue(all(p.startswith("cutscene ") for p in problems))
             copied = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
@@ -473,8 +529,13 @@ class PackCutscenes(unittest.TestCase):
             (scene_dir / "cutscenes").mkdir(parents=True)
             (scene_dir / "cutscenes" / "fine.cutscene").write_text(json.dumps(good | {"actors": [], "camera": {}, "sounds": []}))
             (scene_dir / "cutscenes" / "wrong.cutscene").write_text(json.dumps(good | {"level": 5}))
-            changes, problems = pack_cutscenes(scene_dir, out, 3, {7}, {500})
-            self.assertEqual(changes, ["cutscene fine"])
+            (scene_dir / "cutscenes" / "quiet.cutscene").write_text(json.dumps(
+                good | {"actors": [], "camera": {}, "sounds": [{"t": 1, "file": "audio/gone.wav"}]}))
+            changes, problems, notes = pack_cutscenes(scene_dir, out, 3, {7}, {500})
+            self.assertEqual(changes, ["cutscene fine", "cutscene quiet"])
+            # A warning is a note: the cutscene is packed and plays without that part.
+            self.assertEqual(notes, ["cutscene quiet: the sound at tick 1: audio/gone.wav not found next to it"])
+            self.assertTrue((out / "cutscenes" / "quiet.cutscene").is_file())
             self.assertTrue(any(p.startswith("cutscene wrong: made for level 5") and p.endswith("left out")
                                 for p in problems), problems)
             self.assertFalse((out / "cutscenes" / "wrong.cutscene").exists())
@@ -486,11 +547,11 @@ class PackCutscenes(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             scene_dir, out = Path(tmp) / "level_03", Path(tmp) / "packed" / "level_03"
             scene_dir.mkdir()
-            self.assertEqual(pack_cutscenes(scene_dir, out), ([], []))
+            self.assertEqual(pack_cutscenes(scene_dir, out), ([], [], []))
             (scene_dir / "cutscenes").mkdir()
             (scene_dir / "cutscenes" / "audio.wav").write_bytes(b"RIFF")
             # Files with no cutscene to play them are not carried.
-            self.assertEqual(pack_cutscenes(scene_dir, out), ([], []))
+            self.assertEqual(pack_cutscenes(scene_dir, out), ([], [], []))
             self.assertFalse(out.exists())
 
     def test_a_link_out_of_the_folder_is_not_followed(self):
@@ -548,3 +609,11 @@ class PackCutscenes(unittest.TestCase):
             self.assertIn("cutscene intro", (out / "changes.txt").read_text(encoding="utf-8"))
             # Nothing else changed: no sector of the disc is replaced.
             self.assertEqual(len((out / "patches.tsv").read_text(encoding="utf-8").splitlines()), 1)
+            # A cutscene whose sound is missing still packs: the report notes it, nothing is refused.
+            (level / "cutscenes" / "quiet.cutscene").write_text(json.dumps(
+                {"format": "openrac-cutscene", "length": 60, "sounds": [{"t": 1, "file": "gone.wav"}]}))
+            again = Path(tmp) / "again"
+            self.assertEqual(pack(Disc(), survey, project, again), (1, 2))
+            report = (again / "changes.txt").read_text(encoding="utf-8")
+            self.assertIn("  note: cutscene quiet: the sound at tick 1: gone.wav not found next to it", report)
+            self.assertNotIn("not packed:", report)

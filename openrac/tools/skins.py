@@ -24,7 +24,7 @@ import shutil
 from pathlib import Path
 
 import static_assets
-from pack import scene_mobys
+from pack import scene_mobys, sharing
 
 
 def res_path(project: Path, value) -> Path:
@@ -93,7 +93,7 @@ def write_skins(project: Path, text: str, out: Path, spawn_ids: dict[str, int]) 
             entries.append({"spawn_id": spawn_id, "model": written[source], "scale": scale,
                             "animations": numbers(node["meta"].get("skin_animations"))})
             origin = str(node["meta"].get("skin_asset", source.name)).strip('"')
-            changes.append(f"{name}: drawn as {origin}")
+            changes.append(f"{name}: drawn as {origin}" + sharing(name, spawn_id, spawn_ids))
         except (OSError, ValueError, KeyError, IndexError) as error:
             problems.append(f"{name}: skin not used: {error}")
     if entries:

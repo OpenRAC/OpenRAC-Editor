@@ -142,16 +142,21 @@ func reload() -> void:
 	# Levels without hero groups have no hero walls.
 	if hero_layer != null:
 		for child in hero_layer.get_children():
-			var name: String = String(child.name)
-			var number: int = name.trim_prefix("HeroWall_").to_int() if name.begins_with("HeroWall_") else ADDED_WALL
-			gather(child, hero_layer, number)
+			gather(child, hero_layer, wall_of(child))
 
 	read_edits()
 
 
 # --- Reading the nodes ---
 
-## Adds the faces of one child of a collision layer to base, as the packer reads that node.
+## The hero wall a node under Game/HeroWalls is (HeroWall_NNN), else a wall the modder added.
+static func wall_of(node: Node) -> int:
+	var name: String = String(node.name)
+	return name.trim_prefix("HeroWall_").to_int() if name.begins_with("HeroWall_") else ADDED_WALL
+
+
+## Adds the faces of one child of a collision layer to base, as the packer reads that node: a
+## folder's children too, at any depth (collision_scene.layer_nodes).
 func gather(node: Node, top: Node, wall: int) -> void:
 	var forced: int = int(node.get_meta("rc1_surface", -1))
 	var is_hero: bool = wall != NO_WALL
@@ -176,11 +181,13 @@ func gather(node: Node, top: Node, wall: int) -> void:
 	if node is MeshInstance3D and primitive_triangles((node as MeshInstance3D).mesh).size() > 0:
 		var kind: int = forced if forced >= 0 else Surfaces.DEFAULT_SURFACE
 		add_base(relative(node, top) * primitive_triangles((node as MeshInstance3D).mesh), kind, wall, is_hero)
-		return
-
-	# Anything else with a mesh is not read by the packer either.
-	if node is MeshInstance3D or not node.scene_file_path.is_empty():
+	elif node is MeshInstance3D or not node.scene_file_path.is_empty():
+		# Anything else with a mesh is not read by the packer either.
 		unread.append(String(node.name))
+
+	# A folder (or a mesh with children): what is under it counts too, as the packer reads it.
+	for child in node.get_children():
+		gather(child, top, wall_of(child) if is_hero and wall == ADDED_WALL else wall)
 
 
 ## Adds triangles (game units, glTF's winding) as base faces: on the leaves' grid for the level's

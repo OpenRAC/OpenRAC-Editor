@@ -6,6 +6,8 @@ for the game. They read the disc with OpenRAC's extractor (openrac_root.py finds
   openrac_editor.py pack ISO PROJECT OUT             the edited levels, packed for the game
   openrac_editor.py open EDITOR --path PROJECT ...   the editor on a project, its files brought up to date
   openrac_editor.py planet ISO PROJECT OVERRIDES      one level's project packed and added as a new planet
+  openrac_editor.py check LEVEL_PROJECT              what of the edits cannot be packed (the disc it was read from)
+  openrac_editor.py play LEVEL_PROJECT --packed ...  packed, then the game started on that level
 
 Ratchet & Clank's levels are packed back; Going Commando's, Up Your Arsenal's and Deadlocked's open
 to look at and to make texture and model packs from (early access). OUT is a new directory under
@@ -30,7 +32,8 @@ import extract
 from extract import (ROOT, adopt_flat_export, background, export_kind, file_ops, normals, output_path, ours, publish,
                      say_output)
 from formats import FormatError
-from godot import PROJECT_STAMP, SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, project_files, write_project
+from godot import (PROJECT_STAMP, SCHEMA as GODOT_SCHEMA, LevelWriter, project_files, refresh_editor_files,
+                   write_project)
 from level import decoded, load_level, load_wad_level
 from pack import pack
 import progress_line
@@ -102,16 +105,18 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             todo.append(i)
         else:
             report["kept"].append(i)
-    if report["replaced"]:
-        backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
-        backup.mkdir(parents=True, exist_ok=True)
-        for i in report["replaced"]:
-            file_ops.rename(place(i), backup / f"level_{i:02}")
-        report["backup"] = backup
     if todo:
+        # The fresh levels are written first: a disc that fails to read, or a stop half way,
+        # leaves the project as it was (not without the levels that were being replaced).
         fresh = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
         try:
             export(fresh, todo)
+            if report["replaced"]:
+                backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
+                backup.mkdir(parents=True, exist_ok=True)
+                for i in report["replaced"]:
+                    file_ops.rename(place(i), backup / f"level_{i:02}")
+                report["backup"] = backup
             for i in todo:
                 source = fresh / f"level_{i:02}" if split else fresh / "levels" / f"level_{i:02}"
                 place(i).parent.mkdir(parents=True, exist_ok=True)
@@ -134,8 +139,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             planet.carry_settings(report["backup"] / f"level_{i:02}", place(i))
     for project in ([place(i) for i in levels] if split else [dest]):
         if (project / "project.godot").is_file():
-            shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True)
-            install_addon(project)
+            refresh_editor_files(project)
     return report
 
 
@@ -223,7 +227,8 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
     progress_line.say("read", 0, len(levels))
     with worker_pool(min(jobs, len(levels))) as pool:
         if game == "rac1":
-            running = [pool.submit(export_level, iso, survey["levels"][i], where[i], lod) for i in levels]
+            by_id = {entry["id"]: entry for entry in survey["levels"]}
+            running = [pool.submit(export_level, iso, by_id[i], where[i], lod) for i in levels]
         else:
             running = [pool.submit(export_wad_level, iso, i, where[i], lod) for i in levels]
         try:
@@ -264,14 +269,10 @@ def sync_project(project: Path) -> bool:
     whether it changed anything. The levels and the player's edits are not touched."""
     if not (project / "project.godot").is_file():
         return False
-    want = project_files()
     stamp = project / PROJECT_STAMP
-    if stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == want:
+    if stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == project_files():
         return False
-    shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.uid"))
-    install_addon(project)
-    stamp.parent.mkdir(exist_ok=True)
-    stamp.write_text(want + "\n", encoding="utf-8", newline="\n")
+    refresh_editor_files(project)
     return True
 
 
@@ -288,7 +289,132 @@ def open_editor(argv: list[str]) -> int:
             print(f"brought {project}'s editor files up to date")
     options = {"start_new_session": True} if sys.platform != "win32" else {
         "creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
-    subprocess.Popen([program, *rest], stdin=subprocess.DEVNULL, **options)
+    try:
+        subprocess.Popen([program, *rest], stdin=subprocess.DEVNULL, **options)
+    except OSError as exc:
+        print(f"openrac_editor: the editor could not be started ({program}): {exc.strerror or exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+def check_project(project: Path) -> None:
+    """Refuses PROJECT unless it is an OpenRAC Editor project, or its folder of per-level projects,
+    of Ratchet & Clank's levels (the ones that pack back)."""
+    if not (project / "project.godot").is_file() and not list(project.glob("level_*/project.godot")):
+        raise FormatError(f"{project} is not an OpenRAC Editor project or its folder of "
+                          "per-level projects (read the disc's levels first)", code="no-project")
+    for stats in [*project.glob("levels/*/level.json"), *project.glob("level_*/levels/*/level.json")]:
+        game = json.loads(stats.read_text(encoding="utf-8")).get("game", "rac1")
+        if game != "rac1":
+            raise FormatError(f"{project} holds {game}'s levels, which are not packed back yet",
+                              code="game-not-packable")
+
+
+def pack_projects(disc, survey: dict, project: Path, dest: Path, anywhere: bool = True) -> dict:
+    """PROJECT's levels packed into DEST, published whole (extract.publish: built beside it, so a
+    refused edit never leaves half a pack or replaces the last good one); FormatError
+    pack-incomplete, naming each edit, when any edit could not be packed (pack.py lists them in
+    changes.txt). Returns {"levels", "mobys", "report", "dest", "moby_names"}."""
+    check_project(project)
+    ours_packed(dest, disc.version.key)
+    result, moby_names = {}, {}
+
+    def build_pack(directory: Path) -> None:
+        moby_names.clear()
+        levels, mobys = pack(disc, survey, project, directory, moby_names)
+        report = (directory / "changes.txt").read_text(encoding="utf-8")
+        incomplete = refused_lines(report)
+        if incomplete:
+            details = "\n".join(f"  {line}" for line in incomplete)
+            raise FormatError("Some edits could not be packed:\n" + details, code="pack-incomplete")
+        result.update(levels=levels, mobys=mobys, report=report)
+
+    result["dest"] = publish(dest, build_pack, anywhere, replace=True)
+    result["moby_names"] = moby_names
+    return result
+
+
+def refused_lines(report: str) -> list[str]:
+    """The "not packed: ..." lines of a pack's changes.txt, without that mark."""
+    return [line.strip()[len("not packed:"):].strip() for line in report.splitlines()
+            if line.lstrip().startswith("not packed:")]
+
+
+# Where the projects folder remembers the disc it was read from (openrac_editor.py projects writes
+# it), so the editor's Check and Play find it without the launcher.
+DISC_NOTE = Path(".openrac") / "disc.json"
+
+
+def remember_disc(projects: Path, iso: Path) -> None:
+    note = projects / DISC_NOTE
+    note.parent.mkdir(parents=True, exist_ok=True)
+    note.write_text(json.dumps({"disc": str(iso.absolute())}) + "\n", encoding="utf-8", newline="\n")
+
+
+def remembered_disc(level_project: Path) -> Path:
+    """The disc LEVEL_PROJECT's folder of projects was read from, or FormatError saying what to do."""
+    for folder in (level_project, level_project.parent):
+        try:
+            disc = Path(json.loads((folder / DISC_NOTE).read_text(encoding="utf-8"))["disc"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if disc.is_file():
+            return disc
+        raise FormatError(f"the disc these levels were read from is no longer at {disc}: run \"Extract the "
+                          "levels\" in the launcher once (your edits are kept)", code="file-missing")
+    raise FormatError("the editor does not know your disc yet: run \"Extract the levels\" in the launcher once "
+                      "(levels you edited are kept)", code="file-missing")
+
+
+def level_number(level_project: Path) -> int:
+    found = sorted(int(p.name[6:]) for p in level_project.glob("levels/level_*") if p.name[6:].isdigit())
+    if len(found) != 1:
+        raise FormatError(f"{level_project} is not one level's project", code="no-project")
+    return found[0]
+
+
+def check_or_play(args) -> int:
+    """`check LEVEL_PROJECT` and `play LEVEL_PROJECT ...`: every level of the projects folder
+    LEVEL_PROJECT is in packed (check: into a folder that is thrown away), each edit that cannot be
+    packed said on a line of its own ("openrac-problem: <node>: <why>", which the editor lists and
+    selects from); play then starts the game on LEVEL_PROJECT's level with the pack."""
+    level_project = args.project.resolve()
+    projects = level_project.parent if (level_project / "project.godot").is_file() else level_project
+    number = level_number(level_project)
+    with Disc(remembered_disc(level_project)) as disc:
+        if wads.identify(disc) is not None:
+            raise FormatError("Check and Play are for Ratchet & Clank's levels", code="game-not-packable")
+        survey = disc.survey()
+        try:
+            if args.command == "check":
+                with tempfile.TemporaryDirectory(prefix=".openrac-check-") as temp:
+                    result = pack_projects(disc, survey, projects, Path(temp) / "packed")
+            else:
+                result = pack_projects(disc, survey, projects, args.packed.resolve())
+        except FormatError as exc:
+            if getattr(exc, "code", None) != "pack-incomplete":
+                raise
+            for line in str(exc).splitlines()[1:]:
+                print(f"openrac-problem: {line.strip()}", flush=True)
+            print("Some edits cannot be packed yet: fix them and check again.")
+            return 1
+    print(f"openrac-check: {result['levels']} level(s), {result['mobys']} edit(s), nothing refused", flush=True)
+    if args.command == "check":
+        print("Every edit packs.")
+        return 0
+    game = args.game.resolve()
+    if not game.is_file() and game.with_suffix(".exe").is_file():
+        game = game.with_suffix(".exe")
+    if not game.is_file():
+        raise FormatError(f"no game program at {game}: build the port (or start it from the launcher)",
+                          code="file-missing")
+    command = [str(game), "--data", str(args.data), "--levels", str(args.levels), "--mods", str(result["dest"]),
+               "--level", str(number), "--skip-movies"]
+    options = {"start_new_session": True} if sys.platform != "win32" else {
+        "creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
+    subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                     cwd=str(game.parent), **options)
+    print(f"Started the game on level {number:02} with your edits.")
     return 0
 
 
@@ -329,7 +455,23 @@ def main() -> None:
     adding.add_argument("project", type=Path, help="one level's project (a project per level)")
     adding.add_argument("overrides", type=Path, help="the launcher's packs folder (<data>/overrides) to add it to")
     adding.add_argument("--anywhere", action="store_true", help="accepted for the launcher; the planet goes to OVERRIDES")
+    for name, about in (("check", "pack every level of a level project's folder into a throwaway folder and "
+                                  "list each edit that cannot be packed"),
+                        ("play", "pack, then start the game on that level with the pack")):
+        sub = commands.add_parser(name, help=about)
+        sub.add_argument("project", type=Path, help="one level's project (a project per level)")
+        if name == "play":
+            sub.add_argument("--packed", type=Path, required=True, help="the packed levels folder (written again)")
+            sub.add_argument("--game", type=Path, required=True, help="the game program (openrac-rac1-<version>)")
+            sub.add_argument("--data", type=Path, required=True, help="the port's game data")
+            sub.add_argument("--levels", type=Path, required=True, help="the port's levels")
     args = parser.parse_args()
+    if args.command in ("check", "play"):
+        try:
+            sys.exit(check_or_play(args))
+        except (OSError, FormatError, struct.error) as exc:
+            errors.say(exc)
+            parser.exit(1, f"openrac_editor: {exc}\n")
     if args.command == "projects":
         args.command = "godot"  # its name inside (the folder mark ours() writes keeps it)
     if args.command == "godot":
@@ -358,10 +500,9 @@ def main() -> None:
                                    gameplay_source=disc.version.gameplay if disc.version.key == "pal" else None,
                                    carry=lambda i, old, new, backup: carry_edits(disc, survey, i, old, new, backup),
                                    again=args.again))
+                remember_disc(args.out.resolve(), args.iso)
                 say_output(args.out.resolve())
             elif args.command == "pack":
-                # Its own output, written again after each edit: the one command that may write
-                # into a directory that exists.
                 dest = args.out.resolve()
                 if adopt_flat_export(args.project.resolve(), disc.version.key, "godot"):
                     print(f"moved the OpenRAC Editor projects made before into {args.project.resolve()}")
@@ -370,43 +511,18 @@ def main() -> None:
                 if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
                     raise FormatError("output must be a directory under this repository's assets/ or build/",
                                       code="folder-not-allowed")
-                if not (args.project / "project.godot").is_file() and not list(args.project.glob("level_*/project.godot")):
-                    raise FormatError(f"{args.project} is not an OpenRAC Editor project or its folder of "
-                                      "per-level projects (read the disc's levels first)", code="no-project")
-                for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
-                    game = json.loads(stats.read_text(encoding="utf-8")).get("game", "rac1")
-                    if game != "rac1":
-                        raise FormatError(f"{args.project} holds {game}'s levels, which are not packed back yet",
-                                          code="game-not-packable")
-                ours_packed(dest, disc.version.key)
-                # Build beside the published pack. An unsupported Godot edit must not leave a
-                # half pack behind or replace the last good one: pack.py records such edits in
-                # changes.txt so authors can see exactly what needs attention.
-                result, moby_names = {}, {}
-
-                def build_pack(directory: Path) -> None:
-                    moby_names.clear()
-                    levels, mobys = pack(disc, survey, args.project, directory, moby_names)
-                    report = (directory / "changes.txt").read_text(encoding="utf-8")
-                    incomplete = [line.strip() for line in report.splitlines()
-                                  if line.lstrip().startswith("not packed:")]
-                    if incomplete:
-                        details = "\n".join(f"  {line}" for line in incomplete)
-                        raise FormatError("Some edits could not be packed:\n" + details,
-                                          code="pack-incomplete")
-                    result.update(levels=levels, mobys=mobys, report=report)
-
-                dest = publish(dest, build_pack, args.anywhere, replace=True)
+                result = pack_projects(disc, survey, args.project, dest, args.anywhere)
                 print(result["report"], end="")
-                print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
+                print(f"Packed {result['levels']} level(s), {result['mobys']} edit(s): {result['dest']}")
                 program = args.states if args.states is None or args.states.is_file() else args.states.with_suffix(".exe")
                 if program is not None and program.is_file() and args.data and args.levels:
                     import moby_states
-                    for line in moby_states.after_pack(program, args.data, args.levels, dest, args.project, moby_names):
+                    for line in moby_states.after_pack(program, args.data, args.levels, result["dest"], args.project,
+                                                       result["moby_names"]):
                         print(line)
                 elif program is not None:
                     print(f"moby start states skipped: no states program at {args.states}, or no --data and --levels")
-                say_output(dest)
+                say_output(result["dest"])
             elif args.command == "planet":
                 import overrides
                 import planet

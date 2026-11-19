@@ -1180,7 +1180,7 @@ def pack_cameras(original: bytes, out: bytearray, nodes: dict, pvar_edits, camer
     cameras = table(bytes(out), CAMERAS, CAMERA_SIZE)
     owner, extra = owners(found, len(cameras), "Camera")
     for i in sorted(set(range(len(cameras))) - set(owner)):
-        problems.append(f"Camera_{i:04}: deleting cameras is not supported (other data names them by place); kept")
+        problems.append(f"Camera_{i:04}: deleting cameras is not supported (other data names them by place); undo the delete (Ctrl+Z)")
     at = start(bytes(out), CAMERAS) + 0x10
     count = len(Pvars(original).table)
     additions = []
@@ -1287,7 +1287,7 @@ def pack_sounds(original: bytes, out: bytearray, nodes: dict, pvar_edits, change
     for node in extra:
         problems.append(f"{node['name']}: adding sound instances is not supported; not packed")
     for i in sorted(set(range(len(sounds))) - set(owner)):
-        problems.append(f"Sound_{i:04}: deleting sound instances is not supported; kept")
+        problems.append(f"Sound_{i:04}: deleting sound instances is not supported; undo the delete (Ctrl+Z)")
     at = start(original, SOUNDS) + 0x10
     count = len(Pvars(original).table)
     for i, node in owner.items():
@@ -1448,7 +1448,7 @@ def pack_shapes(original: bytes, nodes: dict, pointer: int, group: str, prefix: 
     owner, extra = owners(children(nodes, parent), len(bodies), prefix)
     for i in sorted(set(range(len(bodies))) - set(owner)):
         problems.append(f"{prefix}_{i:04}: deleting volumes is not supported (cameras, pvars and the camera grid "
-                        "name them by place); kept")
+                        "name them by place); undo the delete (Ctrl+Z)")
     result, edited = list(bodies), False
     for i, node in sorted(owner.items()):
         try:
@@ -1536,7 +1536,7 @@ def pack_paths(original: bytes, nodes: dict, subresources: dict, sections: dict,
         paths = read_paths(original)
         owner, extra = owners(children(nodes, "Game/Paths"), len(paths), "Path")
         for i in sorted(set(range(len(paths))) - set(owner)):
-            problems.append(f"Path_{i:04}: deleting paths is not supported (other data names them by place); kept")
+            problems.append(f"Path_{i:04}: deleting paths is not supported (other data names them by place); undo the delete (Ctrl+Z)")
         result, edited = list(paths), False
         for i, node in sorted(owner.items()):
             points = path_edits(nodes, node, meta_of(node), subresources, paths[i], problems)
@@ -1556,7 +1556,7 @@ def pack_paths(original: bytes, nodes: dict, subresources: dict, sections: dict,
         grinds = read_grind_paths(original)
         owner, extra = owners(children(nodes, "Game/GrindPaths"), len(grinds), "GrindPath")
         for i in sorted(set(range(len(grinds))) - set(owner)):
-            problems.append(f"GrindPath_{i:04}: deleting grind paths is not supported (other data names them by place); kept")
+            problems.append(f"GrindPath_{i:04}: deleting grind paths is not supported (other data names them by place); undo the delete (Ctrl+Z)")
         result, edited = [dict(g) for g in grinds], False
         for node, i in [(n, i) for i, n in sorted(owner.items())] + [(n, None) for n in extra]:
             meta = meta_of(node)

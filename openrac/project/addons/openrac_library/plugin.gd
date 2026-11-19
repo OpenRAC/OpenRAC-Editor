@@ -9,12 +9,14 @@ extends EditorPlugin
 ## Godot's own drop (from the dock into the 3D view or the Scene dock) may put the node anywhere:
 ## it is moved to its group right after, keeping where it was dropped.
 ## behaviour_inspector.gd adds the Behaviour section to a moby's Inspector, foreign_inspector.gd the
-## Imported class section to a moby that came with its own logic from another level.
+## Imported class section to a moby that came with its own logic from another level. play.gd puts
+## Check level and Play level on the toolbar.
 
 const Dock = preload("dock.gd")
 const Library = preload("library.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
 const ForeignInspector = preload("foreign_inspector.gd")
+const Play = preload("play.gd")
 
 ## The groups under Game, by kind, for an asset the level has.
 const GROUPS: Dictionary = {"mobys": "Mobys", "ties": "Ties", "shrubs": "Shrubs"}
@@ -28,6 +30,8 @@ const ADD_DISTANCE: float = 12.0
 var dock: Dock
 var behaviour_inspector: BehaviourInspector
 var foreign_inspector: ForeignInspector
+## Check level and Play level, on the toolbar (play.gd).
+var play: Play
 
 ## What placed files are, by res:// path: the asset placed, until its node arrives.
 var pending: Dictionary = {}
@@ -60,13 +64,15 @@ func _enter_tree() -> void:
 	get_tree().node_added.connect(handle_node_added)
 	handle_scene_changed(EditorInterface.get_edited_scene_root())
 	add_planet_settings()
+	play = Play.new()
+	add_control_to_container(CONTAINER_TOOLBAR, play)
 
 
 ## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
 ## name in the ship's menu, and its id, which the first add sets so later ones update the same
 ## planet. In Project Settings, OpenRAC > Planet.
 static func add_planet_settings() -> void:
-	for entry in [["openrac/planet/name", "The name in the ship's menu (one line, at most 40 characters)"],
+	for entry in [["openrac/planet/name", "The name in the ship's menu (one line, at most 40 characters: plain letters A-Z, digits, spaces and punctuation, as the game's font has no others)"],
 			["openrac/planet/id", "Set when the planet is first added: the next add updates the same planet"]]:
 		if not ProjectSettings.has_setting(entry[0]):
 			ProjectSettings.set_setting(entry[0], "")
@@ -81,6 +87,9 @@ func _exit_tree() -> void:
 		get_tree().node_added.disconnect(handle_node_added)
 
 	scene_changed.disconnect(handle_scene_changed)
+	remove_control_from_container(CONTAINER_TOOLBAR, play)
+	play.queue_free()
+	play = null
 	remove_inspector_plugin(behaviour_inspector)
 	behaviour_inspector = null
 	remove_inspector_plugin(foreign_inspector)
