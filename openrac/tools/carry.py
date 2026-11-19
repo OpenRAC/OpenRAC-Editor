@@ -424,7 +424,9 @@ def carry_project(old_project: Path, old_level_dir: Path, new_level_dir: Path, o
                               other_edits(old_project, old_level_dir, old_scene, old_gameplay)]
     if text is not None and report["carried"]:
         try:
-            pack.pack_level(0, new_gameplay, text)
+            _, _, problems = pack.pack_level(0, new_gameplay, text)
+            # Kept, and said: the player fixes these in the editor before packing.
+            report["not_carried"] += [f"to fix before packing: {problem}" for problem in problems]
         except (FormatError, ValueError, KeyError, IndexError) as exc:
             # The carried scene would not pack: the fresh one stays as it was written.
             report = {"carried": [], "not_carried": report["not_carried"] + [f"the carried edits would not pack: {exc}"],

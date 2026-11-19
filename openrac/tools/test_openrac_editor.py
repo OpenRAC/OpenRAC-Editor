@@ -171,6 +171,29 @@ class OpenTests(unittest.TestCase):
             self.assertFalse(oe.sync_project(project))
             self.assertFalse(oe.sync_project(Path(tmp) / "nothing"), "no project, nothing to do")
 
+    def test_a_file_the_editor_no_longer_ships_is_taken_out_and_the_players_are_kept(self):
+        import godot
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "level_00"
+            godot.write_project(project, [0])
+            gone = project / "rc1" / "retired.gd"
+            gone.write_text("extends Node\n")
+            Path(str(gone) + ".uid").write_text("uid://x\n")
+            mine = project / "rc1" / "mine.gd"
+            mine.write_text("extends Node\n")
+            listed = project / godot.PROJECT_LIST
+            listed.write_text(listed.read_text(encoding="utf-8") + "rc1/retired.gd\n../outside.gd\n")
+            (project / godot.PROJECT_STAMP).write_text("older\n")
+            self.assertTrue(oe.sync_project(project))
+            self.assertFalse(gone.exists())
+            self.assertFalse(Path(str(gone) + ".uid").exists())
+            self.assertTrue(mine.exists(), "a file the editor never put there is the player's")
+            self.assertNotIn("retired", listed.read_text(encoding="utf-8"))
+
+    def test_an_editor_that_is_not_there_is_said_not_traced(self):
+        with mock.patch.object(oe.subprocess, "Popen", side_effect=FileNotFoundError(2, "No such file")):
+            self.assertEqual(oe.open_editor(["/no/editor"]), 1)
+
     def test_open_starts_the_editor_on_its_own(self):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(oe.subprocess, "Popen") as popen:
             self.assertEqual(oe.open_editor(["/bin/editor", "--path", tmp, "-e"]), 0)

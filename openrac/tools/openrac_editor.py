@@ -30,7 +30,8 @@ import extract
 from extract import (ROOT, adopt_flat_export, background, export_kind, file_ops, normals, output_path, ours, publish,
                      say_output)
 from formats import FormatError
-from godot import PROJECT_STAMP, SCHEMA as GODOT_SCHEMA, SCRIPTS, LevelWriter, install_addon, project_files, write_project
+from godot import (PROJECT_STAMP, SCHEMA as GODOT_SCHEMA, LevelWriter, project_files, refresh_editor_files,
+                   write_project)
 from level import decoded, load_level, load_wad_level
 from pack import pack
 import progress_line
@@ -102,16 +103,18 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             todo.append(i)
         else:
             report["kept"].append(i)
-    if report["replaced"]:
-        backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
-        backup.mkdir(parents=True, exist_ok=True)
-        for i in report["replaced"]:
-            file_ops.rename(place(i), backup / f"level_{i:02}")
-        report["backup"] = backup
     if todo:
+        # The fresh levels are written first: a disc that fails to read, or a stop half way,
+        # leaves the project as it was (not without the levels that were being replaced).
         fresh = Path(tempfile.mkdtemp(prefix=f".{dest.name}-", dir=dest.parent))
         try:
             export(fresh, todo)
+            if report["replaced"]:
+                backup = dest.parent / f"{dest.name}-backups" / time.strftime("%Y%m%d-%H%M%S")
+                backup.mkdir(parents=True, exist_ok=True)
+                for i in report["replaced"]:
+                    file_ops.rename(place(i), backup / f"level_{i:02}")
+                report["backup"] = backup
             for i in todo:
                 source = fresh / f"level_{i:02}" if split else fresh / "levels" / f"level_{i:02}"
                 place(i).parent.mkdir(parents=True, exist_ok=True)
@@ -134,8 +137,7 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             planet.carry_settings(report["backup"] / f"level_{i:02}", place(i))
     for project in ([place(i) for i in levels] if split else [dest]):
         if (project / "project.godot").is_file():
-            shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True)
-            install_addon(project)
+            refresh_editor_files(project)
     return report
 
 
@@ -223,7 +225,8 @@ def godot(iso: Path, survey: dict, levels: list[int], lod: int, jobs: int, out: 
     progress_line.say("read", 0, len(levels))
     with worker_pool(min(jobs, len(levels))) as pool:
         if game == "rac1":
-            running = [pool.submit(export_level, iso, survey["levels"][i], where[i], lod) for i in levels]
+            by_id = {entry["id"]: entry for entry in survey["levels"]}
+            running = [pool.submit(export_level, iso, by_id[i], where[i], lod) for i in levels]
         else:
             running = [pool.submit(export_wad_level, iso, i, where[i], lod) for i in levels]
         try:
@@ -264,14 +267,10 @@ def sync_project(project: Path) -> bool:
     whether it changed anything. The levels and the player's edits are not touched."""
     if not (project / "project.godot").is_file():
         return False
-    want = project_files()
     stamp = project / PROJECT_STAMP
-    if stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == want:
+    if stamp.is_file() and stamp.read_text(encoding="utf-8").strip() == project_files():
         return False
-    shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.uid"))
-    install_addon(project)
-    stamp.parent.mkdir(exist_ok=True)
-    stamp.write_text(want + "\n", encoding="utf-8", newline="\n")
+    refresh_editor_files(project)
     return True
 
 
@@ -288,7 +287,11 @@ def open_editor(argv: list[str]) -> int:
             print(f"brought {project}'s editor files up to date")
     options = {"start_new_session": True} if sys.platform != "win32" else {
         "creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
-    subprocess.Popen([program, *rest], stdin=subprocess.DEVNULL, **options)
+    try:
+        subprocess.Popen([program, *rest], stdin=subprocess.DEVNULL, **options)
+    except OSError as exc:
+        print(f"openrac_editor: the editor could not be started ({program}): {exc.strerror or exc}", file=sys.stderr)
+        return 1
     return 0
 
 

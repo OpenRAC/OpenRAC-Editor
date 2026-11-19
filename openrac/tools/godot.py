@@ -397,9 +397,42 @@ def write_project(project: Path, levels: list[int], region: str = "PAL", game: s
         name = (f"{fmt.title}: {fmt.level_name(levels[0])} ({region}, early access)" if len(levels) == 1
                 else f"{fmt.title} levels ({region}, early access)")
     (project / "project.godot").write_text(PROJECT.format(main=main, name=name, addons=", ".join(f'"{cfg}"' for _, cfg in ADDONS)), encoding="utf-8", newline="\n")
-    shutil.copytree(SCRIPTS, project / "rc1")
+    refresh_editor_files(project)
+
+
+# The files refresh_editor_files() put in a project last time, so a newer editor can take out the
+# ones it no longer ships (a script left behind could fail to parse against the new ones).
+PROJECT_LIST = Path(".openrac") / "project_files.list"
+
+
+def shipped_files() -> list[str]:
+    """The paths (from the project's root) of the files this editor puts in every project."""
+    return sorted(path.relative_to(PROJECT_FILES).as_posix() for folder in (SCRIPTS, *(f for f, _ in ADDONS))
+                  for path in folder.rglob("*")
+                  if path.is_file() and path.suffix != ".uid" and "__pycache__" not in path.parts)
+
+
+def refresh_editor_files(project: Path) -> None:
+    """The editor's own files in PROJECT (rc1/ and the docks' addons) as this editor ships them:
+    copied over, the ones an older editor put there and this one no longer ships taken out, the
+    addons enabled, and the stamp written. The levels and the player's edits are not touched, nor
+    any file the player added."""
+    want = shipped_files()
+    listed = project / PROJECT_LIST
+    try:
+        before = listed.read_text(encoding="utf-8").split("\n")
+    except OSError:
+        before = []
+    for old in set(before) - set(want):
+        if not old or old.startswith(("/", "..")) or ".." in old.split("/"):
+            continue
+        for path in (project / old, project / (old + ".uid")):
+            if path.is_file():
+                path.unlink()
+    shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True, ignore=shutil.ignore_patterns("*.uid", "__pycache__"))
     install_addon(project)
-    (project / PROJECT_STAMP).parent.mkdir(exist_ok=True)
+    listed.parent.mkdir(exist_ok=True)
+    listed.write_text("\n".join(want) + "\n", encoding="utf-8", newline="\n")
     (project / PROJECT_STAMP).write_text(project_files() + "\n", encoding="utf-8", newline="\n")
 
 
@@ -409,7 +442,7 @@ def install_addon(project: Path) -> None:
     # Each goes in front, so the list keeps ADDONS' order.
     for folder, cfg in reversed(ADDONS):
         shutil.copytree(folder, project / "addons" / folder.name, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("*.uid"))
+                        ignore=shutil.ignore_patterns("*.uid", "__pycache__"))
         settings = project / "project.godot"
         text = settings.read_text(encoding="utf-8")
         if cfg in text:

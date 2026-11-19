@@ -1199,8 +1199,9 @@ def pack(disc, survey: dict, project: Path, out: Path,
         if moby_names is not None:
             moby_names[info["id"]] = (scene.parent, names)
     out.mkdir(parents=True, exist_ok=True)
+    by_id = {entry["id"]: entry for entry in survey["levels"]}
     for level, header in sorted(headers.items()):
-        info = survey["levels"][level]
+        info = by_id[level]
         file = f"level_{level:02}/header_{disc.version.key}.bin"
         (out / file).parent.mkdir(parents=True, exist_ok=True)
         (out / file).write_bytes(header + bytes(-len(header) % SECTOR))
