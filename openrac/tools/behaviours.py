@@ -82,7 +82,7 @@ def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int]) -
         except ValueError as error:
             problems.append(f"{name}: behaviour not used: {error}")
             continue
-        changes.append(f"{name}: behaviour {entries[-1]['preset']}" + sharing(name, spawn_id, spawn_ids))
+        changes.append(f"{name}: behaviour {entries[-1]['preset']}" + sharing(name, spawn_id, spawn_ids, "behaviour"))
     if entries:
         out.mkdir(parents=True, exist_ok=True)
         (out / "behaviours.json").write_text(json.dumps({"format": 1, "mobys": entries}, indent=1) + "\n", encoding="utf-8", newline="\n")

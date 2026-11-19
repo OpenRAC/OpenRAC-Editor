@@ -47,7 +47,8 @@ class Behaviours(unittest.TestCase):
         changes, problems = behaviours.write_behaviours(scene('metadata/rc1_behaviour = "spin"'), self.out,
                                                         {"Vendor_0001": 376, "Vendor_0003": 376})
         self.assertEqual((changes, problems),
-                         (["Vendor_0001: behaviour spin (also Vendor_0003: the same spawn number)"], []))
+                         (["Vendor_0001: behaviour spin (Vendor_0003 has the same spawn number: only one of them "
+                           "moves; give one another number)"], []))
 
     def test_problems(self):
         (self.out).mkdir(parents=True)
