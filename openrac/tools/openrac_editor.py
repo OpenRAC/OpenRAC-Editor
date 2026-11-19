@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""The level editor's tools: Godot projects of a disc's levels, and the edited levels packed back
+"""The level editor's tools: OpenRAC Editor projects of a disc's levels, and the edited levels packed back
 for the game. They read the disc with OpenRAC's extractor (openrac_root.py finds it).
 
-  openrac_editor.py godot ISO OUT [--level N ...]   a Godot 4 project of editable levels
+  openrac_editor.py projects ISO OUT [--level N ...] an OpenRAC Editor project of editable levels
   openrac_editor.py pack ISO PROJECT OUT             the edited levels, packed for the game
   openrac_editor.py open EDITOR --path PROJECT ...   the editor on a project, its files brought up to date
   openrac_editor.py planet ISO PROJECT OVERRIDES      one level's project packed and added as a new planet
@@ -165,12 +165,12 @@ def export_godot(out: Path, levels: list[int], anywhere: bool, split: bool, expo
     ours(dest, "godot")
     if export_kind(dest) is None:
         publish(dest, lambda fresh: export(fresh, levels), anywhere, replace=True)
-        return f"Godot project{'s, one per level' if split else ''}: {dest}"
+        return f"OpenRAC Editor project{'s, one per level' if split else ''}: {dest}"
     report = update_godot(dest, levels, split, export, GODOT_SCHEMA, gameplay_source, carry, again)
     for done in report["carried"]:
         # One line per level for the launcher (the launcher hides these lines: launcher/src/lib/toolErrors.ts, MARKERS).
         print(f"openrac-carry: {json.dumps(done, separators=(',', ':'))}", flush=True)
-    said = [f"Godot project{'s' if split else ''} in {dest}:"]
+    said = [f"OpenRAC Editor project{'s' if split else ''} in {dest}:"]
     if report["kept"]:
         said.append(f"{len(report['kept'])} level(s) kept as they are, with your edits")
     if report["added"]:
@@ -295,7 +295,8 @@ def open_editor(argv: list[str]) -> int:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     commands = parser.add_subparsers(dest="command", required=True)
-    export = commands.add_parser("godot")
+    # "godot" was its name before (older launchers still run it).
+    export = commands.add_parser("projects", aliases=["godot"])
     export.add_argument("iso", type=Path)
     export.add_argument("out", type=Path)
     export.add_argument("--level", type=int, action="append",
@@ -305,7 +306,7 @@ def main() -> None:
     export.add_argument("--terrain-lod", type=int, choices=(0, 2), default=0,
                         help="terrain detail: 0 finest (default), 2 coarsest")
     export.add_argument("--split", action="store_true",
-                        help="a Godot project per level (OUT/level_NN): each opens in seconds")
+                        help="an OpenRAC Editor project per level (OUT/level_NN): each opens in seconds")
     export.add_argument("--anywhere", action="store_true",
                         help="OUT may be outside this repository (the installed launcher's data folder)")
     export.add_argument("--again", action="store_true",
@@ -314,7 +315,7 @@ def main() -> None:
     packing = commands.add_parser("pack")
     packing.add_argument("iso", type=Path)
     packing.add_argument("project", type=Path,
-                         help="the Godot project the levels were edited in, or the folder of per-level projects")
+                         help="the OpenRAC Editor project the levels were edited in, or the folder of per-level projects")
     packing.add_argument("out", type=Path, help="where the packed levels go (under assets/ or build/)")
     packing.add_argument("--anywhere", action="store_true",
                          help="OUT may be outside this repository (the installed launcher's data folder)")
@@ -329,6 +330,8 @@ def main() -> None:
     adding.add_argument("overrides", type=Path, help="the launcher's packs folder (<data>/overrides) to add it to")
     adding.add_argument("--anywhere", action="store_true", help="accepted for the launcher; the planet goes to OVERRIDES")
     args = parser.parse_args()
+    if args.command == "projects":
+        args.command = "godot"  # its name inside (the folder mark ours() writes keeps it)
     if args.command == "godot":
         # Whatever the player does comes first; the levels' processes have the rest of the CPU.
         background.lower_priority()
@@ -347,7 +350,7 @@ def main() -> None:
                 if adopt_flat_export(args.out.resolve(), disc.version.key, "godot"):
                     # Projects made before the per-version folders, edits and all: kept, not
                     # written over.
-                    print(f"moved the Godot projects made before into {args.out.resolve()}")
+                    print(f"moved the OpenRAC Editor projects made before into {args.out.resolve()}")
                     return
                 print(export_godot(args.out, levels, args.anywhere, args.split,
                                    lambda out, todo: godot(args.iso, survey, todo, args.terrain_lod, max(1, args.jobs),
@@ -361,15 +364,15 @@ def main() -> None:
                 # into a directory that exists.
                 dest = args.out.resolve()
                 if adopt_flat_export(args.project.resolve(), disc.version.key, "godot"):
-                    print(f"moved the Godot projects made before into {args.project.resolve()}")
+                    print(f"moved the OpenRAC Editor projects made before into {args.project.resolve()}")
                 if adopt_flat_export(dest, disc.version.key, "packed"):
                     print(f"moved the packed levels made before into {dest}")
                 if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
                     raise FormatError("output must be a directory under this repository's assets/ or build/",
                                       code="folder-not-allowed")
                 if not (args.project / "project.godot").is_file() and not list(args.project.glob("level_*/project.godot")):
-                    raise FormatError(f"{args.project} is not the editor's Godot project or its folder of "
-                                      "per-level projects (run `godot` first)", code="no-project")
+                    raise FormatError(f"{args.project} is not an OpenRAC Editor project or its folder of "
+                                      "per-level projects (read the disc's levels first)", code="no-project")
                 for stats in [*args.project.glob("levels/*/level.json"), *args.project.glob("level_*/levels/*/level.json")]:
                     game = json.loads(stats.read_text(encoding="utf-8")).get("game", "rac1")
                     if game != "rac1":
@@ -389,7 +392,7 @@ def main() -> None:
                                   if line.lstrip().startswith("not packed:")]
                     if incomplete:
                         details = "\n".join(f"  {line}" for line in incomplete)
-                        raise FormatError("Some Godot edits could not be packed:\n" + details,
+                        raise FormatError("Some edits could not be packed:\n" + details,
                                           code="pack-incomplete")
                     result.update(levels=levels, mobys=mobys, report=report)
 

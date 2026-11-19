@@ -6,8 +6,8 @@ It also covers standalone maps and updates to an installed world.
 
 The editor turns the levels on your own disc of Ratchet & Clank (PAL,
 `SCES_509.16` v2.00 or v1.00, NTSC-U, `SCUS_971.99` v1.00, or Japan, `SCPS_150.37`
-v1.02) into a Godot 4 project.
-Godot is the map editor: open a level, move, add or delete objects, and save.
+v1.02) into an OpenRAC Editor project.
+OpenRAC Editor is the map editor: open a level, move, add or delete objects, and save.
 For RAC1 PAL v2.00 and NTSC-U, `openrac_editor.py pack` turns supported scene edits back
 into mod files without writing to the disc. The launcher's Mods page can
 extract, open, pack, and run those edits. Later games are still early access:
@@ -35,8 +35,7 @@ It only writes to new directories under OpenRAC's ignored `assets/` or `build/`.
 You need:
 
 - Python 3.10 or newer (standard library only).
-- Godot 4, tested with 4.7.2. On macOS its command is
-  `/Applications/Godot.app/Contents/MacOS/Godot`; below it is `godot`.
+- OpenRAC Editor (the launcher downloads it). Below, its program is `<editor>/openrac-editor.x86_64` (Linux).
 - An ISO image of your own disc, placed at the top of OpenRAC as
   `baserom/SCES_509.16.iso` (PAL), `baserom/SCUS_971.99.iso` (NTSC-U),
   `baserom/SCES_509.16_v1.00.iso` (PAL v1.00) or `baserom/SCPS_150.37.iso` (Japan)
@@ -87,19 +86,19 @@ cells and surfaces differ, and level 17 loads four moby classes fewer
 ## Extract
 
 ```sh
-python3 <editor>/openrac/tools/openrac_editor.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
+python3 <editor>/openrac/tools/openrac_editor.py projects baserom/SCES_509.16.iso assets/levels/rac1/pal --split
 <editor>/openrac-editor.x86_64 --path assets/levels/rac1/pal/level_00 -e   # or the launcher's Open
 ```
 
-`--split` writes a Godot project per level, `level_00` to `level_18`, each
+`--split` writes an OpenRAC Editor project per level, `level_00` to `level_18`, each
 named after its planet. The second command opens Veldin in the editor. A
-project holds one level, so Godot imports it in about five seconds the
+project holds one level, so OpenRAC Editor imports it in about five seconds the
 first time it is opened, and only that level is loaded. This is what the
 launcher's Mods page uses.
 
 Without `--split` the 19 levels go into one project (`assets/godot` in
 earlier versions of this page): the other levels are then in the FileSystem
-dock under `levels/`, and Godot's first import takes about a minute and a
+dock under `levels/`, and the editor's first import takes about a minute and a
 half.
 
 All 19 levels take about 20 seconds and 800 MB to extract, several levels
@@ -119,7 +118,7 @@ Nothing the extractor writes is kept in git, so a fresh checkout has none
 of it: run the command above to make it. The same disc always gives
 byte-identical files. To rebuild a project, delete its directory and run
 the command again (in the launcher: **Delete the level project**, below, or **Export the levels again**, which keeps your edits); the extractor never overwrites an existing directory.
-Godot rebuilds its import cache (`.godot/`) the next time it opens the
+OpenRAC Editor rebuilds its import cache (`.godot/`) the next time it opens the
 project.
 
 Regenerating replaces the project, and with it any edit that has not been
@@ -133,7 +132,7 @@ packed (below). To keep an edited level across a regeneration:
 That only works when the extractor hasn't changed since the scene was
 made. A newer extractor can write scenes with other nodes (the sky's
 WorldEnvironment, for instance), so after updating it, move your changes
-into the new scene instead. Godot saves a scene as text, so a diff
+into the new scene instead. OpenRAC Editor saves a scene as text, so a diff
 against a fresh export shows each edit.
 
 ## Your levels
@@ -146,12 +145,12 @@ Kerwan, 3 of 18"), from the tools' `openrac-progress:` lines
 ([progress_line.py](https://github.com/OpenRAC/OpenRAC/blob/develop/extractor/progress_line.py)). Under it, always open, **Your levels**
 holds what can be done with the levels there. Each button but Pack again asks
 first, saying what goes or is replaced and what stays. None runs while the game
-or another task does. Close Godot first.
+or another task does. Close OpenRAC Editor first.
 
-- **Pack again** packs what you saved in Godot now, even when the launcher saw
+- **Pack again** packs what you saved in OpenRAC Editor now, even when the launcher saw
   no change.
-- **Export the levels again** (`openrac_editor.py godot … --again`) reads every level
-  from your disc into its Godot project again, even an up-to-date one: the
+- **Export the levels again** (`openrac_editor.py projects … --again`) reads every level
+  from your disc into its OpenRAC Editor project again, even an up-to-date one: the
   projects there move to `<disc>-backups/<time>/` first, with your edits, and
   your moby edits are carried onto the fresh ones as an update does (Ratchet &
   Clank's; [carry.py](../openrac/tools/carry.py)). What cannot be carried is listed, to redo by
@@ -160,11 +159,11 @@ or another task does. Close Godot first.
   and Models and textures read, with its `levels-<format>.json` and
   `verified-<format>.json` stamps and its visibility data) and the enhanced
   lighting baked from it, then reads the levels from the disc again straight
-  away. The Godot projects, your packed levels, edits, packs, exports and
+  away. The OpenRAC Editor projects, your packed levels, edits, packs, exports and
   saves are kept.
-- **Delete the level project** deletes the Godot projects of that disc (with
-  Godot's import cache, and any change saved in Godot but not packed) and the
-  models and textures exported for the game. **Open in Godot** then reads
+- **Delete the level project** deletes the OpenRAC Editor projects of that disc (with
+  the editor's import cache, and any change saved in OpenRAC Editor but not packed) and the
+  models and textures exported for the game. **Open a level in OpenRAC Editor** then reads
   fresh copies from the disc. A tick box, off at first, also deletes your own
   work: the packed levels and the mods put together from them, your imported
   edits and added packs (the game's, for all its discs), and the older copies
@@ -176,7 +175,7 @@ Where those are:
 |---|---|---|
 | The game's levels | `assets/port/<game>/<disc>` | `<data>/port/<disc>` |
 | Enhanced lighting | `<data>/probes/<disc>` | the same |
-| Godot projects | `assets/levels/<game>/<disc>` | `<data>/levels/<disc>` |
+| OpenRAC Editor projects | `assets/levels/<game>/<disc>` | `<data>/levels/<disc>` |
 | Older copies of them | `assets/levels/<game>/<disc>-backups` | `<data>/levels/<disc>-backups` |
 | Exported models and textures | `<data>/exports` | the same |
 | Packed levels | `assets/packed/<game>/<disc>` | `<data>/packed/<disc>` |
@@ -209,7 +208,7 @@ class is and what runs it, in its tooltip in the Scene dock and as metadata:
 
 That function is the moby's behaviour: an enemy's attack pattern, a crate
 breaking, a vendor's menu. It is C in the decompilation, and the native port
-is built from that C. Behaviour is not edited in Godot: the level editor edits
+is built from that C. Behaviour is not edited in OpenRAC Editor: the level editor edits
 levels and their data, and nothing in a project runs game logic. A class's
 behaviour is changed by a mod through the mod SDK, on the port's hook points
 ([docs/port/MODS.md](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/port/MODS.md)); the SDK's behaviour catalogue
@@ -227,7 +226,7 @@ the editor-runtime mod plays.
 
 ## Pack your edits
 
-The modder's guide to the whole round trip (extract, edit in Godot, pack,
+The modder's guide to the whole round trip (extract, edit in OpenRAC Editor, pack,
 play from the launcher) is [LEVEL_MODDING.md](LEVEL_MODDING.md).
 
 ```sh
@@ -235,7 +234,7 @@ python3 <editor>/openrac/tools/openrac_editor.py pack baserom/SCES_509.16.iso as
 python3 <editor>/openrac/tools/openrac_editor.py pack baserom/SCUS_971.99.iso assets/levels/rac1/ntsc assets/packed/rac1/ntsc
 ```
 
-Turns what was edited in Godot back into the game's level data (the folder
+Turns what was edited in OpenRAC Editor back into the game's level data (the folder
 of per-level projects, or a single project with every level), from the disc
 the project was extracted from. For each level whose scene differs from the
 disc it writes that level's gameplay file as the game stores it, compressed,
@@ -320,7 +319,7 @@ its new place and still walked on in its old one until its collision is moved
 too (the tiles, below), and a new one is walked through until collision is
 added for it.
 
-An added moby is a copy made in Godot (Ctrl+D) or one of the level's class
+An added moby is a copy made in OpenRAC Editor (Ctrl+D) or one of the level's class
 scenes dropped under `Game/Mobys`. It takes after the moby it copies (or the
 level's first moby of its class): the same values, a spawn number of its own,
 a copy of that moby's pvars, and a place in its group. A deleted moby leaves
@@ -338,7 +337,7 @@ How it stays exact ([pack.py](../openrac/tools/pack.py), [wadpack.py](../openrac
 - A moby the scene has as the extractor wrote it keeps its bytes from the
   disc. A project nobody edited packs to nothing. Edits preserve untouched
   moby records and change the tables, links, and data blocks needed to express
-  the saved scene. Godot's own way of saving a scene (other float rounding,
+  the saved scene. The editor's own way of saving a scene (other float rounding,
   `unique_id`, `rc1_class` on every instance) is not an edit.
 - The compressor writes streams the way the retail ones are laid out,
   measured on all 19 gameplay files: 0x2000-byte blocks that no packet
@@ -357,7 +356,7 @@ How it stays exact ([pack.py](../openrac/tools/pack.py), [wadpack.py](../openrac
   that every stream below it will fit.
 
 Checked on 2026-10-12: all 19 gameplay files round-trip through the
-compressor; a scene re-saved by Godot 4.7.2 with one moby moved packs to a
+compressor; a scene re-saved by OpenRAC Editor with one moby moved packs to a
 file five bytes from the disc's, all in that moby's record; the port ran
 level 0 for 400 frames from it. Whether the moved moby shows where it was
 put has not been looked at in the running game yet. Checked on 2026-10-16
@@ -393,7 +392,7 @@ python3 extractor/extract.py port baserom/SCES_509.16.iso build/port-levels --le
 
 `port` writes each level for the native port's level viewer
 ([port/viewer](https://github.com/OpenRAC/OpenRAC/blob/develop/port/viewer/README.md)): the same meshes and textures as
-the Godot export, the sky as a mesh, and the placements as JSON. Its
+the OpenRAC Editor export, the sky as a mesh, and the placements as JSON. Its
 manifests say which disc they came from (`"version": "pal"` or `"ntsc"`);
 both use the same format. Export copies matching `level_NN/probe-bake.json` and
 `probe-emission.json` profiles for shared runtime/bake settings, emission colours and static
@@ -445,7 +444,7 @@ Each level scene looks like this:
 Level_NN
   WorldEnvironment      the sky (sky.png) and flat ambient light
   Sun                   a directional light, so shapes read in the editor
-  Game                  turns the game's Z-up axes into Godot's Y-up
+  Game                  turns the game's Z-up axes into the editor's Y-up
     Terrain             fragments Terrain_000... (editable children)
     Collision           the collision, by 64-unit tile, hidden until you show it (Collision, below)
     HeroWalls           the walls only the player meets, hidden too
@@ -484,7 +483,7 @@ To edit a level:
   `AnimationPlayer` with one animation per sequence: `seq_NN` by slot, and
   Ratchet's `ratchet_seq_NNN`. Sequences that loop in the game loop here.
   To preview one, double-click `mobys/moby_<class>.glb` in the FileSystem
-  dock: Godot's import settings window plays each animation. In a scene,
+  dock: the editor's import settings window plays each animation. In a scene,
   enable Editable Children on the `Model` node to reach the
   `AnimationPlayer`.
 - A moby's metadata:
@@ -578,7 +577,7 @@ with one of these nodes deleted and explains which index it kept. A new one (a c
 `gameplay/<kind>.tscn` dropped under its group, or a new `Path3D` under
 `Game/Paths`) goes after the table's own; when the section no longer fits
 where it was it moves to the end of the file. Cameras and sound instances
-are not deleted or renumbered. Duplicate a camera node in Godot to add one. A
+are not deleted or renumbered. Duplicate a camera node in OpenRAC Editor to add one. A
 copied camera gets its own pvar block, including
 the loader's pointer, shared-data and moby-link fixups. A camera can use the
 level's existing collision volumes, and camera-region volumes can be moved or
@@ -593,7 +592,7 @@ has the original class's layout. An edited volume's inverse matrix and Euler ang
 are computed again; an edited grind path keeps its bounding sphere when it
 still holds every point, and grows it just enough otherwise (the disc's own
 rule is not known). Curve handles and tilts are not the game's: paths are
-polylines, so they are ignored, and a point added in Godot gets the fourth
+polylines, so they are ignored, and a point added in OpenRAC Editor gets the fourth
 float -1, which nearly every path point on the disc has (on grind paths it
 varies per point; its meaning is not established).
 
@@ -606,7 +605,7 @@ Environment transitions (fog zones) have matrices of their own and are not
 exported yet.
 
 As with mobys, what the scene has as the extractor wrote it keeps its bytes:
-an untouched project packs to nothing, and Godot's own saving is not an
+an untouched project packs to nothing, and the editor's own saving is not an
 edit. Values that cannot be packed (not a number, out of the field's range,
 a link to no moby, an index past its table) are listed as `not packed:` in
 `changes.txt` and leave the bytes as they were.
@@ -684,7 +683,7 @@ one node per hero wall (`Game/HeroWalls/HeroWall_NNN`, `collision/hero_NNN.glb`)
 A tile has a material per type byte named `rc1_surface_XX` (the byte in
 hexadecimal: `rc1_surface_1f`, `rc1_surface_0c`). What you can do:
 
-| In Godot or Blender | What the packer does |
+| In OpenRAC Editor or Blender | What the packer does |
 |---|---|
 | Delete a tile or a hero wall | its triangles leave the level |
 | Move, turn or scale a tile | its triangles move |
@@ -696,7 +695,7 @@ hexadecimal: `rc1_surface_1f`, `rc1_surface_0c`). What you can do:
 How it is packed ([collision_scene.py](../openrac/tools/collision_scene.py), [collision.py](https://github.com/OpenRAC/OpenRAC/blob/develop/extractor/collision.py)):
 
 - The packer compares the scene's triangles with the disc's. A scene with
-  the collision as the export wrote it (re-saved by Godot or not) packs
+  the collision as the export wrote it (re-saved by OpenRAC Editor or not) packs
   nothing, and read back from the tiles it is exactly the disc's triangles
   (checked on all 19 levels of both discs).
 - The game keeps its collision in a grid of 4-unit cells, each with its own
@@ -727,7 +726,7 @@ How it is packed ([collision_scene.py](../openrac/tools/collision_scene.py), [co
   stream to an expanded level-data container and redirects the level header
   through `virtual.tsv`; the original disc image is not changed. The expanded
   gameplay and level-data loading paths have run in the real game on PAL and
-  NTSC-U. A 9,500-moby gameplay stream and a Godot collision edit adding 95,000
+  NTSC-U. A 9,500-moby gameplay stream and an OpenRAC Editor collision edit adding 95,000
   triangles both loaded for 1,200 frames on both versions. That collision edit
   grew the compressed core beyond its original slot, so the packer moved the
   collision block to the core tail and expanded the level-data container.
@@ -799,7 +798,7 @@ eye to see it (the Collision dock shows it on a selected moby, and edits its
 parts' sizes, positions, queries and type bytes, or makes it from the class's
 model: the same rules as below).
 
-| In Godot or Blender | What the packer does |
+| In OpenRAC Editor or Blender | What the packer does |
 |---|---|
 | Move or scale a sphere or cylinder (the cylinder's height and radius), or a joint sphere (its offset from the joint) | the primitive moves or resizes |
 | Scale a capsule | its radius; it runs between `rc1_joints`, which you change instead of moving it |
@@ -869,10 +868,10 @@ collision.
 
 ```sh
 python3 -m unittest discover -s editor                         # synthetic data only
-godot --headless --path assets/godot --import
-godot --headless --path assets/godot --script res://rc1/check.gd
-godot --headless --editor --quit --path assets/godot           # loads the Collision dock: no errors
-OPENRAC_GODOT=godot OPENRAC_DOCK_DISC=baserom/SCES_509.16.iso OPENRAC_DOCK_PROJECT=assets/levels/rac1/pal/level_00 \
+<editor>/openrac-editor.x86_64 --headless --path assets/godot --import
+<editor>/openrac-editor.x86_64 --headless --path assets/godot --script res://rc1/check.gd
+<editor>/openrac-editor.x86_64 --headless --editor --quit --path assets/godot           # loads the Collision dock: no errors
+OPENRAC_GODOT=<editor>/openrac-editor.x86_64 OPENRAC_DOCK_DISC=baserom/SCES_509.16.iso OPENRAC_DOCK_PROJECT=assets/levels/rac1/pal/level_00 \
   python3 -m unittest discover -s editor -p test_collision_dock.py   # the dock's edits, packed
 ```
 
@@ -882,7 +881,7 @@ mesh made into collision, a class's collision made from its model) and checks
 the packed block is the disc's with exactly those edits, every other cell byte
 for byte.
 
-The Godot check loads every level scene and compares its meshes, triangles,
+The OpenRAC Editor check loads every level scene and compares its meshes, triangles,
 textures, bounds, sky panorama and moby count with what the extractor wrote.
 The collision layer is not counted with the textured meshes; its triangles
 are compared with `level.json` on their own, and it must be hidden.
@@ -913,7 +912,7 @@ Approximations:
   `shrubs_light.png`, read by `rc1/lit_object.gdshader`), and each moby
   with the level's light sets and its own ambient and light word
   (`rc1/lit_moby.gdshader`, `rc1/moby.gd`), as the game lights it
-  every frame. Godot's sun and ambient light do not reach these. A moby
+  every frame. The editor's sun and ambient light do not reach these. A moby
   lit in floats, close to the game's bytes, not bit for bit; point lights
   are left out. A moved tie or shrub keeps the light of where it was.
 - Alpha-tested textures become cutouts.
@@ -947,7 +946,7 @@ Approximations:
   - `openrac_editor.py pack ... --states FILE --data DIR --levels DIR` (as the
     launcher packs) updates the states from the packed level, by node
     name. A moby added or renamed since then uses its rules only, until
-    the next pack. Of Godot's copies of a moby, the one still named after
+    the next pack. Of the editor's copies of a moby, the one still named after
     its record (`_NNNN`) is that moby.
   - The reasons come from the moby's spawn flags (before or after a
     mission, gone once killed or picked up) and its class's rule in
@@ -965,7 +964,7 @@ Approximations:
     draw five beams while shut (`rc1/electric_gate.gd`; NTSC and PAL
     discs only). Water patches are drawn as their model's square at the
     game's height; the ripples are not drawn.
-- Moby animations run at the game's 60 Hz tick, as ReRAC infers it. Godot
+- Moby animations run at the game's 60 Hz tick, as ReRAC infers it. OpenRAC Editor
   interpolates rotation keys spherically where the game lerps, and a joint
   channel that stays within 1e-5 of the bind pose (1e-4 for rotations) is
   left out of an animation. The two helper classes 1 and 2, which animate
@@ -996,8 +995,8 @@ apply once they are.
 
 ```sh
 python3 extractor/extract.py survey baserom/SCUS_972.68.iso                  # the levels on the disc, as JSON
-python3 <editor>/openrac/tools/openrac_editor.py godot baserom/SCUS_972.68.iso assets/levels/rac2/ntsc --split
-godot --path assets/levels/rac2/ntsc/level_01 -e                         # Oozla
+python3 <editor>/openrac/tools/openrac_editor.py projects baserom/SCUS_972.68.iso assets/levels/rac2/ntsc --split
+<editor>/openrac-editor.x86_64 --path assets/levels/rac2/ntsc/level_01 -e                         # Oozla
 python3 extractor/extract.py port baserom/SCUS_973.53.iso assets/port/rac3/ntsc   # for texture and model packs
 python3 extractor/assets.py export assets/port/rac3/ntsc build/uya-export --level 2 --what textures
 python3 extractor/assets.py import build/uya-export --levels assets/port/rac3/ntsc --out build/uya-pack
@@ -1033,11 +1032,11 @@ launcher's Mods page lists them by name.
 | Playing | not yet | not yet | not yet |
 
 What does not decode yet is left out rather than stopping the level, and
-each level says what: `level.json`'s `problems` in a Godot project,
+each level says what: `level.json`'s `problems` in an OpenRAC Editor project,
 `stats.problems` in the port layout's `manifest.json` (a class without its
 animations, a terrain fragment, a texture drawn grey).
 
-In Godot a later game's level opens like the first game's, with the same
+In OpenRAC Editor a later game's level opens like the first game's, with the same
 nodes and `rc1_*` metadata. Its level node carries `rc1_game` and
 `rc1_packable = false`, and its description in the Scene dock says that the
 level is for looking and making packs: you can move things, but the packer
@@ -1114,7 +1113,7 @@ The decoders accept only the layouts found on these discs and raise
   add Wrench's and Replanetizer's names and hand-made ones.
 - **[OpenGOAL's jak-project](https://github.com/open-goal/jak-project)**,
   whose extractor was the model for extracting from your own disc.
-- **[Godot Engine](https://godotengine.org)** and the Khronos Group's
+- **[Godot Engine](https://godotengine.org)**, which OpenRAC Editor is built on, and the Khronos Group's
   **[glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html)**,
   which the output is built for.
 

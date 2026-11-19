@@ -154,10 +154,6 @@ class ToolsSayIt(unittest.TestCase):
         self.assertEqual(said(out.getvalue()), [])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class OpenTests(unittest.TestCase):
     """`open`: a project made by an older editor gets this editor's files before the editor starts."""
 
@@ -180,3 +176,27 @@ class OpenTests(unittest.TestCase):
             self.assertEqual(oe.open_editor(["/bin/editor", "--path", tmp, "-e"]), 0)
             self.assertEqual(popen.call_args.args[0], ["/bin/editor", "--path", tmp, "-e"])
             self.assertEqual(oe.open_editor([]), 2)
+
+
+class CommandNames(unittest.TestCase):
+    def test_projects_and_its_old_name_godot_both_run(self):
+        import subprocess
+        import sys
+        tool = Path(__file__).with_name("openrac_editor.py")
+        for name in ("projects", "godot"):
+            done = subprocess.run([sys.executable, str(tool), name, "--help"], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+        listed = subprocess.run([sys.executable, str(tool), "--help"], capture_output=True, text=True).stdout
+        self.assertIn("openrac_editor.py projects", listed)
+        self.assertNotIn("Godot", listed)
+
+    def test_the_launcher_runs_projects(self):
+        actions = json.loads(Path(__file__).parents[1].joinpath("editor.json").read_text(encoding="utf-8"))
+        runs = [a["args"][1] for version in actions["versions"].values() for a in version
+                if a.get("args") and str(a["args"][0]).endswith("openrac_editor.py")]
+        self.assertIn("projects", runs)
+        self.assertNotIn("godot", runs)
+
+
+if __name__ == "__main__":
+    unittest.main()

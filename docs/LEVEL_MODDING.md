@@ -3,7 +3,7 @@
 To export an edited world as its own named map mod, with a start position and
 direct launch, see [Map mods](MAP_MODDING.md).
 
-Ratchet & Clank's levels open in Godot 4 (tested with 4.7.2), one project per
+Ratchet & Clank's levels open in OpenRAC Editor, one project per
 level. You move, add and delete objects, change their values, reshape volumes,
 paths and cameras, and edit the collision, then pack the level back and play it
 in OpenRAC's native port. Your disc image is never changed, and nothing you
@@ -17,10 +17,10 @@ Models and textures have a guide of their own ([MODDING.md](https://github.com/O
 
 On the launcher's **Mods** page, for the disc you set up:
 
-1. **Extract the levels**: the 19 levels as Godot projects (about 20 seconds).
+1. **Extract the levels**: the 19 levels as OpenRAC Editor projects (about 20 seconds).
    It never overwrites a project; to get a newer extractor's scenes, see
    [Projects from an older extractor](#projects-from-an-older-extractor).
-2. **Open a level in Godot**: choose the level. Edit (below) and save the scene
+2. **Open a level in OpenRAC Editor**: choose the level. Edit (below) and save the scene
    (Ctrl+S). The **Collision** dock, on the right, edits the collision.
 3. **Pack your edited levels**: what differs from the disc becomes the
    game's level data, in the packed folder. `changes.txt` there says, level by
@@ -31,8 +31,8 @@ On the launcher's **Mods** page, for the disc you set up:
 From a shell, the same steps:
 
 ```sh
-python3 <editor>/openrac/tools/openrac_editor.py godot baserom/SCES_509.16.iso assets/levels/rac1/pal --split
-godot --path assets/levels/rac1/pal/level_03 -e
+python3 <editor>/openrac/tools/openrac_editor.py projects baserom/SCES_509.16.iso assets/levels/rac1/pal --split
+<editor>/openrac-editor.x86_64 --path assets/levels/rac1/pal/level_03 -e
 python3 <editor>/openrac/tools/openrac_editor.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
 # then the port with --mods assets/packed/rac1/pal (the launcher's Play with your edits)
 ```
@@ -52,7 +52,7 @@ up). Values the game stores are the Inspector's **Metadata** (`rc1_*`).
 | a moby's `rc1_link_<offset>` | another moby it refers to, by node name | the same |
 | `MobyGroups` | which mobys form each group | the same |
 | `Volumes/...` | cuboids, spheres, cylinders, pills: move, turn, scale, copy | the same |
-| `Paths/...`, `GrindPaths/...` | Godot paths: move, add or remove points | the same |
+| `Paths/...`, `GrindPaths/...` | OpenRAC Editor paths: move, add or remove points | the same |
 | `Cameras/...`, `Sounds/...`, `LevelSettings` | cameras, sound emitters, fog, death height, the ship | the same |
 | `Ties/...`, `Shrubs/...` | scenery: move, turn, scale, add, delete | drawn by the port; their collision is the level's (below) |
 | the Collision dock | the level's collision, face by face: select, repaint, delete, move, add, make from a mesh | [Collision](#collision) |
@@ -155,7 +155,7 @@ delete or move a tile node, set an integer `rc1_surface` metadata entry on it
 `.glb`/`.gltf`. To edit a tile's triangles in Blender: File > Import > glTF,
 edit (give faces another `rc1_surface_XX` material to change their type), then
 File > Export > glTF Binary to the same file, with **Materials: Export** on.
-Keep the file in the level's `collision/` folder under its own name; Godot
+Keep the file in the level's `collision/` folder under its own name; OpenRAC Editor
 reimports it when the editor gets focus. The dock's edits apply on top of
 what the tiles hold, so edit a tile in Blender before you edit its faces in
 the dock (a face the dock removed that the tile no longer has is reported, not
@@ -211,7 +211,7 @@ extracts the levels again: the old project moves to `<disc>-backups/<time>/`
 with your edits, a fresh one takes its place, and your moby edits (moved,
 turned, scaled, class, values, added, deleted) are carried over onto it
 ([carry.py](../openrac/tools/carry.py)). What cannot be carried is listed on the panel and in
-`carried.json` beside the scene, to redo by hand in the new scene (Godot saves
+`carried.json` beside the scene, to redo by hand in the new scene (OpenRAC Editor saves
 scenes as text, so a diff of your old scene against the backup shows each
 edit). **Export the levels again**, under **Your levels** below the status,
 does the same for every level whenever you want fresh copies, and the section

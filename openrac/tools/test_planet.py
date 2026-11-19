@@ -320,7 +320,7 @@ class Launcher(unittest.TestCase):
             root = Path(temp)
             tools = [sys.executable, str(HERE / "openrac_editor.py")]
             disc = os.environ["OPENRAC_RAC1_PAL_DISC"]
-            subprocess.run(tools + ["godot", disc, str(root / "projects"), "--split", "--level", "2", "--anywhere"],
+            subprocess.run(tools + ["projects", disc, str(root / "projects"), "--split", "--level", "2", "--anywhere"],
                            check=True, capture_output=True)
             project = root / "projects" / "level_02"
             planet.set_setting(project, planet.NAME, "Test World")

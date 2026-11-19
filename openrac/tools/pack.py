@@ -182,7 +182,7 @@ def validate_packed_visibility(nodes: dict, level_id: int) -> None:
         value = node["props"].get("visible")
         if value is not None and gamedata.parse_value(value) is False:
             raise FormatError(
-                f"level {level_id:02}: {path} is hidden in Godot, but visibility changes are not "
+                f"level {level_id:02}: {path} is hidden in OpenRAC Editor, but visibility changes are not "
                 "packed. Delete the object to remove it from the game.",
                 code="pack-incomplete"
             )
@@ -342,7 +342,7 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
             if model is None and node["class_id"] is not None:
                 model = next((m["index"] for m in originals if m["class_id"] == node["class_id"]), None)
             if model is None and node["class_id"] is None:
-                problems.append(f"{node['name']}: added in Godot with no class scene; not packed")
+                problems.append(f"{node['name']}: added in OpenRAC Editor with no class scene; not packed")
                 continue
             if model is None and foreign and node["class_id"] in foreign:
                 group = foreign[node["class_id"]]
@@ -884,7 +884,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
         # A scene without the node (an older project, or one written by hand) has nothing to keep.
         if game_frame is not None and not same(gamedata.transform_of(game_frame), GAME_FRAME):
             raise FormatError(
-                f"level {info['id']:02}: keep the Game node's extracted transform; it converts Godot's "
+                f"level {info['id']:02}: keep the Game node's extracted transform; it converts the editor's "
                 "coordinates to the game's and cannot be packed as a level edit",
                 code="pack-incomplete"
             )

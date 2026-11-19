@@ -41,6 +41,11 @@ These are deleted from the source:
   (#f5c040). Themes: OpenRAC and Black (OLED). Fonts: Inter and JetBrains Mono.
 - **Rendering:** Vulkan on Windows and Linux, Metal on macOS. One renderer, so no renderer switch.
 - **About window:** says what the editor is; Godot's authors and licenses stay.
+- **Its own name in texts:** menus, window titles, the system's app names (X11 class, Wayland app id,
+  Windows app id), messages and the tools' output say OpenRAC Editor or "the engine" instead of
+  Godot. Kept: credits, licenses, the class reference, and Godot version numbers in migration
+  messages (Godot 3 to 4, glTF naming versions). The tools' `godot` command is now `projects`;
+  `godot` still works.
 - **Inspector buttons** (tool buttons) take the inspector's full width, so a row of them lines up.
 
 ## Added

@@ -91,7 +91,7 @@ String DisplayServerWayland::_get_app_id_from_context(DisplayServerEnums::Contex
 
 	switch (p_context) {
 		case DisplayServerEnums::CONTEXT_EDITOR: {
-			app_id = "org.godotengine.Editor";
+			app_id = "dev.openrac.Editor"; // OpenRAC Editor: its own name.
 		} break;
 
 		case DisplayServerEnums::CONTEXT_PROJECTMAN: {
@@ -836,7 +836,7 @@ DisplayServerEnums::WindowID DisplayServerWayland::create_sub_window(DisplayServ
 	// can only know once we show it.
 	wd.rect = p_rect;
 
-	wd.title = "Godot";
+	wd.title = "OpenRAC Editor"; // OpenRAC Editor: its own name.
 	wd.parent_id = p_transient_parent;
 	return id;
 }
@@ -2407,7 +2407,7 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Dis
 
 			if (prime_idx) {
 				print_line(vformat("Found discrete GPU, setting DRI_PRIME=%d to use it.", prime_idx));
-				print_line("Note: Set DRI_PRIME=0 in the environment to disable Godot from using the discrete GPU.");
+				print_line("Note: Set DRI_PRIME=0 in the environment to disable OpenRAC Editor from using the discrete GPU."); // OpenRAC Editor: its own name.
 				setenv("DRI_PRIME", itos(prime_idx).utf8().ptr(), 1);
 			}
 		}
@@ -2484,7 +2484,7 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Dis
 	wd.flags = p_flags;
 	wd.vsync_mode = p_vsync_mode;
 	wd.rect.size = p_resolution;
-	wd.title = "Godot";
+	wd.title = "OpenRAC Editor"; // OpenRAC Editor: its own name.
 
 	if (!AccessibilityServer::get_singleton()->window_create(wd.id, nullptr)) {
 		if (OS::get_singleton()->is_stdout_verbose()) {

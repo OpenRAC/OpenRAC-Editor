@@ -5,7 +5,7 @@ its template planet. Enable one pack to add the twentieth destination; enable
 another to add the twenty-first. Each has its own name, arrival position and
 resource folder, even when several use the same template program.
 
-The creator edits a Godot project and exports a pack. They do not edit the game's
+The creator edits an OpenRAC Editor project and exports a pack. They do not edit the game's
 C, choose unused memory addresses, or manually assign destination numbers.
 This workflow currently targets the **native RAC1 PAL port**.
 
@@ -13,7 +13,7 @@ This workflow currently targets the **native RAC1 PAL port**.
 
 Use your own matching disc and the complete tools described in
 [the level editor guide](LEVEL_MODDING.md). In **Mods → Level editor**, extract
-a level and make a separate copy of its Godot project before editing it.
+a level and make a separate copy of its OpenRAC Editor project before editing it.
 Choose a template with the objects and working ship your world needs. **Aridia
 (level 2)** is verified for the ship roundtrip; Novalis's first-arrival story
 sequence hides its ship until its quest progression is satisfied.
@@ -22,12 +22,12 @@ The template number means **which program and resources the map uses**. For
 example, a new destination can use template 2 while original Aridia remains
 accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 
-## 2. Build the world in Godot
+## 2. Build the world in OpenRAC Editor
 
 - Move, add or remove objects using the template's available classes.
 - Author your terrain with the [model/terrain workflow](https://github.com/OpenRAC/OpenRAC/blob/develop/extractor/MODDING.md), placing the
   result at `levels/level_NN/terrain.glb`. Imported GLB children are not ordinary
-  editable Godot nodes: edit the mesh in your modeling tool, then import it again.
+  editable OpenRAC Editor nodes: edit the mesh in your modeling tool, then import it again.
 - Edit or generate collision with the Collision dock. Visible geometry alone
   does not make a floor. Keep terrain, collision, paths and cameras aligned.
 - Place **Ratchet** where the player should arrive and set his heading. The
@@ -40,10 +40,10 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 
 The game uses Z up. Surface type **31 / 0x1f** is ordinary ground; type **0** is
 water. The editor's surface selector documents these meanings.
-Keep the extracted **Game** node transform unchanged: it converts Godot's
+Keep the extracted **Game** node transform unchanged: it converts the editor's
 coordinate frame to the game's, while Pack reads the child placements in that
 fixed frame.
-Godot's visibility toggle is only an editor preview setting for ties, shrubs,
+The editor's visibility toggle is only an editor preview setting for ties, shrubs,
 mobys, and imported props; it is not packed. Delete a supported object to remove
 it from the game. Pack reports hidden supported objects instead of silently
 keeping them visible at runtime.
@@ -140,7 +140,7 @@ metadata (game/disc/level/kind/class).
 ### Import static scenery from another level or your own model
 
 Use a static `.glb` or `.gltf` from an extracted donor level or make your own in
-Blender or another modeling tool and import it into the Godot project. Static imports add
+Blender or another modeling tool and import it into the OpenRAC Editor project. Static imports add
 geometry to the map; they do not add a moby class or enemy behavior. Adding a class
 from another level is not supported because its core data and native update code are
 level-specific. The packer rejects a class absent from the target level's core. It also
@@ -154,7 +154,7 @@ Texture and buffer files must be inside the donor level or creator project; `.gl
 buffer files are flattened into the project-local import. Unsupported animation,
 skinning and behavior are refused.
 
-For a model already in the Godot project, open the extracted level scene and
+For a model already in the OpenRAC Editor project, open the extracted level scene and
 choose **Add a static glTF model to the level** in the Collision dock. The editor instances it
 under **Game/StaticAssets**, where you can position, rotate and scale it. This
 is undoable and keeps the model linked to its project asset. For a donor model
@@ -172,7 +172,7 @@ Texture names are based on content, so two levels' `tie_0001.png` files cannot
 silently overwrite each other. Source files are copied into the project; the
 donor and original model files are never changed.
 
-Reopen the scene in Godot. Move, rotate, scale or duplicate the imported instance;
+Reopen the scene in OpenRAC Editor. Move, rotate, scale or duplicate the imported instance;
 groups beneath Game/StaticAssets can be transformed too. Keep the instances under
 that group. Imported geometry and optional collision use the same transforms,
 including mirrored/non-uniform scale. Changing, duplicating or removing an instance
@@ -180,7 +180,7 @@ requires **Pack** again before export; stale exports are refused.
 
 `--collision mesh` makes the visible triangles solid with the ordinary ground
 surface. Omit it for decorative objects such as foliage. You can also change the
-instance's `rc1_static_collision` metadata in Godot. This generates collision from
+instance's `rc1_static_collision` metadata in OpenRAC Editor. This generates collision from
 the model, not a reconstruction of the donor level's separate collision mesh:
 transparent foliage and detailed models may need simpler authored collision.
 
@@ -315,7 +315,7 @@ standalone map; creators should use format 4 and normal launcher preparation.
 
 - Destination sessions are **card-free**, including while visiting original
   planets. Separate saved progression for added worlds is not implemented.
-- There is no Godot project byte budget. When edited gameplay or level-data
+- There is no OpenRAC Editor project byte budget. When edited gameplay or level-data
   streams exceed their original disc allocation, the packer stores the larger
   stream in the mod's virtual sector container. The disc image and no-mod path
   remain unchanged. The expanded runtime arena is currently 256 MiB, so very
@@ -328,7 +328,7 @@ standalone map; creators should use format 4 and normal launcher preparation.
   killed state after a level reload. The packer's `changes.txt` reports this.
 - Collision has separate runtime bounds: expanded mod collision covers the
   positive 131,072-unit world, and each cell and the total 256 MiB arena must
-  hold its data. **Check the limits** in the Godot Collision dock estimates
+  hold its data. **Check the limits** in the OpenRAC Editor Collision dock estimates
   affected cells and world bounds before packing.
 - Templates supply their own code, object classes and unedited resources. A
   moby class of another level of the same disc can come with its own logic

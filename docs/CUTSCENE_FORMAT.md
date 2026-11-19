@@ -12,7 +12,7 @@ it through the game's `openrac_api`.
   60 Hz mode, `tick_rate()`). The port draws frames between ticks by itself. Animation keys of the
   game's own sequences run at the game's rate (30 Hz in RAC1), so `frame` numbers are the game's.
 - **Space** is the game's: units and axes as `openrac_api` gives them (z up). The editor converts
-  from Godot (game `(x, y, z)` = Godot `(x, z, -y)`).
+  from OpenRAC Editor (game `(x, y, z)` = OpenRAC Editor `(x, z, -y)`).
 - **Angles** are radians; `rotation` is `[x, y, z]` with z the yaw, as `openrac_pose` has it.
 - **Actors are found by id, not by node path**, so a level extracted again keeps working: a moby
   of the level by its `spawn_id` (the game's UID).
@@ -231,7 +231,7 @@ mod's actor moves as smoothly as the game's scenes:
   its animation (the first that is not `RESET` if empty). **Pose Start**: where it starts on the
   timeline.
 - **Pose Map** empty: the skeleton's `joint_NNN` bones are the joints, and their turn, place and scale
-  go across as they are. Use this for an animation keyed in Godot: make a new scene, instance the
+  go across as they are. Use this for an animation keyed in OpenRAC Editor: make a new scene, instance the
   actor's `mobys/moby_<class>.tscn` in it, turn on **Editable Children**, and key the bones of its
   Skeleton3D in a new animation (or duplicate one of the class's own and change it).
 - **Pose Map** set (Blender, Mixamo, mocap): `{"UpperArm.L": 52}` or `{"UpperArm.L": {"joint": 52,
@@ -405,7 +405,7 @@ The **Cutscene** dock (beside Animation, at the bottom) shows the selected node'
 glance: a row for the camera and its shakes, each actor and its walk, moods and layers, the
 subtitles, the sounds and the events, with their keys and spans on one scale. A click goes to that
 time (on a tick) or picks the node; a drag moves what has a start; Play runs the timeline in the 3D
-view. Keys themselves are set as in any Godot animation, with the key icons in the inspector and
+view. Keys themselves are set as in any OpenRAC Editor animation, with the key icons in the inspector and
 the Animation dock.
 
 Saving the level writes every Cutscene to `cutscenes/<name>.cutscene` beside the scene, and the

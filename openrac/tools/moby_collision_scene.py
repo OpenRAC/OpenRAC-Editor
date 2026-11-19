@@ -456,7 +456,7 @@ def replace_in_scene(path: Path, blob: mc.Blob) -> None:
     class_id, level_dir = int(found.group(1)), path.parent.parent
     project = next((p for p in path.parents if (p / "project.godot").is_file()), None)
     if project is None:
-        raise FormatError(f"{path}: not inside a Godot project")
+        raise FormatError(f"{path}: not inside an OpenRAC Editor project")
     blocks = [b for b in re.split(r"\n+(?=\[)", text.strip("\n"))]
     blocks = [b for b in blocks if not (b.startswith("[node ") and 'parent="Collision"' in b.splitlines()[0])]
     while True:  # resources no remaining block refers to

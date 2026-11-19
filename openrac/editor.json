@@ -46,7 +46,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -72,7 +72,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -269,7 +269,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -295,7 +295,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -492,7 +492,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -517,7 +517,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -675,7 +675,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -700,7 +700,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -858,7 +858,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -884,7 +884,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -992,7 +992,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1018,7 +1018,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1126,7 +1126,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1152,7 +1152,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1260,7 +1260,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1286,7 +1286,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1394,7 +1394,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1420,7 +1420,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1528,7 +1528,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
@@ -1554,7 +1554,7 @@
         "program": "{python}",
         "args": [
           "{editor_tools}/openrac_editor.py",
-          "godot",
+          "projects",
           "{disc}",
           "{projects}",
           "--split",
