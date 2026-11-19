@@ -369,6 +369,8 @@ void CutsceneTimelineView::_notification(int p_what) {
 	const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
 	const Size2 size = get_size();
 	const real_t lw = _label_width(), rh = _row_height(), ruler = _ruler_height();
+	// Lines one pixel wide at 100%, wider on a scaled (4K) editor.
+	const real_t line = MAX(1.0f, Math::round(EDSCALE));
 	const real_t end_x = _x_of(length);
 
 	draw_rect(Rect2(Point2(), size), get_theme_color(SNAME("dark_color_2"), EditorStringName(Editor)));
@@ -412,7 +414,7 @@ void CutsceneTimelineView::_notification(int p_what) {
 				}
 				const Rect2 bar(MAX(x0, lw), y + 3 * EDSCALE, x1 - MAX(x0, lw), rh - 6 * EDSCALE);
 				draw_rect(bar, colour * Color(1, 1, 1, 0.35));
-				draw_rect(bar, colour, false, 1.0);
+				draw_rect(bar, colour, false, line);
 				if (!item.text.is_empty() && bar.size.x > 20 * EDSCALE) {
 					draw_string(font, Point2(bar.position.x + 4 * EDSCALE, y + rh * 0.7f), item.text, HORIZONTAL_ALIGNMENT_LEFT, bar.size.x - 8 * EDSCALE, font_size * 0.85, text);
 				}
@@ -432,7 +434,7 @@ void CutsceneTimelineView::_notification(int p_what) {
 	}
 	draw_line(Point2(lw, 0), Point2(lw, size.y), dim);
 	if (end_x >= lw && end_x <= size.x) {
-		draw_line(Point2(end_x, 0), Point2(end_x, size.y), text * Color(1, 1, 1, 0.7), 1.0);
+		draw_line(Point2(end_x, 0), Point2(end_x, size.y), text * Color(1, 1, 1, 0.7), line);
 		const String end_text = TTR("End");
 		const real_t w = font->get_string_size(end_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size * 0.85).x;
 		const real_t at = end_x + 3 * EDSCALE + w <= size.x ? end_x + 3 * EDSCALE : end_x - 3 * EDSCALE - w;
@@ -441,7 +443,7 @@ void CutsceneTimelineView::_notification(int p_what) {
 	// Where the timeline is.
 	const real_t now = _x_of(get_cutscene()->get_timeline_position());
 	if (now >= lw && now <= size.x) {
-		draw_line(Point2(now, 0), Point2(now, size.y), accent, 2.0);
+		draw_line(Point2(now, 0), Point2(now, size.y), accent, 2 * line);
 	}
 }
 

@@ -67,7 +67,7 @@ STRESS_LEVELS = 12
 STRESS_MOBYS = 40
 
 # How many scenarios test_editor_e2e.gd runs.
-SCENARIOS = 31
+SCENARIOS = 32
 
 XVFB_RUN = shutil.which("xvfb-run")
 
@@ -107,10 +107,24 @@ def projects(root: Path) -> Path:
     return here
 
 
-def run_editor(test: unittest.TestCase, scenarios: str = "", drawn: bool = False) -> dict:
-    """One editor run on fresh projects: the result file, after checking the log has no errors."""
+def editor_settings(config: Path, scale: float) -> dict:
+    """Editor settings with the display scale SCALE, in a config folder of their own (XDG_CONFIG_HOME),
+    so the run does not read or change the person's settings: the environment for the run."""
+    folder = config / "openrac_editor"
+    folder.mkdir(parents=True)
+    (folder / "editor_settings-4.7.tres").write_text(
+        '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n'
+        'interface/editor/appearance/display_scale = 7\n'
+        f'interface/editor/appearance/custom_display_scale = {scale}\n')
+    return dict(os.environ, XDG_CONFIG_HOME=str(config))
+
+
+def run_editor(test: unittest.TestCase, scenarios: str = "", drawn: bool = False, scale: float | None = None) -> dict:
+    """One editor run on fresh projects: the result file, after checking the log has no errors. SCALE
+    sets the editor's display scale (Editor Settings) for the run."""
     with tempfile.TemporaryDirectory() as temp:
         here = projects(Path(temp) / "levels")
+        env = editor_settings(Path(temp) / "config", scale) if scale is not None else None
         out = Path(temp) / "result.json"
         command = [GODOT, "--editor", "--resolution", "1280x900", "--path", str(here),
                    "res://levels/level_05/level_05.tscn", "--", str(out)] + ([scenarios] if scenarios else [])
@@ -120,7 +134,7 @@ def run_editor(test: unittest.TestCase, scenarios: str = "", drawn: bool = False
         else:
             command.insert(1, "--headless")
         began = time.monotonic()
-        run = subprocess.run(command, capture_output=True, text=True, timeout=180)
+        run = subprocess.run(command, capture_output=True, text=True, timeout=180, env=env)
         log = run.stdout + run.stderr
         test.assertTrue(out.is_file(), log[-4000:])
         result = json.loads(out.read_text())
@@ -145,6 +159,25 @@ class AssetsDockEndToEnd(unittest.TestCase):
     def test_every_way_of_using_the_dock(self):
         result = run_editor(self)
         self.assertEqual(len(result["times"]), SCENARIOS, result["times"])
+
+    # Every size the OpenRAC docks and Inspector sections set follows the editor's display scale
+    # (Editor Settings): at 200% (a 4K screen) each is twice what it is at 100%, text included. A size
+    # typed in pixels stays the same and shows tiny, as the Assets dock's colour legend once did.
+    def test_every_size_follows_the_display_scale(self):
+        runs = {scale: run_editor(self, "ui_sizes", scale=scale) for scale in (1.0, 2.0)}
+        self.assertEqual([runs[scale]["editor_scale"] for scale in runs], [1.0, 2.0])
+        small, large = runs[1.0]["sizes"], runs[2.0]["sizes"]
+        self.assertEqual(sorted(small), ["assets", "behaviour", "collision", "cutscene", "foreign"])
+        wrong = []
+        for root, controls in small.items():
+            self.assertEqual(sorted(controls), sorted(large[root]), f"{root}: other controls at 200%")
+            for path, entry in controls.items():
+                for key, value in entry.items():
+                    # Rounded to whole pixels at each scale (a pixel either way), and a size made of
+                    # the editor's own theme sizes may grow a little more than twice (they round up).
+                    if not 2 * value - 2 <= large[root][path][key] <= 2.25 * value + 2:
+                        wrong.append(f"{root}/{path} {key}: {value} at 100%, {large[root][path][key]} at 200%")
+        self.assertEqual(wrong, [], "\n".join(wrong[:40]))
 
     # The dock as drawn, under a virtual display: each state has something on screen. Set
     # OPENRAC_E2E_SHOTS to a folder to keep the pictures.

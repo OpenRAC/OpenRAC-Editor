@@ -17,7 +17,7 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"details", "add_full", "add_look", "own_logic_after_pick", "class_logic", "drag_to_view", "drag_to_scene_dock",
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
-	"layout", "looks", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
+	"layout", "looks", "ui_sizes", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
 
 ## The dock's narrowest sensible width: a dock column a person has not widened.
 const NARROW: float = 280.0
@@ -28,6 +28,9 @@ const STRESS_MOBYS: int = 40
 var dock: Control
 var plugin: EditorPlugin
 var checks: Array = []
+## ui_sizes()'s measures of every control the editor's own docks and Inspector sections make, by
+## where it is: test_editor_e2e.py compares two runs at different display scales.
+var sizes: Dictionary = {}
 var times: Dictionary = {}
 var scenario: String = ""
 var out_path: String = ""
@@ -89,7 +92,8 @@ func finish() -> void:
 	finished = true
 	var file := FileAccess.open(out_path, FileAccess.WRITE)
 	file.store_string(JSON.stringify({"checks": checks, "times": times, "total_ms": Time.get_ticks_msec() - started,
-		"stopped_in": scenario if not times.has(scenario) else "", "editor_start_ms": started}))
+		"stopped_in": scenario if not times.has(scenario) else "", "editor_start_ms": started, "sizes": sizes,
+		"editor_scale": EditorInterface.get_editor_scale()}))
 	file.close()
 	get_tree().quit()
 
@@ -715,7 +719,7 @@ func previews() -> void:
 	var plain: Dictionary = flat.duplicate()
 	plain["class"] = 75
 	check("a named front gets its own cached picture", dock.cache_path(flat) != dock.cache_path(plain))
-	check("the waiting picture is sharp at the list's size", dock.placeholder != null and dock.placeholder.get_width() == 80)
+	check("the waiting picture is sharp at the list's size", dock.placeholder != null and dock.placeholder.get_width() == dock.list.fixed_icon_size.x)
 
 
 func class_menu_names() -> void:
@@ -1035,6 +1039,102 @@ func layout() -> void:
 
 ## The dock as drawn (only when the editor draws, under a display): something is on screen in each
 ## state, and each picture is saved for a person to look at when OPENRAC_E2E_SHOTS names a folder.
+## Every control of the OpenRAC docks and Inspector sections, measured: its minimum size, fixed
+## icon and column sizes, overridden gaps and margins, and the font size it draws with. Nothing is
+## smaller than the editor's text, and test_editor_e2e.py checks every number grows with the display
+## scale (a size typed in pixels does not, and is tiny on a 4K screen).
+func ui_sizes() -> void:
+	reset_dock()
+	await frames(2)
+	var roots: Dictionary = {"assets": dock}
+
+	for node in EditorInterface.get_base_control().find_children("*", "", true, false):
+		var script: Script = node.get_script()
+
+		if script != null and String(script.resource_path).ends_with("openrac_collision/dock.gd"):
+			roots["collision"] = node
+		elif node.get_class() == "CutsceneTimeline":
+			roots["cutscene"] = node
+
+	check("the Collision and Cutscene docks are there", roots.has("collision") and roots.has("cutscene"), roots.keys())
+	# The Inspector's sections, for a moby with a behaviour and one with its own logic.
+	var moby := Node3D.new()
+	moby.set_meta("rc1_behaviour", "patrol")
+	moby.set_meta("rc1_foreign_level", 3)
+	roots["behaviour"] = plugin.behaviour_inspector.section(moby)
+	roots["foreign"] = plugin.foreign_inspector.section(moby)
+
+	for name in ["behaviour", "foreign"]:
+		dock.add_child(roots[name])
+
+	await frames(2)
+	var text_size: int = EditorInterface.get_base_control().get_theme_font_size("main_size", "EditorFonts")
+	var small: Array = []
+
+	for name in roots:
+		var measured: Dictionary = {}
+
+		for control in [roots[name]] + roots[name].find_children("*", "Control", true, false):
+			var entry: Dictionary = measure(control)
+			measured[place(roots[name], control)] = entry
+
+			if entry.has("font") and control.is_visible_in_tree() and entry["font"] < text_size * 0.8:
+				small.append([name, place(roots[name], control), entry["font"], text_size])
+
+		sizes[name] = measured
+
+	check("no text is much smaller than the editor's", small.is_empty(), small)
+
+	for name in ["behaviour", "foreign"]:
+		roots[name].queue_free()
+
+	moby.free()
+	await frame()
+
+
+## Where NODE is under ROOT, the same in every run: each step its class and place among its
+## siblings (generated node names carry a number that changes from run to run).
+static func place(root: Node, node: Node) -> String:
+	var steps: PackedStringArray = []
+
+	while node != root and node != null:
+		steps.insert(0, "%s%d" % [node.get_class(), node.get_index(true)])
+		node = node.get_parent()
+
+	return "/".join(steps)
+
+
+## CONTROL's sizes that should follow the editor's scale.
+static func measure(control: Control) -> Dictionary:
+	var entry: Dictionary = {"min_x": control.custom_minimum_size.x, "min_y": control.custom_minimum_size.y}
+
+	if control is ItemList:
+		entry["icon"] = control.fixed_icon_size.x
+		entry["column"] = control.fixed_column_width
+
+	if control is Label or control is Button or control is LineEdit:
+		entry["font"] = control.get_theme_font_size("font_size")
+	elif control is RichTextLabel:
+		entry["font"] = control.get_theme_font_size("normal_font_size")
+
+	for constant in ["separation", "h_separation", "v_separation"]:
+		if control.has_theme_constant_override(constant):
+			entry["constant_" + constant] = control.get_theme_constant(constant)
+
+	if control.has_theme_stylebox_override("panel"):
+		var style: StyleBox = control.get_theme_stylebox("panel")
+		entry["margin_left"] = style.content_margin_left
+		entry["margin_top"] = style.content_margin_top
+
+		if style is StyleBoxFlat:
+			entry["border_left"] = style.border_width_left
+
+	if control.get_class() == "CutsceneTimelineView":
+		entry["timeline_min_x"] = control.get_minimum_size().x
+
+	return entry
+
+
 func looks() -> void:
 	if DisplayServer.get_name() == "headless":
 		return

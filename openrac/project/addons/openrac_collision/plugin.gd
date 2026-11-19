@@ -912,7 +912,7 @@ func _forward_3d_force_draw_over_viewport(viewport_control: Control) -> void:
 	if is_dragging:
 		var rect := Rect2(drag_from, drag_to - drag_from).abs()
 		viewport_control.draw_rect(rect, Color(DRAG_COLOUR, 0.15), true)
-		viewport_control.draw_rect(rect, DRAG_COLOUR, false, 1.0)
+		viewport_control.draw_rect(rect, DRAG_COLOUR, false, maxf(roundf(EditorInterface.get_editor_scale()), 1.0))
 
 
 func _exit_tree() -> void:

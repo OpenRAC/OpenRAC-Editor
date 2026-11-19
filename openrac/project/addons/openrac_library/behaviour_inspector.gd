@@ -91,7 +91,7 @@ func number_row(node: Node3D, key: String, label: String, value: float, low: flo
 	spin.max_value = high
 	spin.step = step
 	spin.value = value
-	spin.custom_minimum_size.x = 90
+	spin.custom_minimum_size.x = 90.0 * EditorInterface.get_editor_scale()
 	spin.value_changed.connect(func(number: float) -> void: set_number(node, key, number))
 	row.add_child(spin)
 	return row

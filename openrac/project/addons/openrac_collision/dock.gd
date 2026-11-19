@@ -79,10 +79,10 @@ var help_text: RichTextLabel
 ## The finest step a position takes across (the leaves' grid), in game units.
 const STEP_ACROSS: float = 0.0625
 
-## The width of the colour swatch in the legend.
+## The size of the colour swatch in the legend, at a display scale of 100%.
 const SWATCH: Vector2 = Vector2(18, 14)
 
-## The width a wrapped label keeps.
+## The width a wrapped label keeps, at a display scale of 100%.
 const TEXT_WIDTH: float = 220.0
 
 # =============================================================================
@@ -107,7 +107,7 @@ func _init() -> void:
 	help_text.fit_content = true
 	help_text.text = Help.TEXT
 	help_text.visible = false
-	help_text.custom_minimum_size.x = TEXT_WIDTH
+	help_text.custom_minimum_size.x = px(TEXT_WIDTH)
 	box.add_child(help_text)
 
 	level_box = VBoxContainer.new()
@@ -124,6 +124,12 @@ func _init() -> void:
 
 
 # --- Building ---
+
+## VALUE pixels at the editor's scale (Editor Settings, Display Scale), so the dock looks the same
+## on a 4K screen as on a small one.
+static func px(value: float) -> float:
+	return value * EditorInterface.get_editor_scale()
+
 
 ## The show toggle and the legend.
 func build_view(box: VBoxContainer) -> void:
@@ -253,7 +259,7 @@ func wrapped(box: Control, text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size.x = TEXT_WIDTH
+	label.custom_minimum_size.x = px(TEXT_WIDTH)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(label)
 	return label
@@ -338,14 +344,14 @@ func legend_row(colour: Color, text: String) -> void:
 	var row := HBoxContainer.new()
 	var swatch := ColorRect.new()
 	swatch.color = colour
-	swatch.custom_minimum_size = SWATCH
+	swatch.custom_minimum_size = SWATCH * px(1.0)
 	swatch.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(swatch)
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.custom_minimum_size.x = TEXT_WIDTH - SWATCH.x
+	label.custom_minimum_size.x = px(TEXT_WIDTH - SWATCH.x)
 	row.add_child(label)
 	legend.add_child(row)
 
