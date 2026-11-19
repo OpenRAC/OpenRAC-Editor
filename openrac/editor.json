@@ -133,7 +133,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -384,7 +390,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -604,7 +616,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -787,7 +805,13 @@
           "--openrac-levels",
           "{levels}",
           "--openrac-states",
-          "{states}"
+          "{states}",
+          "--openrac-python",
+          "{python}",
+          "--openrac-tools",
+          "{editor_tools}",
+          "--openrac-packed",
+          "{packed}"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",

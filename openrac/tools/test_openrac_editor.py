@@ -4,6 +4,7 @@ again, keeping every edit, and says how far along it is (progress_line, carried 
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
 import io
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -199,6 +200,75 @@ class OpenTests(unittest.TestCase):
             self.assertEqual(oe.open_editor(["/bin/editor", "--path", tmp, "-e"]), 0)
             self.assertEqual(popen.call_args.args[0], ["/bin/editor", "--path", tmp, "-e"])
             self.assertEqual(oe.open_editor([]), 2)
+
+
+class CheckAndPlay(unittest.TestCase):
+    """`check` and `play` (the editor's Check level and Play level): the disc the projects were read
+    from, each refused edit on a line of its own, and the game started on the level."""
+
+    def test_refused_lines_lose_their_mark(self):
+        report = "level 03\n  Box_0001: moved\n  not packed: Crate: a mirrored object\n  note: a cutscene line\n"
+        self.assertEqual(oe.refused_lines(report), ["Crate: a mirrored object"])
+
+    def test_the_disc_is_remembered_and_said_when_gone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            projects = Path(tmp) / "pal"
+            level = projects / "level_03"
+            level.mkdir(parents=True)
+            with self.assertRaises(FormatError) as caught:
+                oe.remembered_disc(level)
+            self.assertEqual(caught.exception.code, "no-disc")
+            iso = Path(tmp) / "disc.iso"
+            iso.write_bytes(b"x")
+            oe.remember_disc(projects, iso)
+            self.assertEqual(oe.remembered_disc(level), iso.absolute())
+            iso.unlink()
+            with self.assertRaisesRegex(FormatError, "no longer at"):
+                oe.remembered_disc(level)
+
+    @unittest.skipUnless(os.environ.get("OPENRAC_RAC1_PAL_DISC"), "set OPENRAC_RAC1_PAL_DISC")
+    def test_check_lists_a_refused_edit_and_play_starts_the_game(self):
+        import argparse
+        import re
+        import subprocess
+        import sys
+        disc = os.environ["OPENRAC_RAC1_PAL_DISC"]
+        tool = Path(__file__).with_name("openrac_editor.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            projects = Path(tmp) / "pal"
+            done = subprocess.run([sys.executable, str(tool), "projects", disc, str(projects), "--level", "0",
+                                   "--split", "--anywhere"], capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            level = projects / "level_00"
+            check = subprocess.run([sys.executable, str(tool), "check", str(level)], capture_output=True, text=True)
+            self.assertEqual(check.returncode, 0, check.stdout + check.stderr)
+            self.assertIn("Every edit packs.", check.stdout)
+            scene = level / "levels" / "level_00" / "level_00.tscn"
+            text = scene.read_text(encoding="utf-8")
+            # One moby mirrored on its first axis: the game has no mirroring.
+            found = re.search(r'\[node name="(\w+)" parent="Game/Mobys"[^\n]*\]\n(?:[^\[\n][^\n]*\n)*?'
+                              r'transform = Transform3D\(([^)]*)\)', text)
+            values = [float(v) for v in found.group(2).split(",")]
+            values[0], values[3], values[6] = -values[0], -values[3], -values[6]
+            scene.write_text(text[:found.start(2)] + ", ".join(map(str, values)) + text[found.end(2):], encoding="utf-8")
+            check = subprocess.run([sys.executable, str(tool), "check", str(level)], capture_output=True, text=True)
+            self.assertEqual(check.returncode, 1, check.stdout + check.stderr)
+            problems = [line for line in check.stdout.splitlines() if line.startswith("openrac-problem: ")]
+            self.assertEqual(len(problems), 1, check.stdout)
+            self.assertTrue(problems[0].startswith(f"openrac-problem: {found.group(1)}: a mirrored object"), problems)
+            scene.write_text(text, encoding="utf-8")
+            game = Path(tmp) / "openrac-rac1-pal"
+            game.write_text("")
+            args = argparse.Namespace(command="play", project=level, packed=Path(tmp) / "packed", game=game,
+                                      data=Path(tmp) / "data", levels=Path(tmp) / "levels")
+            with mock.patch.object(oe.subprocess, "Popen") as popen, redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(oe.check_or_play(args), 0)
+            command = popen.call_args.args[0]
+            self.assertEqual(command[0], str(game.resolve()))
+            self.assertEqual(command[command.index("--level") + 1], "0")
+            self.assertEqual(command[command.index("--mods") + 1], str((Path(tmp) / "packed").resolve()))
+            self.assertTrue((Path(tmp) / "packed" / "packed.json").is_file())
+            self.assertIn("Started the game on level 00", out.getvalue())
 
 
 class CommandNames(unittest.TestCase):

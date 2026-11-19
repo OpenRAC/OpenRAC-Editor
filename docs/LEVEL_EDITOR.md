@@ -224,6 +224,30 @@ in as the game's own, with its logic; anything else as static scenery
 **Behaviour** section (spin, bob, patrol, orbit, face or follow the hero), which
 the editor-runtime mod plays.
 
+## Check and play from the editor
+
+The editor's toolbar has **Check level** and **Play level** (the Assets plugin, `play.gd`). Both
+save your scenes first, and run in the background:
+
+- **Check level** packs every level of the folder into a throwaway folder and lists each edit the
+  game cannot take, such as a mirrored object or a value out of range. Click one to select its
+  node, fix it and check again.
+- **Play level** packs into your packed levels folder (as the launcher's Pack does) and starts the
+  game on this level with your edits, movies skipped. Europe and USA discs for now.
+
+They work on a level opened from the launcher, which tells the editor where Python, the editor's
+tools, the game and your folders are. The projects folder remembers the disc it was read from
+(`.openrac/disc.json`, written by Extract), so a folder extracted by an older editor needs one
+more Extract (levels you edited are kept). From a shell:
+
+```sh
+python3 <editor>/openrac/tools/openrac_editor.py check <levels>/level_03
+python3 <editor>/openrac/tools/openrac_editor.py play <levels>/level_03 --packed <packed> \
+    --game <port>/openrac-rac1-pal --data <data> --levels <port levels>
+```
+
+`check` prints each refused edit as `openrac-problem: <node>: <why>` and exits with 1 when any.
+
 ## Pack your edits
 
 The modder's guide to the whole round trip (extract, edit in OpenRAC Editor, pack,
