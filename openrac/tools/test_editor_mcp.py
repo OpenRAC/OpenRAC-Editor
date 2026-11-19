@@ -11,6 +11,7 @@ import json
 import os
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -222,6 +223,19 @@ class EditorMCP(unittest.TestCase):
         self.editor.call("undo")
         missing = self.editor.error("job_status", {"id": "nope"})
         self.assertIn("nope", missing)
+
+    def test_6_the_plugin_bridge(self):
+        # ai/openrac's stdio bridge finds the editor by its mcp.json and passes messages through.
+        bridge = Path(__file__).resolve().parents[2] / "ai" / "openrac" / "bin" / "editor_bridge.py"
+        messages = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+                    {"jsonrpc": "2.0", "method": "notifications/initialized"},
+                    {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "project_info"}}]
+        run = subprocess.run([sys.executable, str(bridge)], input="".join(json.dumps(m) + "\n" for m in messages),
+                             capture_output=True, text=True, timeout=60,
+                             env=dict(os.environ, XDG_CONFIG_HOME=str(Path(self.temp.name) / "config")))
+        answers = [json.loads(line) for line in run.stdout.splitlines()]
+        self.assertEqual([a["id"] for a in answers], [1, 2], run.stderr)
+        self.assertEqual(json.loads(answers[1]["result"]["content"][0]["text"])["level"], 5)
 
 
 if __name__ == "__main__":

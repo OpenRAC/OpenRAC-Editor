@@ -348,16 +348,38 @@ func cutscene_frame(args: Dictionary) -> Variant:
 	eye.global_transform = camera.global_transform
 	eye.current = true
 	var job: String = server.job_create("Cutscene frame")
-	finish_frame.call_deferred(view, job, int(args.get("t", 0)))
+	finish_frame.call_deferred(view, job, int(args.get("t", 0)), editor_marks())
 	return {"job": job, "state": "running", "next": "job_wait with this id: it answers with the picture"}
 
 
-## Two frames on, the picture is drawn: hands it to the job and frees the view.
-func finish_frame(view: SubViewport, job: String, tick: int) -> void:
+## What the editor draws in the level and the game does not: the mobys' name labels, the boxes of
+## classes without a model and collision shapes. Hidden from the picture on the rendering server
+## only, so the scene itself does not change.
+func editor_marks() -> Array:
+	var marks: Array = []
+
+	if root() == null:
+		return marks
+
+	for node in root().find_children("*", "VisualInstance3D", true, false):
+		if node is Label3D or (node is MeshInstance3D and (node.name == &"Marker" or String(node.name).begins_with("Collision"))):
+			if node.is_visible_in_tree():
+				RenderingServer.instance_set_visible(node.get_instance(), false)
+				marks.append(node)
+
+	return marks
+
+
+## Two frames on, the picture is drawn: hands it to the job, frees the view and shows the marks again.
+func finish_frame(view: SubViewport, job: String, tick: int, marks: Array) -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	var image: Image = view.get_texture().get_image()
 	view.queue_free()
+
+	for node in marks:
+		if is_instance_valid(node):
+			RenderingServer.instance_set_visible(node.get_instance(), node.is_visible_in_tree())
 
 	if image == null or image.is_empty():
 		server.job_finish(job, {"error": "No picture: the editor draws nothing (a headless editor)."}, true)
