@@ -160,6 +160,13 @@ class AssetsDockEndToEnd(unittest.TestCase):
         result = run_editor(self)
         self.assertEqual(len(result["times"]), SCENARIOS, result["times"])
 
+    # The same at 200%, as on a 4K screen: every click, drag and layout check still holds (the
+    # editor's window grows with the scale, as a 4K screen has the room).
+    def test_every_way_of_using_the_dock_at_200_percent(self):
+        result = run_editor(self, scale=2.0)
+        self.assertEqual(result["editor_scale"], 2.0)
+        self.assertEqual(len(result["times"]), SCENARIOS, result["times"])
+
     # Every size the OpenRAC docks and Inspector sections set follows the editor's display scale
     # (Editor Settings): at 200% (a 4K screen) each is twice what it is at 100%, text included. A size
     # typed in pixels stays the same and shows tiny, as the Assets dock's colour legend once did.

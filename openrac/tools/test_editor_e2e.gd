@@ -19,7 +19,8 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
 	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
 
-## The dock's narrowest sensible width: a dock column a person has not widened.
+## The dock's narrowest sensible width at 100%: a dock column a person has not widened (narrow()
+## gives it at the editor's display scale).
 const NARROW: float = 280.0
 
 ## test_editor_e2e.py's STRESS_MOBYS: each of its many levels has the same classes.
@@ -70,7 +71,7 @@ func run() -> void:
 
 	if dock != null:
 		# Room for the whole dock: a headless editor's window is small.
-		get_tree().root.size = Vector2i(1280, 960)
+		get_tree().root.size = Vector2i(Vector2(1280, 960) * EditorInterface.get_editor_scale())
 		show_dock()
 		await frames(2)
 
@@ -96,6 +97,11 @@ func finish() -> void:
 		"editor_scale": EditorInterface.get_editor_scale()}))
 	file.close()
 	get_tree().quit()
+
+
+## NARROW at the editor's display scale.
+static func narrow() -> float:
+	return NARROW * EditorInterface.get_editor_scale()
 
 
 func check(name: String, ok: bool, detail: Variant = "") -> void:
@@ -987,14 +993,14 @@ func layout() -> void:
 		dock.planet.select(i)
 		dock.planet.item_selected.emit(i)
 		await frame()
-		if dock.get_combined_minimum_size().x > NARROW:
+		if dock.get_combined_minimum_size().x > narrow():
 			wide.append([dock.planet.get_item_text(i), dock.get_combined_minimum_size().x])
 
 	for i in range(dock.filter.item_count):
 		dock.filter.select(i)
 		dock.filter.item_selected.emit(i)
 		await frame()
-		if dock.get_combined_minimum_size().x > NARROW:
+		if dock.get_combined_minimum_size().x > narrow():
 			wide.append([dock.filter.get_item_text(i), dock.get_combined_minimum_size().x])
 
 	dock.filter.select(dock.filter.get_item_index(Dock.SHOW_ALL))
@@ -1008,10 +1014,10 @@ func layout() -> void:
 
 	await pick(longest)
 	await frames(2)
-	check("a long name's details fit a narrow dock", dock.get_combined_minimum_size().x <= NARROW, [longest, dock.get_combined_minimum_size().x])
+	check("a long name's details fit a narrow dock", dock.get_combined_minimum_size().x <= narrow(), [longest, dock.get_combined_minimum_size().x])
 	dock.report.text = "Could not bring this asset in: its model failed to import. Pick it again after the import ends."
 	await frame()
-	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= NARROW, dock.get_combined_minimum_size().x)
+	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= narrow(), dock.get_combined_minimum_size().x)
 	var hidden: Array = []
 
 	for button in [dock.add_button, dock.own_button, dock.as_button]:
