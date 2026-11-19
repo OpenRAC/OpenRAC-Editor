@@ -185,7 +185,7 @@ def add_class_collision_nodes(scene, blob: mc.Blob | None, joints: list, class_s
     from godot import transform
     description = ("The class's collision, as every moby of this class in this level has it (moby_collision.py). "
                    "Move, resize, delete or add spheres, cylinders and capsules here, or edit a Mesh_XX glTF; "
-                   "extract.py pack writes it back.")
+                   "openrac_editor.py pack writes it back.")
     s = class_scale
     scene.node("Collision", ".", "Node3D", visible=False, editor_description=description,
                transform=transform([s, 0, 0, 0, 0, s, 0, 0, 0, 0, s, 0, 0, 0, 0, 1]),

@@ -1,6 +1,6 @@
 """The Assets dock's library (addons/openrac_library/library.gd) on hand-built level projects of
 two games and two discs: it finds them, tells what a placed asset does in the edited level, and
-brings another level's skinned moby in as a still model that editor/static_assets.py packs. Runs
+brings another level's skinned moby in as a still model that openrac/tools/static_assets.py packs. Runs
 the library headless in Godot, so only when told where Godot is (no disc needed):
 
     OPENRAC_GODOT=/path/to/godot python3 -m unittest test_library_dock

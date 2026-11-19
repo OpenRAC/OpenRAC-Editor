@@ -126,7 +126,7 @@ def add_collision_nodes(scene, res: str, manifest: dict) -> None:
     pack.read_scene_nodes reads a level scene's placements back)."""
     description = ("The level's collision, by 64-unit tile. Delete, move or edit tiles (their .glb in Blender; "
                    "a material rc1_surface_XX is the faces' type byte), or add meshes here with rc1_surface "
-                   "metadata. Packed into the level's collision by extract.py pack.")
+                   "metadata. Packed into the level's collision by openrac_editor.py pack.")
     scene.node("Collision", "Game", "Node3D", visible=False, editor_description=description,
                metadata__rc1_collision=FORMAT)
     for name, entry in manifest["tiles"].items():

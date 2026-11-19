@@ -94,7 +94,7 @@ const OVERLAY_NAME: String = "OpenRACCollisionOverlay"
 ## The most lines a report shows.
 const REPORT_LINES: int = 12
 
-## Must match editor/static_assets.py and port/scene/level.cpp.
+## Must match openrac/tools/static_assets.py and port/scene/level.cpp.
 const MAX_RENDERED_INSTANCES: int = 2147483647
 
 # =============================================================================

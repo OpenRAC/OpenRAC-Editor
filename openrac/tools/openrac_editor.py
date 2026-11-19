@@ -5,6 +5,7 @@ for the game. They read the disc with OpenRAC's extractor (openrac_root.py finds
   openrac_editor.py godot ISO OUT [--level N ...]   a Godot 4 project of editable levels
   openrac_editor.py pack ISO PROJECT OUT             the edited levels, packed for the game
   openrac_editor.py open EDITOR --path PROJECT ...   the editor on a project, its files brought up to date
+  openrac_editor.py planet ISO PROJECT OVERRIDES      one level's project packed and added as a new planet
 
 Ratchet & Clank's levels are packed back; Going Commando's, Up Your Arsenal's and Deadlocked's open
 to look at and to make texture and model packs from (early access). OUT is a new directory under
@@ -126,6 +127,11 @@ def update_godot(dest: Path, levels: list[int], split: bool, export, schema: int
             except Exception as exc:     # noqa: BLE001 -- the fresh level stays; the player hears why
                 report["carried"].append({"level": i, "carried": [], "not_carried": [f"carrying failed: {exc}"],
                                           "mobys": 0, "failed": True, "backup": str(report["backup"])})
+    if split and report["backup"] is not None:
+        # A level project is a planet too (planet.py): its name and id stay with it.
+        import planet
+        for i in report["replaced"]:
+            planet.carry_settings(report["backup"] / f"level_{i:02}", place(i))
     for project in ([place(i) for i in levels] if split else [dest]):
         if (project / "project.godot").is_file():
             shutil.copytree(SCRIPTS, project / "rc1", dirs_exist_ok=True)
@@ -317,6 +323,11 @@ def main() -> None:
                               "(moby_states.py); needs --data and --levels")
     packing.add_argument("--data", type=Path, help="the port's game data, for --states")
     packing.add_argument("--levels", type=Path, help="the port's levels, for --states")
+    adding = commands.add_parser("planet", help="pack one level's project and add it as a new planet (planet.py)")
+    adding.add_argument("iso", type=Path)
+    adding.add_argument("project", type=Path, help="one level's project (a project per level)")
+    adding.add_argument("overrides", type=Path, help="the launcher's packs folder (<data>/overrides) to add it to")
+    adding.add_argument("--anywhere", action="store_true", help="accepted for the launcher; the planet goes to OVERRIDES")
     args = parser.parse_args()
     if args.command == "godot":
         # Whatever the player does comes first; the levels' processes have the rest of the CPU.
@@ -393,6 +404,17 @@ def main() -> None:
                 elif program is not None:
                     print(f"moby start states skipped: no states program at {args.states}, or no --data and --levels")
                 say_output(dest)
+            elif args.command == "planet":
+                import overrides
+                import planet
+                try:
+                    done = planet.add_planet(disc, survey, args.project.resolve(), args.overrides.resolve())
+                except overrides.PackError as exc:
+                    raise FormatError(str(exc), code=planet.code_of(exc)) from exc
+                print(done["report"], end="")
+                print(f"Added the planet {done['name']} (level {done['level']:02} as its template) to your mods as "
+                      f"{done['installed']}. Turn on Mods and play: board the ship and pick it in the ship's menu.")
+                say_output(args.overrides.resolve())
     except (OSError, FormatError, struct.error) as exc:
         errors.say(exc)
         parser.exit(1, f"openrac_editor: {exc}\n")

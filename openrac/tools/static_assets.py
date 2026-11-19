@@ -2,7 +2,7 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Import GLB/glTF scenery and bake static copies or export spinning props at Pack.
 
-python editor/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project PROJECT \
+python3 openrac/tools/static_assets.py --source DONOR_LEVEL/ties/tie_123.glb --project PROJECT \
     --level 2 --name MyDecor --at X Y Z [--collision mesh]
 Place, duplicate or transform the imported nodes below Game/StaticAssets in Godot.
 Spinning props go below Game/AnimatedAssets. Inputs and generated game assets stay private.

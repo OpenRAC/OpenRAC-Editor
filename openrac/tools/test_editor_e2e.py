@@ -67,7 +67,7 @@ STRESS_LEVELS = 12
 STRESS_MOBYS = 40
 
 # How many scenarios test_editor_e2e.gd runs.
-SCENARIOS = 32
+SCENARIOS = 33
 
 XVFB_RUN = shutil.which("xvfb-run")
 

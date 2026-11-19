@@ -17,7 +17,7 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"details", "add_full", "add_look", "own_logic_after_pick", "class_logic", "drag_to_view", "drag_to_scene_dock",
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
-	"layout", "looks", "ui_sizes", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
+	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed"]
 
 ## The dock's narrowest sensible width: a dock column a person has not widened.
 const NARROW: float = 280.0
@@ -1102,6 +1102,14 @@ static func place(root: Node, node: Node) -> String:
 		node = node.get_parent()
 
 	return "/".join(steps)
+
+
+## The level's name as a new planet is in Project Settings, OpenRAC > Planet, shown without
+## Advanced Settings (planet.py reads them from project.godot).
+func planet_settings() -> void:
+	for key in ["openrac/planet/name", "openrac/planet/id"]:
+		check("%s is a project setting" % key, ProjectSettings.has_setting(key))
+		check("%s starts empty" % key, String(ProjectSettings.get_setting(key, "x")).is_empty())
 
 
 ## CONTROL's sizes that should follow the editor's scale.

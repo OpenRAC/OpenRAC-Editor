@@ -392,7 +392,7 @@ def main(argv: list[str] | None = None) -> int:
     where = gen.add_mutually_exclusive_group(required=True)
     where.add_argument("--out", type=Path, help="write the blob here")
     where.add_argument("--scene", type=Path, help="a class scene (levels/level_NN/mobys/moby_<class>.tscn) whose "
-                                                  "Collision node gets it, for extract.py pack")
+                                                  "Collision node gets it, for openrac_editor.py pack")
     gen.add_argument("--mode", default=MESH, choices=(MESH, "box", "sphere", "cylinder"))
     gen.add_argument("--surface", default=f"{NO_SURFACE:#x}", help="type byte of the faces (default 0x1f: none)")
     gen.add_argument("--scale", type=float, help="the class scale the model is drawn at (default: the class "

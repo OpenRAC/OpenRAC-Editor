@@ -13,7 +13,7 @@ extends RefCounted
 ## What an asset does when placed (status()):
 ## - FULL: this level has its class, so it is the game's own moby, tie or shrub (the class scene
 ##   or model of this level is placed, and pack writes a record);
-## - LOOK: anything else, placed as static scenery under Game/StaticAssets (editor/static_assets.py
+## - LOOK: anything else, placed as static scenery under Game/StaticAssets (openrac/tools/static_assets.py
 ##   bakes it into the level's terrain at pack, with collision when rc1_static_collision is on).
 
 const KINDS: PackedStringArray = ["mobys", "ties", "shrubs"]
@@ -526,7 +526,7 @@ static func import_files(files: PackedStringArray) -> void:
 	filesystem.reimport_files(files)
 
 
-## The model as static scenery (editor/static_assets.py validate()): no skin, no animation and no
+## The model as static scenery (openrac/tools/static_assets.py validate()): no skin, no animation and no
 ## bone weights, its mesh as it is stored (the class's bind pose).
 static func still(json: Dictionary) -> void:
 	json.erase("skins")

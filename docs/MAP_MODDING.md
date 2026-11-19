@@ -210,13 +210,36 @@ In practice, memory and frame time become the useful limits well before that.
 
 ## 3. Pack and export an added destination
 
-Save the project, then use **Pack** or the command below. Substitute your own
-paths; keep outputs in a private ignored folder such as `build/`.
+### The quick way
+
+1. In the editor, open **Project > Project Settings**, then **OpenRAC > Planet**, and type
+   the planet's **Name** (what the ship's menu shows; one line, at most 40 characters).
+   Save the scene and the project.
+2. In the launcher, **Mods > Level editor**, pick the level and press **Add as a new
+   planet**. It packs the level, exports it and adds it to your mods in one step.
+3. Turn on **Mods** and play (section 4).
+
+The first add gives the planet an id (**OpenRAC > Planet > Id**). Keep it: adding again
+updates the same planet instead of adding a second one. **Export the levels again**
+keeps the name and id. The same step from a shell, in your OpenRAC checkout:
 
 ```sh
-python OpenRAC's extractor/extract.py pack YOUR_ISO YOUR_PROJECT build/my-world-packed
-python openrac/tools/map_mod.py --destination --project YOUR_PROJECT --packed build/my-world-packed --template-level 2 --name "My World" --map-id "yourname.my-world" --out build/my-world-pack
+python3 <editor>/openrac/tools/openrac_editor.py planet YOUR_ISO YOUR_PROJECTS/level_02 YOUR_DATA/overrides
 ```
+
+### Step by step
+
+Save the project, then use **Pack** or the commands below. They run in your OpenRAC
+checkout; `<editor>` is this repository (or the downloaded editor's folder).
+Substitute your own paths; keep outputs in a private ignored folder such as `build/`.
+
+```sh
+python3 <editor>/openrac/tools/openrac_editor.py pack YOUR_ISO YOUR_PROJECTS build/my-world-packed
+python3 <editor>/openrac/tools/map_mod.py --destination --project YOUR_PROJECT --packed build/my-world-packed --template-level 2 --name "My World" --map-id "yourname.my-world" --out build/my-world-pack
+```
+
+`YOUR_PROJECTS` is the folder of level projects (or one level's project);
+`--project` can be either too.
 
 `--name` is the label in the ship computer. `--map-id` is the creator-qualified
 identity used for updates: keep it unchanged when revising the same world.
@@ -251,8 +274,8 @@ install them as an ordinary data pack.
 For a repeatable shell test (the same preparation the launcher performs):
 
 ```sh
-python OpenRAC's extractor/overrides.py add build/my-world-pack --into build/my-world-installed
-python OpenRAC's extractor/overrides.py stack --into build/my-world-installed --out build/my-world-session --levels YOUR_PAL_RENDERER_LEVELS
+python3 extractor/overrides.py add build/my-world-pack --into build/my-world-installed
+python3 extractor/overrides.py stack --into build/my-world-installed --out build/my-world-session --levels YOUR_PAL_RENDERER_LEVELS
 port/build/release/openrac-rac1-pal --data YOUR_PRIVATE_DATA --levels YOUR_PAL_RENDERER_LEVELS --mods build/my-world-session --destinations --window
 ```
 

@@ -145,6 +145,21 @@ class UpdateGodot(unittest.TestCase):
             self.assertEqual(openrac_editor.level_schema(dest / "level_00" / "levels" / "level_00"), openrac_editor.GODOT_SCHEMA)
 
 
+    def test_a_level_exported_again_stays_the_same_planet(self):
+        import planet
+        from test_openrac_editor import fake_godot
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp).resolve() / "levels" / "pal"
+            export = fake_godot(openrac_editor.GODOT_SCHEMA)
+            openrac_editor.export_godot(dest, [0, 1], True, True, export)
+            planet.set_setting(dest / "level_00", planet.NAME, "Kept")
+            planet.set_setting(dest / "level_00", planet.ID, "kept.0001")
+            report = openrac_editor.update_godot(dest, [0, 1], True, export, openrac_editor.GODOT_SCHEMA, again=True)
+            self.assertEqual(report["replaced"], [0, 1])
+            self.assertEqual(planet.settings(dest / "level_00"), {"planet/name": "Kept", "planet/id": "kept.0001"})
+            self.assertEqual(planet.settings(dest / "level_01"), {})
+
+
 class Repair(unittest.TestCase):
     def test_a_level_with_files_missing_is_backed_up_and_written_again(self):
         from test_openrac_editor import fake_godot

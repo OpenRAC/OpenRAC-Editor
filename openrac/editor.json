@@ -182,6 +182,34 @@
         "todo": "Run from a shell on macOS: an untouched project packs to nothing, a scene Godot re-saved with one object moved packs to a level file that differs from the disc in that object's record, and the port ran level 0 for 400 frames from it. Not run from the desktop app yet. Next: adding and deleting objects, then ties and shrubs."
       },
       {
+        "id": "editor-new-planet",
+        "label": "Add as a new planet",
+        "description": "Packs the level you pick and adds it to your mods as a new planet the ship can fly to. The original planet stays as it is. Name the planet in OpenRAC Editor first (Project > Project Settings > OpenRAC > Planet). Adding it again updates the same planet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "planet",
+          "{disc}",
+          "{projects}/level_{level}",
+          "{data}/overrides",
+          "--anywhere"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/MAP_MODDING.md",
+        "todo": "Run it from the desktop app. In a Linux container the same command packed Aridia with Ratchet moved and a model added, added it to an overrides folder, and the PAL port played the new planet from its own files (started on it directly; the ship's menu was not driven there)."
+      },
+      {
         "id": "editor-show-packs",
         "label": "Show your textures in the editor",
         "description": "Puts the textures of the mods you put together (Put the mods together) into the level editor's projects, at their own size, so that the levels you edit in OpenRAC Editor look as they will in the game. The editor's own come back with Hide them again.",
