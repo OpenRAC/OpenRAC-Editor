@@ -174,6 +174,43 @@ def same_fields(a: dict, b: dict) -> bool:
     return a.keys() == b.keys() and all(same_value(a[k], b[k]) for k in a)
 
 
+# Where each kind of record lives: its nodes are this group's own children (a folder in between
+# hides them from the packer, which would then take them for deleted).
+RECORD_GROUPS = ("Game/Mobys", "Game/Ties", "Game/Shrubs", "Game/Cameras", "Game/Sounds", "Game/Paths",
+                 "Game/GrindPaths", "Game/Volumes/Cuboids", "Game/Volumes/Spheres", "Game/Volumes/Cylinders",
+                 "Game/Volumes/Pills")
+
+
+def validate_record_folders(nodes: dict, level_id: int) -> None:
+    """Refuses a level whose mobys, ties, shrubs, cameras, sounds, volumes or paths sit in a folder
+    of their group (Game/Mobys/Folder/Crate): packed as they are, they would be lost."""
+    nested = []
+    for path, node in nodes.items():
+        parent = node.get("parent") or ""
+        group = next((g for g in RECORD_GROUPS if parent.startswith(g + "/")), None)
+        if group is None:
+            continue
+        is_record = node.get("instance") is not None or "metadata/rc1_index" in node["props"]
+        # A record's own child (a light under a moby) is not a record of the group.
+        if is_record and not any(nodes.get(a, {}).get("instance") is not None
+                                 or "metadata/rc1_index" in nodes.get(a, {}).get("props", {})
+                                 for a in ancestors(parent, group)):
+            nested.append(path)
+    if nested:
+        shown = ", ".join(nested[:5]) + (f" and {len(nested) - 5} more" if len(nested) > 5 else "")
+        raise FormatError(f"level {level_id:02}: {shown} must be directly under their group (move them out of "
+                          "the folder); in a folder they would be packed as deleted", code="pack-incomplete")
+
+
+def ancestors(parent: str, group: str) -> list[str]:
+    """The paths from PARENT up to GROUP's child, PARENT first."""
+    out = []
+    while parent.startswith(group + "/"):
+        out.append(parent)
+        parent = parent.rsplit("/", 1)[0]
+    return out
+
+
 def validate_packed_visibility(nodes: dict, level_id: int) -> None:
     """Godot visibility is only an editor preview property; the game pack has no such flag."""
     for path, node in nodes.items():
@@ -196,6 +233,10 @@ def placement(t: tuple) -> tuple[tuple, tuple, float]:
     if scale <= 0 or any(abs(s - scale) > 1e-3 * max(scale, 1.0) for s in scales):
         raise FormatError("a moby has one scale for all three axes")
     r = [[rows[i][j] / scale for j in range(3)] for i in range(3)]
+    # A mirror (one axis scaled by -1) has no turn that matches it: the game would show it turned.
+    if (r[0][0] * (r[1][1] * r[2][2] - r[1][2] * r[2][1]) - r[0][1] * (r[1][0] * r[2][2] - r[1][2] * r[2][0])
+            + r[0][2] * (r[1][0] * r[2][1] - r[1][1] * r[2][0])) < 0:
+        raise FormatError("a mirrored object (a negative scale) cannot be packed: the game has no mirroring")
     sy = max(-1.0, min(1.0, -r[2][0]))
     ry = math.asin(sy)
     if abs(sy) < 0.999999:
@@ -806,19 +847,20 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
 
 
 def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, spawn_ids: set | None = None,
-                   classes=None) -> tuple[list[str], list[str]]:
+                   classes=None) -> tuple[list[str], list[str], list[str]]:
     """Copies the level's cutscenes (OpenRAC Editor writes them to <scene folder>/cutscenes/ on
     save) with the files beside them (voices, music, meshes, layers' frames) to
     <out>/level_NN/cutscenes/, where the editor-runtime mod reads them. Each is checked first
-    (check_cutscene). Returns (changes, problems) in words; a .cutscene that is not one, or has an
-    error, is left out."""
+    (check_cutscene). Returns (changes, problems, notes) in words: a .cutscene that is not one, or
+    has an error, is a problem (the pack is refused until it is fixed); a warning is a note (the
+    player skips that part, the rest plays)."""
     source = scene_dir / "cutscenes"
     target = out_dir / "cutscenes"
     if target.is_dir():
         shutil.rmtree(target)    # the last pack's, so a deleted or now broken cutscene is gone
     if not source.is_dir():
-        return [], []
-    changes, problems, files = [], [], []
+        return [], [], []
+    changes, problems, notes, files = [], [], [], []
     for file in sorted(source.rglob("*")):
         if file.is_symlink() or not file.is_file() or file.name.startswith(".") or file.suffix == ".import":
             continue
@@ -831,19 +873,19 @@ def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, 
                 problems.append(f"cutscene {file.name}: {error}")
                 continue
             errors, warnings = check_cutscene(doc, file.parent, level_id, spawn_ids, classes)
-            problems += [f"cutscene {file.stem}: {w}" for w in warnings]
             if errors:
                 problems += [f"cutscene {file.stem}: {e}; left out" for e in errors]
                 continue
+            notes += [f"cutscene {file.stem}: {w}" for w in warnings]
             changes.append(f"cutscene {file.stem}")
         files.append(file)
     if not changes:
-        return [], problems
+        return [], problems, notes
     for file in files:
         copy = target / file.relative_to(source)
         copy.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(file, copy)
-    return changes, problems
+    return changes, problems, notes
 
 
 def pack(disc, survey: dict, project: Path, out: Path,
@@ -889,6 +931,7 @@ def pack(disc, survey: dict, project: Path, out: Path,
                 code="pack-incomplete"
             )
         validate_packed_visibility(scene_nodes, info["id"])
+        validate_record_folders(scene_nodes, info["id"])
         import static_assets
         try:
             static_instances = static_assets.placements(scene.parents[2], text)
@@ -1054,30 +1097,18 @@ def pack(disc, survey: dict, project: Path, out: Path,
         scenery_problems += collision_problems
         if static_bake is not None:
             scenery_changes.append(f"static imports: {static_bake['instances']} instance(s) baked into terrain")
-            if not changes and placements is None and not wrote and not animated_count:
-                packed += 1
-                total += static_bake['instances']
         if animated_count:
             scenery_changes.append(f"animated props: {animated_count} spinning visual instance(s)")
-            total += animated_count
-            if not changes and placements is None and not wrote and static_bake is None:
-                packed += 1
         # Skins: mobys drawn as another level's or game's model (skins.py), beside the placements.
         import skins
         skin_changes, skin_problems = skins.write_skins(scene.parents[2], text, out / name, moby_spawn_ids)
         scenery_changes += skin_changes
         scenery_problems += skin_problems
-        if skin_changes and not changes and placements is None and not wrote and static_bake is None \
-                and not animated_count:
-            packed += 1
         # Behaviours: mobys the editor-runtime mod moves (behaviours.py), beside the placements.
         import behaviours
         behaviour_changes, behaviour_problems = behaviours.write_behaviours(text, out / name, moby_spawn_ids)
         scenery_changes += behaviour_changes
         scenery_problems += behaviour_problems
-        if behaviour_changes and not changes and placements is None and not wrote and static_bake is None \
-                and not animated_count and not skin_changes:
-            packed += 1
         # Cutscenes: files the editor-runtime mod reads from the pack, beside the level's.
         level_classes = []
 
@@ -1094,26 +1125,22 @@ def pack(disc, survey: dict, project: Path, out: Path,
                               if isinstance(n["meta"].get("spawn_id"), int)}
             except FormatError:
                 spawn_ids = None    # a gameplay file it cannot read: the mobys are not checked
-        cutscene_changes, cutscene_problems = pack_cutscenes(scene.parent, out / name, info["id"], spawn_ids,
-                                                             classes_loaded)
+        cutscene_changes, cutscene_problems, notes = pack_cutscenes(scene.parent, out / name, info["id"],
+                                                                    spawn_ids, classes_loaded)
+        scenery_changes += cutscene_changes
         scenery_problems += cutscene_problems
-        if cutscene_changes:
-            scenery_changes += cutscene_changes
-            total += len(cutscene_changes)
-            if not changes and placements is None and not wrote and static_bake is None and not animated_count:
-                packed += 1
-        if wrote:
-            packed += 0 if changes or placements is not None else 1
-            total += len(collision_changes)
-        if changes or problems or scenery_changes or scenery_problems:
+        if changes or problems or scenery_changes or scenery_problems or notes:
             report.append(f"level {info['id']:02}")
             report += [f"  {line}" for line in changes + scenery_changes]
             report += [f"  not packed: {line}" for line in problems + scenery_problems]
+            report += [f"  note: {line}" for line in notes]
         if placements is not None:
             (out / name).mkdir(parents=True, exist_ok=True)
             (out / name / "placements.json").write_text(json.dumps(placements, separators=(",", ":")) + "\n", encoding="utf-8", newline="\n")
-            total += len(scenery_changes)
-            packed += 0 if changes else 1
+        # A level counts once, whatever it was packed as; each line of what changed is one edit.
+        if changes or scenery_changes:
+            packed += 1
+            total += len(changes) + len(scenery_changes)
         if not changes:
             continue
         stream = compress(edited, stored[:16])
@@ -1148,8 +1175,6 @@ def pack(disc, survey: dict, project: Path, out: Path,
                            f"{place['lba']}\t{place['sectors']}")
             set_expanded_range(disc, info, headers, range_index, first, count)
             report.append(f"  gameplay stream expanded to {len(stream)} bytes in virtual sectors")
-        packed += 1
-        total += len(changes)
         if moby_names is not None:
             moby_names[info["id"]] = (scene.parent, names)
     out.mkdir(parents=True, exist_ok=True)

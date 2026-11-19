@@ -398,7 +398,7 @@ def main() -> None:
 
                 dest = publish(dest, build_pack, args.anywhere, replace=True)
                 print(result["report"], end="")
-                print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
+                print(f"Packed {result['levels']} level(s), {result['mobys']} edit(s): {dest}")
                 program = args.states if args.states is None or args.states.is_file() else args.states.with_suffix(".exe")
                 if program is not None and program.is_file() and args.data and args.levels:
                     import moby_states
