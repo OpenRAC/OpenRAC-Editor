@@ -392,9 +392,8 @@ def scene_blob(project: Path, text: str, disc: mc.Blob | None, joints: list) -> 
     if collision_layer(nodes) is None:
         return False, disc, []
     problems, prims, tris = [], [], []
-    for node in nodes:
-        if node["parent"] != "Collision":
-            continue
+    # Shapes sorted into folders under Collision count too, with the folders' transforms.
+    for node in cs.layer_nodes(nodes, ("Collision",)):
         try:
             kind = meta(node, "collision_kind")
             is_mesh = (kind == mc.MESH or node["instance"] is not None or
@@ -458,7 +457,8 @@ def replace_in_scene(path: Path, blob: mc.Blob) -> None:
     if project is None:
         raise FormatError(f"{path}: not inside an OpenRAC Editor project")
     blocks = [b for b in re.split(r"\n+(?=\[)", text.strip("\n"))]
-    blocks = [b for b in blocks if not (b.startswith("[node ") and 'parent="Collision"' in b.splitlines()[0])]
+    # The old shapes go, folders under Collision and their shapes too (scene_blob reads them all).
+    blocks = [b for b in blocks if not (b.startswith("[node ") and re.search(r'parent="Collision[/"]', b.splitlines()[0]))]
     while True:  # resources no remaining block refers to
         used = set(re.findall(r'(?:Ext|Sub)Resource\("([^"]+)"\)', "\n".join(blocks)))
         keep = [b for b in blocks if not (re.match(r"\[(ext|sub)_resource ", b) and
@@ -530,7 +530,7 @@ def pack_classes(level, project: Path, level_dir: Path) -> tuple[dict[int, bytes
         start = starts.get(class_id, 0)
         text = path.read_text(encoding="utf-8")
         if start <= 0:
-            if collision_layer(cs.read_scene(text)[2]) is not None and re.search(r'parent="Collision"', text):
+            if collision_layer(cs.read_scene(text)[2]) is not None and re.search(r'parent="Collision[/"]', text):
                 problems.append(f"moby class {class_id}: it has no class data in this level's core (a gadget, or a "
                                 "class without a model); its collision is not packed")
             continue

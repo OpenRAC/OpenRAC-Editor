@@ -222,6 +222,33 @@ metadata/rc1_surface = 12
         n = ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
         self.assertGreater(n, 0)
 
+    def test_a_box_in_a_moved_folder_is_read_with_the_folders_transform(self):
+        tile = next(iter(self.manifest["tiles"]))
+        text = self.text.replace(f'[node name="{tile}" parent="Game/Collision"', f'[node name="{tile}" parent="Game/Collision/Rocks"')
+        text += '''
+[sub_resource type="BoxMesh" id="box"]
+size = Vector3(2, 2, 2)
+
+[node name="Rocks" type="Node3D" parent="Game/Collision"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+
+[node name="Wall" type="MeshInstance3D" parent="Game/Collision/Rocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 50, 60, 28)
+mesh = SubResource("box")
+metadata/rc1_surface = 12
+'''
+        found = self.read(text)
+        new, changes, problems = cs.pack_block(self.block, found)
+        self.assertEqual(problems, [])
+        shown = {(col.canonical(t[:3]), t[3]) for t in col.decode(new).triangles}
+        # The tile in the folder moved with it (2 units up), not deleted.
+        lifted = {(col.canonical(tuple((p[0], p[1], p[2] + 128) for p in k)), kind)
+                  for k, kind in col.block_triangles(sample())}
+        self.assertTrue(lifted <= shown)
+        boxes = [k for k, kind in shown - lifted if kind == 12]
+        self.assertEqual(len(boxes), 12)
+        self.assertTrue(any(all(p[2] == 31 * 64 for p in k) for k in boxes), "the folder's lift is applied")
+
     def test_move_a_tile(self):
         tile = next(iter(self.manifest["tiles"]))
         text = self.text.replace(f'[node name="{tile}" parent="Game/Collision" instance=ExtResource("{tile.lower()}")]',

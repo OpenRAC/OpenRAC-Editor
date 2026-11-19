@@ -181,6 +181,9 @@ def numbers(value: str) -> list[float]:
 
 
 def transform_of(node: dict) -> tuple:
+    """A node's transform: with its folders' applied when layer_nodes() read it ("world")."""
+    if "world" in node:
+        return node["world"]
     value = node["properties"].get("transform")
     if value is None:
         return IDENTITY
@@ -193,6 +196,38 @@ def transform_of(node: dict) -> tuple:
 def apply(t: tuple, p) -> tuple[float, float, float]:
     """A scene transform (basis rows, then the origin) on a point."""
     return tuple(t[r * 3] * p[0] + t[r * 3 + 1] * p[1] + t[r * 3 + 2] * p[2] + t[9 + r] for r in range(3))
+
+
+def compose(outer: tuple, inner: tuple) -> tuple:
+    """The transform that is INNER, then OUTER (a node's under its parent's)."""
+    basis = [sum(outer[r * 3 + k] * inner[k * 3 + c] for k in range(3)) for r in range(3) for c in range(3)]
+    return (*basis, *apply(outer, inner[9:12]))
+
+
+def root_of(parent: str | None, roots: tuple[str, ...] = PARENTS) -> str | None:
+    """The layer (one of ROOTS) a node with this parent path is under, at any depth, or None."""
+    return next((root for root in roots if parent == root or (parent or "").startswith(root + "/")), None)
+
+
+def layer_nodes(nodes: list[dict], roots: tuple[str, ...] = PARENTS) -> list[dict]:
+    """The nodes under ROOTS (Game/Collision and Game/HeroWalls; a class scene's Collision), a
+    folder's children too (a player may sort tiles and added meshes into folders), each with
+    "world": its transform with its folders' applied, in the layer's space, and "layer": its root."""
+    by_path = {}
+    for node in nodes:
+        parent = node["parent"]
+        by_path[node["name"] if parent in (None, ".") else f"{parent}/{node['name']}"] = node
+    out = []
+    for node in nodes:
+        root = root_of(node["parent"], roots)
+        if root is None:
+            continue
+        world, parent = transform_of(node), node["parent"]
+        while parent != root and parent in by_path:
+            world = compose(transform_of(by_path[parent]), world)
+            parent = by_path[parent]["parent"]
+        out.append({**node, "world": world, "layer": root})
+    return out
 
 
 def surface_of(node: dict) -> int | None:
@@ -299,7 +334,7 @@ def unchanged(project: Path, level_dir: Path, nodes: list[dict], manifest: dict)
     seen = set()
     for node in nodes:
         entry = written.get(node["name"])
-        if entry is None or node["instance"] != f"res://{level_dir.relative_to(project).as_posix()}/{entry['file']}":
+        if entry is None or node["parent"] not in PARENTS or node["instance"] != f"res://{level_dir.relative_to(project).as_posix()}/{entry['file']}":
             return False
         if transform_of(node) != IDENTITY or surface_of(node) is not None:
             return False
@@ -380,7 +415,7 @@ def scene_collision(project: Path, level_dir: Path, text: str) -> dict | None:
         if imported:
             raise FormatError('Keep Game/Collision when packing solid static imports')
         return None
-    ours = [n for n in nodes if n["parent"] in PARENTS]
+    ours = layer_nodes(nodes)
     edits = layer_edits(layer)
     if not imported and not any(edits.values()) and unchanged(project, level_dir, ours, manifest):
         return None
@@ -394,7 +429,7 @@ def scene_collision(project: Path, level_dir: Path, text: str) -> dict | None:
             if node["name"] in manifest["tiles"] or node["name"] in manifest["hero_walls"]:
                 result.setdefault("keep", set()).add(node["name"])
             continue
-        triangles, hero = [], node["parent"] == "Game/HeroWalls"
+        triangles, hero = [], node["layer"] == "Game/HeroWalls"
         for p, kind in found:
             if not all(abs(c) < 1e6 for q in p for c in q):
                 result["problems"].append(f"{node['name']}: a vertex is not a usable number")
