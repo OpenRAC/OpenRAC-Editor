@@ -1,8 +1,8 @@
 # Test builds of OpenRAC Editor, kept as run artifacts for 14 days: nothing is published and the
 # launcher never sees them. Run it by hand from the Actions tab on any branch and tick the systems
 # to build; a push to a ci/test-build* branch builds all three. Linux and Windows give the release
-# archive (build/package.py); macOS gives a .dmg with that archive unpacked (the app beside the
-# editor's tools and project files, as the launcher installs it).
+# archive (build/package.py); macOS gives a .dmg to drag the app onto Applications, with the
+# editor's tools and project files inside the app.
 name: test-build
 
 on:
@@ -98,14 +98,23 @@ jobs:
         shell: bash
         run: python build/smoke.py "${{ matrix.asset }}" "$VERSION"
 
-      # Unsigned apart from an ad-hoc signature: on first start, right-click the app and choose Open.
+      # The .dmg as Mac apps ship: the app and a link to Applications to drag it onto. The editor's
+      # tools, project files and guides from the archive go inside the app (Contents/Resources);
+      # the launcher still installs the .zip. Unsigned apart from an ad-hoc signature: on first
+      # start, right-click the app and choose Open.
       - name: Make the .dmg
         if: matrix.system == 'macos'
         run: |
-          mkdir -p "dmg/OpenRAC Editor"
-          ditto -x -k "${{ matrix.asset }}" "dmg/OpenRAC Editor"
-          codesign --force --deep --sign - "dmg/OpenRAC Editor/OpenRAC Editor.app"
-          hdiutil create -volname "OpenRAC Editor" -srcfolder "dmg/OpenRAC Editor" -ov -format UDZO \
+          ditto -x -k "${{ matrix.asset }}" unpacked
+          APP="unpacked/OpenRAC Editor.app"
+          for extra in unpacked/*; do
+            [ "$extra" = "$APP" ] || mv "$extra" "$APP/Contents/Resources/"
+          done
+          codesign --force --deep --sign - "$APP"
+          mkdir dmg
+          mv "$APP" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname "OpenRAC Editor" -srcfolder dmg -ov -format UDZO \
             "OpenRAC-Editor-$VERSION-macos-arm64.dmg"
           echo "OUT=OpenRAC-Editor-$VERSION-macos-arm64.dmg" >> "$GITHUB_ENV"
 
