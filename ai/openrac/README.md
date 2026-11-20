@@ -2,10 +2,10 @@
 
 Makes Ratchet & Clank levels with OpenRAC Editor and shows them in OpenRAC's game:
 
-- `openrac-editor`: the open editor's MCP server (docs/MCP.md), through `bin/editor_bridge.py`,
+- `openrac-editor`: the open editor's MCP server (docs/MCP.md), through `servers/editor_bridge.py`,
   which reads its address and token from the editor's `mcp.json`. Open a level project first.
 - `openrac-game`: OpenRAC's game server (OpenRAC's docs/port/GAME_MCP.md), through
-  `bin/game_server.py`. Set `OPENRAC_ROOT` to an OpenRAC checkout with a built port, and
+  `servers/game_server.py`. Set `OPENRAC_ROOT` to an OpenRAC checkout with a built port, and
   `OPENRAC_GAME`, `OPENRAC_DATA`, `OPENRAC_LEVELS` for its defaults.
 - The skill `openrac-level`: how a task goes, from looking at the level to pictures in the game.
 
