@@ -11,12 +11,14 @@ extends EditorPlugin
 ## behaviour_inspector.gd adds the Behaviour section to a moby's Inspector, foreign_inspector.gd the
 ## Imported class section to a moby that came with its own logic from another level. play.gd puts
 ## Check level and Play level on the toolbar.
+## voices_dock.gd is the Voices dock: the characters' lines spoken again by AI voice models.
 
 const Dock = preload("dock.gd")
 const Library = preload("library.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
 const ForeignInspector = preload("foreign_inspector.gd")
 const Play = preload("play.gd")
+const VoicesDock = preload("voices_dock.gd")
 
 ## The groups under Game, by kind, for an asset the level has.
 const GROUPS: Dictionary = {"mobys": "Mobys", "ties": "Ties", "shrubs": "Shrubs"}
@@ -32,6 +34,8 @@ var behaviour_inspector: BehaviourInspector
 var foreign_inspector: ForeignInspector
 ## Check level and Play level, on the toolbar (play.gd).
 var play: Play
+## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
+var voices: VoicesDock
 
 ## What placed files are, by res:// path: the asset placed, until its node arrives.
 var pending: Dictionary = {}
@@ -61,6 +65,8 @@ func _enter_tree() -> void:
 	dock = Dock.new()
 	dock.plugin = self
 	add_dock(dock)
+	voices = VoicesDock.new()
+	add_dock(voices)
 	behaviour_inspector = BehaviourInspector.new()
 	behaviour_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(behaviour_inspector)
@@ -127,6 +133,9 @@ func _exit_tree() -> void:
 	remove_dock(dock)
 	dock.queue_free()
 	dock = null
+	remove_dock(voices)
+	voices.queue_free()
+	voices = null
 
 
 ## Whether PATH is imported and can be placed now. When the editor is still bringing it in (a new
