@@ -18,6 +18,7 @@ of a package that several environments share.
 
 from __future__ import annotations
 
+import codecs
 import hashlib
 import io
 import json
@@ -115,9 +116,12 @@ class Home:
         return state
 
     def worker_env(self) -> dict[str, str]:
-        """The variables a worker runs with: the weights in this folder, no telemetry, UTF-8."""
+        """The variables a worker runs with: the weights in this folder, no telemetry, UTF-8 pipes.
+        UTF-8 mode only where file names are UTF-8 here too: else the worker would spell this side's
+        paths (a cp1252 'ü') in other bytes and not find them."""
         env = dict(os.environ)
-        env.update({"HF_HOME": str(self.weights), "HF_HUB_DISABLE_TELEMETRY": "1", "PYTHONUTF8": "1",
+        utf8 = "1" if codecs.lookup(sys.getfilesystemencoding()).name == "utf-8" else "0"
+        env.update({"HF_HOME": str(self.weights), "HF_HUB_DISABLE_TELEMETRY": "1", "PYTHONUTF8": utf8,
                     "PYTHONIOENCODING": "utf-8", "TOKENIZERS_PARALLELISM": "false",
                     "PYTORCH_ENABLE_MPS_FALLBACK": "1", "DO_NOT_TRACK": "1"})
         env.pop("PYTHONPATH", None)
