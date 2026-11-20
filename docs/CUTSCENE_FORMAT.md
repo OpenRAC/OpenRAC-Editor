@@ -219,8 +219,10 @@ three int16 in the model's units times 1024, and its scale as three uint16 over 
 frames the turn and place blend; before the first and after the last, those hold.
 
 The pose replaces the actor's animation: the root joint carries its turn, so `track` and `path`
-move it but do not turn it, and `anims`, `look_at`, `layers`, `face` and `feet` do nothing on it. In
-the editor the actor's model shows the pose; the player sets every joint's turn and place in place
+move it but do not turn it, and `anims`, `look_at`, `layers` and `feet` do nothing on it. A `face`
+turns on top of the pose in the game: a voice line on an actor whose rig has a jaw opens it from
+where the pose holds it (a game scene's actor speaking a new line). In the editor the actor's model
+shows the pose; the player sets every joint's turn and place in place
 of the class's animation (the port's `moby_set_joint_poses`; the first 128 joints, the most the port
 takes). The scale is shown in the editor only.
 
