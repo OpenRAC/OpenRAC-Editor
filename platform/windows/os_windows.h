@@ -41,6 +41,8 @@
 #endif
 
 #include <windows.h>
+// OpenRAC Editor: the MIDI driver, left out, brought the timer calls os_windows.cpp uses.
+#include <mmsystem.h>
 
 #include <dwrite.h>
 #include <dwrite_2.h>
