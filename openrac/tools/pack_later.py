@@ -91,7 +91,7 @@ def pack(source, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         lba, sectors = part["lba"] + place["sector"], place["sectors"]
         stored = disc.sectors(lba, sectors)
         gameplay = decoded(stored)
-        text = scene.read_text()
+        text = scene.read_text(encoding="utf-8")
         nodes, _ = gamedata.parse_scene(text)
         frame = nodes.get("Game")
         if frame is not None and not same(gamedata.transform_of(frame), GAME_FRAME):
@@ -130,9 +130,11 @@ def pack(source, survey: dict, project: Path, out: Path) -> tuple[int, int]:
         total += len(changes)
     out.mkdir(parents=True, exist_ok=True)
     (out / "patches.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n"
-                                     + "".join(p + "\n" for p in patches))
+                                     + "".join(p + "\n" for p in patches), encoding="utf-8", newline="\n")
     (out / "virtual.tsv").write_text("# first sector\tsectors\tfile (beside this list)\n"
-                                     + "".join(p + "\n" for p in virtual))
-    (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n")
-    (out / "packed.json").write_text(json.dumps({"format": 1, "game": fmt.game, "version": key}) + "\n")
+                                     + "".join(p + "\n" for p in virtual), encoding="utf-8", newline="\n")
+    (out / "changes.txt").write_text("\n".join(report) + "\n" if report else "No level differs from the disc.\n",
+                                     encoding="utf-8", newline="\n")
+    (out / "packed.json").write_text(json.dumps({"format": 1, "game": fmt.game, "version": key}) + "\n",
+                                     encoding="utf-8", newline="\n")
     return packed, total
