@@ -764,6 +764,19 @@ inline float envelope_at(const std::string& bytes, int start, int t) {
     return a + (b - a) * static_cast<float>(at - static_cast<double>(i));
 }
 
+// A face on a scene's own pose: each face turn (joint, turn) composed after that joint's pose turn,
+// so a jaw opens from where the pose holds it. `pose` holds a turn (x, y, z, w) per joint, joint i
+// at i; a face joint the pose does not have is left out (a pose sets every joint it moves).
+inline void face_on_pose(std::vector<std::array<float, 4>>& pose, const std::vector<int>& joints,
+                         const std::vector<std::array<float, 4>>& turns) {
+    for (std::size_t i = 0; i < joints.size() && i < turns.size(); ++i) {
+        if (joints[i] < 0 || static_cast<std::size_t>(joints[i]) >= pose.size()) continue;
+        float r[4];
+        quat_mul(pose[static_cast<std::size_t>(joints[i])].data(), turns[i].data(), r);
+        std::copy(r, r + 4, pose[static_cast<std::size_t>(joints[i])].begin());
+    }
+}
+
 // How shut the eyelids are at t (0 open, 1 shut): a blink every two to six seconds, the gaps drawn
 // from `seed` so a cutscene blinks the same way each time; 3 ticks shutting, 1 shut, 4 opening.
 inline float blink_at(std::uint32_t seed, int t) {

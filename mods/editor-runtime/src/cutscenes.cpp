@@ -558,21 +558,6 @@ void load_pose(Play& p, ActorRun& a) {
     a.pose_joints = static_cast<std::size_t>(joints);
 }
 
-// The scene's pose at t on the actor: every joint's turn and place set, in place of the class's.
-void pose_tick(ActorRun& a, int t) {
-    const int slot = a.moby_slot();
-    if (slot < 0) return;
-    const std::size_t n = std::min<std::size_t>(a.pose_joints, OPENRAC_JOINT_OFFSETS_MAX);
-    std::vector<openrac_joint_offset> joints(n);
-    for (std::size_t j = 0; j < n; ++j) {
-        const PoseKey k = pose_at(a.pose, a.pose_joints, j, t);
-        joints[j].joint = static_cast<std::uint32_t>(j);
-        offset_of(k.q, joints[j].rotation);  // the game's keys keep glTF's turn with x, y, z negated
-        joints[j].translation[0] = k.t.x, joints[j].translation[1] = k.t.y, joints[j].translation[2] = k.t.z;
-    }
-    a.joints_set = g_api->moby_set_joint_poses(g_mod, slot, joints.data(), static_cast<int>(n)) == OPENRAC_HOOK_OK;
-}
-
 // The actor's face: its talks' envelopes decoded once, and a blink of its own.
 void load_face(Play& p, ActorRun& a) {
     const Value& face = (*a.def)["face"];
@@ -655,6 +640,30 @@ void face_turns(const ActorRun& a, int t, JointTurns& out) {
     if (head.is_object() && a.head_yaw != 0) {
         turn_about(out, head, head["joint"].integer(-1), a.head_yaw * 180.0f / kPi, {0, 0, 1});
     }
+}
+
+// The scene's pose at t on the actor: every joint's turn and place set, in place of the class's.
+void pose_tick(ActorRun& a, int t) {
+    const int slot = a.moby_slot();
+    if (slot < 0) return;
+    const std::size_t n = std::min<std::size_t>(a.pose_joints, OPENRAC_JOINT_OFFSETS_MAX);
+    std::vector<openrac_joint_offset> joints(n);
+    for (std::size_t j = 0; j < n; ++j) {
+        const PoseKey k = pose_at(a.pose, a.pose_joints, j, t);
+        joints[j].joint = static_cast<std::uint32_t>(j);
+        offset_of(k.q, joints[j].rotation);  // the game's keys keep glTF's turn with x, y, z negated
+        joints[j].translation[0] = k.t.x, joints[j].translation[1] = k.t.y, joints[j].translation[2] = k.t.z;
+    }
+    // A face on the pose (a voice line's jaw, blinks, moods): composed after the pose's own turns.
+    if ((*a.def)["face"].is_object()) {
+        JointTurns face;
+        face_turns(a, t, face);
+        std::vector<std::array<float, 4>> turns(n);
+        for (std::size_t j = 0; j < n; ++j) std::copy(joints[j].rotation, joints[j].rotation + 4, turns[j].begin());
+        face_on_pose(turns, face.joints, face.turns);
+        for (std::size_t j = 0; j < n; ++j) std::copy(turns[j].begin(), turns[j].end(), joints[j].rotation);
+    }
+    a.joints_set = g_api->moby_set_joint_poses(g_mod, slot, joints.data(), static_cast<int>(n)) == OPENRAC_HOOK_OK;
 }
 
 // The actor's joints at t: its layers, then its face, as offsets on its moby.
@@ -983,10 +992,11 @@ void actors_begin(Play& p) {
             log(OPENRAC_LOG_WARN, std::format("{}: actor \"{}\" is missing, skipped", p.scene->name, a.id));
         }
         const bool jointed = a.kind != ActorRun::Kind::None && a.kind != ActorRun::Kind::Prop;
-        // A scene pose moves every joint: layers, a face and feet on it would be undone each tick.
+        // A scene pose moves every joint: layers and feet on it would be undone each tick. A face is
+        // turned on top of it (pose_tick), so a new voice line moves the jaw of a game scene's actor.
         if (def.has("pose") && jointed) load_pose(p, a);
-        if (!a.pose.empty() && (def.has("layers") || def.has("face") || def.has("feet"))) {
-            warn_once(p, "layers, a face or feet on an actor with a pose (the pose has every joint)");
+        if (!a.pose.empty() && (def.has("layers") || def.has("feet"))) {
+            warn_once(p, "layers or feet on an actor with a pose (the pose has every joint)");
         }
         if (def.has("layers") && jointed && a.pose.empty()) {
             load_layers(p, a);
@@ -998,7 +1008,7 @@ void actors_begin(Play& p) {
             l.parent = leg.size() == 4 ? static_cast<int>(leg[3].integer()) : 0;
             a.legs.push_back(l);
         }
-        if (def.has("face") && jointed && a.pose.empty()) {
+        if (def.has("face") && jointed) {
             load_face(p, a);
         }
         p.actors.push_back(std::move(a));
