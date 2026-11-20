@@ -878,12 +878,31 @@ void extreme_ticks() {
     CHECK(path_at(parse(R"({"t": -2147483648, "points": [[0, 0, 0], [1, 0, 0]]})"), 60, pos, rot) && near(pos.x, 1));
 }
 
+// A face's turns go on a scene pose after its own turns; joints the pose lacks are left out.
+void face_on_a_pose() {
+    std::vector<std::array<float, 4>> pose = {{0, 0, 0, 1}, {0, 0, 0.70710677f, 0.70710677f}};
+    float jaw[4];
+    axis_angle({1, 0, 0}, 20, jaw);
+    face_on_pose(pose, {1, 7, -1}, {{jaw[0], jaw[1], jaw[2], jaw[3]}, {1, 0, 0, 0}, {1, 0, 0, 0}});
+    float want[4];
+    const float held[4] = {0, 0, 0.70710677f, 0.70710677f};
+    quat_mul(held, jaw, want);
+    for (int k = 0; k < 4; ++k) CHECK(near(pose[1][k], want[k]));
+    CHECK(pose[0] == (std::array<float, 4>{0, 0, 0, 1}));
+    CHECK(pose.size() == 2);
+    // No talk: the jaw stays where the pose holds it.
+    std::vector<std::array<float, 4>> still = {{0, 0, 0.70710677f, 0.70710677f}};
+    face_on_pose(still, {}, {});
+    CHECK(near(still[0][2], 0.70710677f));
+}
+
 int main() {
     json_values();
     json_numbers();
     json_strings();
     json_broken();
     maths();
+    face_on_a_pose();
     tracks();
     paths();
     visibility_and_anims();
