@@ -2,11 +2,11 @@
   "mcpServers": {
     "openrac-editor": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/editor_bridge.py"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/editor_bridge.py"]
     },
     "openrac-game": {
       "command": "python3",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/game_server.py"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/servers/game_server.py"]
     }
   }
 }

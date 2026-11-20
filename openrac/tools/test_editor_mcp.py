@@ -230,7 +230,7 @@ class EditorMCP(unittest.TestCase):
 
     def test_6_the_plugin_bridge(self):
         # ai/openrac's stdio bridge finds the editor by its mcp.json and passes messages through.
-        bridge = Path(__file__).resolve().parents[2] / "ai" / "openrac" / "bin" / "editor_bridge.py"
+        bridge = Path(__file__).resolve().parents[2] / "ai" / "openrac" / "servers" / "editor_bridge.py"
         messages = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
                     {"jsonrpc": "2.0", "method": "notifications/initialized"},
                     {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "project_info"}}]
