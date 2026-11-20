@@ -44,6 +44,7 @@
 #include "editor/docks/filesystem_dock.h"
 #include "editor/editor_interface.h"
 #include "editor/editor_node.h"
+#include "editor/mcp/editor_mcp_server.h" // OpenRAC Editor: addons register MCP tools.
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/export/editor_export_platform.h"
@@ -130,6 +131,7 @@ void register_editor_types() {
 	EditorStringNames::create();
 
 	GDREGISTER_CLASS(EditorPaths);
+	GDREGISTER_ABSTRACT_CLASS(EditorMCPServer); // OpenRAC Editor: EditorMCPServer.get_singleton() for addons.
 	GDREGISTER_VIRTUAL_CLASS(EditorPlugin);
 	GDREGISTER_CLASS(EditorTranslationParserPlugin);
 	GDREGISTER_CLASS(EditorImportPlugin);

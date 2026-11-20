@@ -1,0 +1,9 @@
+{
+  "name": "openrac",
+  "version": "0.1.0",
+  "description": "Make Ratchet & Clank levels with OpenRAC Editor and see them in OpenRAC's game: the editor's and the game's MCP servers, and a skill for the whole task.",
+  "license": "MIT",
+  "author": {
+    "name": "OpenRAC"
+  }
+}

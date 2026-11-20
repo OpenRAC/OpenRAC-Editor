@@ -49,7 +49,10 @@ def package(program: Path, system: str, version: str, out: Path) -> None:
                 continue
             put(archive, f"openrac/{rel.as_posix()}", path.read_bytes())
         put(archive, "openrac/editor.json", (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode())
-        for doc in ("docs/LEVEL_EDITOR.md", "LICENSE.txt", "COPYRIGHT.txt"):
+        # The guides the editor's MCP server serves to AI assistants (mcp_knowledge.gd) come too.
+        for doc in ("docs/LEVEL_EDITOR.md", "docs/AI_GUIDE.md", "docs/MCP.md", "docs/CUTSCENE_FORMAT.md",
+                    "docs/MAP_MODDING.md", "docs/LEVEL_MODDING.md", "docs/BEHAVIOUR_FORMAT.md",
+                    "LICENSE.txt", "COPYRIGHT.txt"):
             if (REPO / doc).is_file():
                 put(archive, doc, (REPO / doc).read_bytes())
 

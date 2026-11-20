@@ -139,7 +139,9 @@
           "--openrac-tools",
           "{editor_tools}",
           "--openrac-packed",
-          "{packed}"
+          "{packed}",
+          "--openrac-overrides",
+          "{data}/overrides"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -396,7 +398,9 @@
           "--openrac-tools",
           "{editor_tools}",
           "--openrac-packed",
-          "{packed}"
+          "{packed}",
+          "--openrac-overrides",
+          "{data}/overrides"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -622,7 +626,9 @@
           "--openrac-tools",
           "{editor_tools}",
           "--openrac-packed",
-          "{packed}"
+          "{packed}",
+          "--openrac-overrides",
+          "{data}/overrides"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",
@@ -845,7 +851,9 @@
           "--openrac-tools",
           "{editor_tools}",
           "--openrac-packed",
-          "{packed}"
+          "{packed}",
+          "--openrac-overrides",
+          "{data}/overrides"
         ],
         "output": "{projects}/level_{level}",
         "cwd": ".",

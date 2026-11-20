@@ -46,7 +46,7 @@ class MobySceneTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             write_project(Path(temp) / "one", [30], "NTSC-U", "rac2")
             write_project(Path(temp) / "all", [1, 2], "NTSC-U", "rac4")
-            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (USA, early access)"',
+            self.assertIn('config/name="Ratchet & Clank: Going Commando: Insomniac Museum (USA)"',
                           (Path(temp) / "one/project.godot").read_text(encoding="utf-8"))
             self.assertIn('config/name="Ratchet: Deadlocked levels (USA, early access)"',
                           (Path(temp) / "all/project.godot").read_text(encoding="utf-8"))

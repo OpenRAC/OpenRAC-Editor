@@ -1,0 +1,14 @@
+{
+  "name": "openrac-editor",
+  "owner": {
+    "name": "OpenRAC"
+  },
+  "description": "OpenRAC Editor's plugin for Claude Code: make Ratchet & Clank levels and see them in OpenRAC's game.",
+  "plugins": [
+    {
+      "name": "openrac",
+      "source": "./ai/openrac",
+      "description": "Make Ratchet & Clank levels with OpenRAC Editor and see them in OpenRAC's game."
+    }
+  ]
+}

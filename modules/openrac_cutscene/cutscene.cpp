@@ -1861,6 +1861,25 @@ PackedStringArray Cutscene::from_cutscene(const Dictionary &p_data) {
 		int before_t = -1;
 		bool any_fov = false, smooth = false;
 		Vector<CameraEye> eyes;
+		// Where the file's track has an actor at a tick (its last key at or before it).
+		auto actor_at = [&](const String &p_id, int p_t, Vector3 &r_place, double &r_yaw) {
+			bool found = false;
+			for (const Variant &item : Array(p_data.get("actors", Array()))) {
+				const Dictionary other = item;
+				if (String(other.get("id", "")) != p_id) {
+					continue;
+				}
+				for (const Variant &k : Array(other.get("track", Array()))) {
+					const Dictionary tk = k;
+					if (int(tk.get("t", 0)) <= p_t || !found) {
+						r_place = vec3_of(tk.get("position", Variant()), r_place);
+						r_yaw = vec3_of(tk.get("rotation", Variant()), Vector3(0, 0, float(r_yaw))).z;
+						found = true;
+					}
+				}
+			}
+			return found;
+		};
 		for (int k = 0; k < keys.size(); k++) {
 			const Dictionary key = keys[k];
 			const int t = key.get("t", 0);
@@ -1872,19 +1891,7 @@ PackedStringArray Cutscene::from_cutscene(const Dictionary &p_data) {
 				const String id = on.get("actor", "");
 				Vector3 place;
 				double yaw = 0.0;
-				for (const Variant &item : Array(p_data.get("actors", Array()))) {
-					const Dictionary other = item;
-					if (String(other.get("id", "")) != id) {
-						continue;
-					}
-					for (const Variant &k : Array(other.get("track", Array()))) {
-						const Dictionary tk = k;
-						if (int(tk.get("t", 0)) <= t) {
-							place = vec3_of(tk.get("position", Variant()), place);
-							yaw = vec3_of(tk.get("rotation", Variant()), Vector3(0, 0, float(yaw))).z;
-						}
-					}
-				}
+				actor_at(id, t, place, yaw);
 				const bool turn = on.get("turn", false);
 				const Vector3 offset = vec3_of(on.get("offset", Variant()), Vector3(0, 0, 1));
 				eye = place + (turn ? offset.rotated(Vector3(0, 0, 1), yaw) : offset);
@@ -1908,7 +1915,17 @@ PackedStringArray Cutscene::from_cutscene(const Dictionary &p_data) {
 				roll = rot.x;
 			}
 			if (look.get_type() == Variant::DICTIONARY) {
-				problems.push_back(vformat("camera key at %d: looking at an actor is kept as the key's turn", t));
+				// Looking at an actor: at where its track has it at this key (the joint left out).
+				const Dictionary on = look;
+				Vector3 place;
+				double yaw = 0.0;
+				if (actor_at(on.get("actor", ""), t, place, yaw)) {
+					const Vector3 offset = vec3_of(on.get("offset", Variant()), Vector3(0, 0, 1));
+					const Vector3 at = place + (bool(on.get("turn", false)) ? offset.rotated(Vector3(0, 0, 1), yaw) : offset);
+					forward = (at - eye).length() > 1e-6 ? (at - eye).normalized() : forward;
+				} else {
+					problems.push_back(vformat("camera key at %d: looking at an actor (\"%s\") not in the cutscene is kept as the key's turn", t, String(on.get("actor", ""))));
+				}
 			}
 			const float key_roll = key.get("roll", roll);
 			roll = Math::is_finite(key_roll) ? key_roll : roll;
