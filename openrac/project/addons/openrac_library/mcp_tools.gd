@@ -613,6 +613,28 @@ func behaviour_list(_args: Dictionary) -> Variant:
 	return {"behaviours": out, "note": "The moby's own logic stops while a behaviour runs (the editor mod plays it)."}
 
 
+## The face's normal, turned up.
+func face_normal(face: int) -> Vector3:
+	var points: PackedVector3Array = faces.face_points(face)
+	var normal: Vector3 = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+	return -normal if normal.z < 0 else normal
+
+
+## The first face below a point that one can stand on: walls and steep slopes (more than about 53
+## degrees, as the hero slides off them) are passed through. -1 for none.
+func floor_below(from: Vector3, hit: Array) -> int:
+	for i in 64:
+		hit.clear()
+		var face: int = faces.pick(from, Vector3(0, 0, -1), hit)
+
+		if face < 0 or face_normal(face).z >= 0.6:
+			return face
+
+		from.z = hit[0].z - 0.01
+
+	return -1
+
+
 func ground_at(args: Dictionary) -> Dictionary:
 	var at: Variant = vector(args.get("position"))
 
@@ -633,21 +655,17 @@ func ground_at(args: Dictionary) -> Dictionary:
 	var from := Vector3(at.x, at.y, float(args.get("from_height", at.z + 2.0)))
 
 	var hit: Array = []
-	var face: int = faces.pick(from, Vector3(0, 0, -1), hit)
+	var face: int = floor_below(from, hit)
 
 	if face < 0:
 		# Nothing below: look from high above.
 		from.z = 100000.0
-		face = faces.pick(from, Vector3(0, 0, -1), hit)
+		face = floor_below(from, hit)
 
 	if face < 0:
 		return fail("No floor under (%.2f, %.2f)." % [at.x, at.y])
 
-	var points: PackedVector3Array = faces.face_points(face)
-	var normal: Vector3 = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
-
-	if normal.z < 0:
-		normal = -normal
+	var normal: Vector3 = face_normal(face)
 
 	var point: Vector3 = hit[0]
 	return {"height": snappedf(point.z, 0.001), "position": [snappedf(point.x, 0.001), snappedf(point.y, 0.001), snappedf(point.z, 0.001)],

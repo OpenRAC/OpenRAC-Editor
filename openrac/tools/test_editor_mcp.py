@@ -8,6 +8,7 @@ line, checks it, undoes, and follows a job to its end:
 
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
 import json
+import math
 import os
 import socket
 import subprocess
@@ -193,6 +194,9 @@ class EditorMCP(unittest.TestCase):
         # The editor keeps the camera as the game plays it: keys sampled along each shot, a cut where
         # each shot starts.
         self.assertEqual([k["t"] for k in back["camera"]["keys"] if k.get("cut")], [0, 121])
+        # Looking at an actor: towards where its track has it (2, 2, 0 and a unit up), from (3, 0, 1.6).
+        turn = next(k for k in back["camera"]["keys"] if k["t"] == 121)["rotation"]
+        self.assertAlmostEqual(turn[2], math.atan2(2, -1), delta=0.05)
         self.assertEqual(back["subtitles"][0]["text"]["en"], "Hello there.")
 
         self.editor.call("cutscene_add", {"name": "Meeting", "subtitles": [
