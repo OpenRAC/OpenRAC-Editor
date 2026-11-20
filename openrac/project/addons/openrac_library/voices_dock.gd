@@ -112,9 +112,15 @@ func _init() -> void:
 	title = "Voices"
 	default_slot = EditorDock.DOCK_SLOT_RIGHT_BL
 	custom_minimum_size.x = px(260.0)
+	# Scrolls rather than asks for its full height, so it never pushes the editor's other docks off.
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(scroll)
 	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(box)
+	scroll.add_child(box)
 
 	var top := HBoxContainer.new()
 	box.add_child(top)
