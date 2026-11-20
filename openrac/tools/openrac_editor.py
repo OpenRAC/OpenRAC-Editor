@@ -48,8 +48,8 @@ def worker_pool(jobs: int):
     return extract.worker_pool(jobs, Path(__file__).resolve())
 
 
-def ours_packed(path: Path, version: str) -> None:
-    """Refuses to replace a non-empty directory unless it is this version's RAC1 pack."""
+def ours_packed(path: Path, version: str, game: str = "rac1") -> None:
+    """Refuses to replace a non-empty directory unless it is this game and version's pack."""
     if not path.exists():
         return
     if not path.is_dir():
@@ -60,8 +60,8 @@ def ours_packed(path: Path, version: str) -> None:
         manifest = json.loads((path / "packed.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         manifest = None
-    if not isinstance(manifest, dict) or manifest.get("game") != "rac1" or manifest.get("version") != version:
-        raise FormatError(f"{path} holds files that are not a RAC1 {version.upper()} packed-level export; "
+    if not isinstance(manifest, dict) or manifest.get("game") != game or manifest.get("version") != version:
+        raise FormatError(f"{path} holds files that are not a {game} {version.upper()} packed-level export; "
                           "choose another folder", code="pack-folder-not-ours")
 
 
@@ -249,9 +249,12 @@ def later_main(args, disc: Disc, version: wads.Version) -> None:
     survey = source.survey()
     numbers = [level["id"] for level in survey["levels"] if "ranges" in level]
     if args.command == "pack":
-        raise FormatError(f"packing levels back is Ratchet & Clank's only for now; {version.game}'s levels "
-                          "can be extracted, opened in the editor and used for texture and model packs",
-                          code="game-not-packable")
+        if version.game != "rac2":
+            raise FormatError(f"packing levels back is Ratchet & Clank's and Going Commando's only for now; "
+                              f"{version.game}'s levels can be extracted, opened in the editor and used for "
+                              "texture and model packs", code="game-not-packable")
+        later_pack(args, source, survey, version)
+        return
     wanted = sorted(set(args.level or numbers))
     unknown = [n for n in wanted if n not in numbers]
     if unknown:
@@ -263,6 +266,33 @@ def later_main(args, disc: Disc, version: wads.Version) -> None:
                                                    args.split, version.region, version.game),
                            again=args.again))
         say_output(args.out.resolve())
+
+
+def later_pack(args, source, survey: dict, version: wads.Version) -> None:
+    """Going Commando's levels edited in the editor, packed back (pack_later.py): its mobys moved,
+    turned, scaled or given other values."""
+    import pack_later
+    dest = args.out.resolve()
+    if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
+        raise FormatError("output must be a directory under this repository's assets/ or build/",
+                          code="folder-not-allowed")
+    check_project(args.project, version.game)
+    ours_packed(dest, version.key, version.game)
+    result = {}
+
+    def build_pack(directory: Path) -> None:
+        levels, mobys = pack_later.pack(source, survey, args.project, directory)
+        report = (directory / "changes.txt").read_text(encoding="utf-8")
+        incomplete = refused_lines(report)
+        if incomplete:
+            raise FormatError("Some edits could not be packed:\n" + "\n".join(f"  {line}" for line in incomplete),
+                              code="pack-incomplete")
+        result.update(levels=levels, mobys=mobys, report=report)
+
+    dest = publish(dest, build_pack, args.anywhere, replace=True)
+    print(result["report"], end="")
+    print(f"Packed {result['levels']} level(s), {result['mobys']} moby edit(s): {dest}")
+    say_output(dest)
 
 
 def sync_project(project: Path) -> bool:
@@ -298,17 +328,16 @@ def open_editor(argv: list[str]) -> int:
     return 0
 
 
-def check_project(project: Path) -> None:
+def check_project(project: Path, wanted: str = "rac1") -> None:
     """Refuses PROJECT unless it is an OpenRAC Editor project, or its folder of per-level projects,
-    of Ratchet & Clank's levels (the ones that pack back)."""
+    of WANTED's levels (Ratchet & Clank's, or Going Commando's for pack_later.py)."""
     if not (project / "project.godot").is_file() and not list(project.glob("level_*/project.godot")):
         raise FormatError(f"{project} is not an OpenRAC Editor project or its folder of "
                           "per-level projects (read the disc's levels first)", code="no-project")
     for stats in [*project.glob("levels/*/level.json"), *project.glob("level_*/levels/*/level.json")]:
         game = json.loads(stats.read_text(encoding="utf-8")).get("game", "rac1")
-        if game != "rac1":
-            raise FormatError(f"{project} holds {game}'s levels, which are not packed back yet",
-                              code="game-not-packable")
+        if game != wanted:
+            raise FormatError(f"{project} holds {game}'s levels, not {wanted}'s", code="game-not-packable")
 
 
 def pack_projects(disc, survey: dict, project: Path, dest: Path, anywhere: bool = True) -> dict:
