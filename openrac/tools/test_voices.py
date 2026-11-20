@@ -355,7 +355,11 @@ class Environments(unittest.TestCase):
             worker = home.worker_env()
             uv = home.uv_env()
         self.assertEqual(worker["HF_HOME"], str(Path("voices") / "models"))
-        self.assertEqual(worker["PYTHONUTF8"], "1")
+        self.assertEqual(worker["PYTHONIOENCODING"], "utf-8")
+        # UTF-8 mode only where file names are UTF-8 too, so both sides spell a path alike.
+        for encoding, mode in (("utf-8", "1"), ("cp1252", "0")):
+            with mock.patch.object(envs.sys, "getfilesystemencoding", return_value=encoding):
+                self.assertEqual(home.worker_env()["PYTHONUTF8"], mode, encoding)
         self.assertNotIn("PYTHONPATH", worker)
         self.assertNotIn("VIRTUAL_ENV", uv)
         self.assertEqual(uv["UV_PYTHON_INSTALL_DIR"], str(Path("voices") / "python"))
