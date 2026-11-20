@@ -1,0 +1,61 @@
+# A test build of OpenRAC Editor for macOS as a .dmg, kept as a run artifact: nothing is published
+# and the launcher never sees it. The .dmg holds the release archive unpacked (the app beside the
+# editor's tools and project files, as the launcher installs it). Run it by hand on any branch, or
+# push a ci/macos-* branch.
+name: macos-test-dmg
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["ci/macos-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-test-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Build tools
+        run: python -m pip install -q scons
+
+      - name: Build the editor
+        run: scons platform=macos arch=arm64 metal=yes vulkan=no profile=build/custom.py -j"$(sysctl -n hw.ncpu)"
+
+      - name: Pack it
+        run: |
+          VERSION="test-$(git rev-parse --short HEAD)"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          python build/package.py bin/godot.macos.editor.arm64 macos "$VERSION" openrac-editor-macos-arm64.zip
+
+      - name: Check it
+        run: python build/smoke.py openrac-editor-macos-arm64.zip "$VERSION"
+
+      # Unsigned apart from an ad-hoc signature: on first start, right-click the app and choose Open.
+      - name: Make the .dmg
+        run: |
+          mkdir -p "dmg/OpenRAC Editor"
+          ditto -x -k openrac-editor-macos-arm64.zip "dmg/OpenRAC Editor"
+          codesign --force --deep --sign - "dmg/OpenRAC Editor/OpenRAC Editor.app"
+          hdiutil create -volname "OpenRAC Editor" -srcfolder "dmg/OpenRAC Editor" -ov -format UDZO \
+            "OpenRAC-Editor-$VERSION-macos-arm64.dmg"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: OpenRAC-Editor-${{ env.VERSION }}-macos-arm64.dmg
+          path: OpenRAC-Editor-*-macos-arm64.dmg
+          if-no-files-found: error
+          retention-days: 14
