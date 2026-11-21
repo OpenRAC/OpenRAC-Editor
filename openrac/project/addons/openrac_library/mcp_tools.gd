@@ -282,12 +282,19 @@ static func class_of(node: Node) -> int:
 	return file.trim_prefix("moby_").to_int() if file.begins_with("moby_") and file.trim_prefix("moby_").is_valid_int() else -1
 
 
-## A node's place in the game's coordinates: [x, y, z], heading in degrees, size.
+## A node's place in the game's coordinates: [x, y, z], heading in degrees, size (1 = its class's own).
 func game_place(node: Node3D) -> Dictionary:
 	var local: Transform3D = game().global_transform.affine_inverse() * node.global_transform
 	var front: Vector3 = local.basis.x
 	return {"position": [snappedf(local.origin.x, 0.001), snappedf(local.origin.y, 0.001), snappedf(local.origin.z, 0.001)],
-		"yaw": snappedf(rad_to_deg(atan2(front.y, front.x)), 0.01), "scale": snappedf(local.basis.get_scale().x, 0.0001)}
+		"yaw": snappedf(rad_to_deg(atan2(front.y, front.x)), 0.01),
+		"scale": snappedf(local.basis.get_scale().x / class_scale(node), 0.0001)}
+
+
+## The size NODE has at "scale" 1: an imported class's node carries its class's scale itself (an
+## own class's scene has it inside).
+static func class_scale(node: Node) -> float:
+	return maxf(float(node.get_meta("rc1_foreign_class_scale", 1.0)), 0.0001)
 
 
 static func vector(value: Variant) -> Variant:
@@ -512,7 +519,7 @@ func moby_set(args: Dictionary) -> Variant:
 
 	if position != null or args.has("yaw") or args.has("scale"):
 		var local: Transform3D = game().global_transform.affine_inverse() * node.global_transform
-		var size: float = float(args.get("scale", place["scale"]))
+		var size: float = float(args.get("scale", place["scale"])) * class_scale(node)
 		var yaw: float = deg_to_rad(float(args.get("yaw", place["yaw"])))
 		var turned := Transform3D(Basis(Vector3(0, 0, 1), yaw).scaled(Vector3(size, size, size)),
 			position if position != null else local.origin)
@@ -565,6 +572,7 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No node %s." % path)
 
+		# Named twice (or by path and spawn number): deleted once.
 		if not found.has(node):
 			found.append(node)
 
@@ -574,7 +582,6 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No moby with spawn number %d." % int(id))
 
-		# Named twice (or by path and spawn number): deleted once.
 		if not found.has(node):
 			found.append(node)
 
