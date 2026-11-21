@@ -10,8 +10,8 @@ class DPITexture;
 class TabContainer;
 class Window;
 
-// OpenRAC Editor: the intro when the editor opens: the OpenRAC logo comes up out of the dark with
-// a gold line and the Editor badge, then all of it fades away into the editor. Any key, click or
+// OpenRAC Editor: the intro when the editor opens: the OpenRAC Editor logo (the README's) comes up
+// out of the dark over a gold line, then all of it fades away into the editor. Any key, click or
 // pad button skips it.
 class EditorIntro : public Control {
 	GDCLASS(EditorIntro, Control);

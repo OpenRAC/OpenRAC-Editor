@@ -31,8 +31,8 @@ constexpr double LOGO_IN = 0.15;
 constexpr double LOGO_IN_END = 0.75;
 constexpr double LINE_IN = 0.5;
 constexpr double LINE_IN_END = 1.0;
-constexpr double BADGE_IN = 0.75;
-constexpr double BADGE_IN_END = 1.1;
+constexpr double VERSION_IN = 0.75;
+constexpr double VERSION_IN_END = 1.1;
 constexpr double SHORTEST = 1.7; // It stays at least this long, unless skipped.
 constexpr double LONGEST = 8.0; // And leaves by then even if the level is still loading.
 constexpr double LEAVE = 0.55;
@@ -52,16 +52,9 @@ double ease_in_out(double p_x) {
 	return p_x < 0.5 ? 4.0 * p_x * p_x * p_x : 1.0 - Math::pow(-2.0 * p_x + 2.0, 3.0) / 2.0;
 }
 
-// Overshoots a little before it settles: things "pop" into place.
-double ease_back(double p_x) {
-	const double c1 = 1.70158;
-	const double c3 = c1 + 1.0;
-	return 1.0 + c3 * Math::pow(p_x - 1.0, 3.0) + c1 * Math::pow(p_x - 1.0, 2.0);
-}
-
 Ref<DPITexture> editor_logo(float p_scale) {
 	for (int i = 0; i < editor_icons_count; i++) {
-		if (String(editor_icons_names[i]) == "Logo") {
+		if (String(editor_icons_names[i]) == "OpenRACEditorLogo") {
 			return DPITexture::create_from_string(editor_icons_sources[i], p_scale);
 		}
 	}
@@ -107,7 +100,7 @@ void EditorIntro::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_READY: {
 			// Sharp at any size: the logo is drawn from its SVG at the size it is shown.
-			logo = editor_logo(MAX(1.0f, get_size().x * 0.4f / 187.0f));
+			logo = editor_logo(get_size().x * 0.5f / 2039.0f); // The README's logo, half the editor wide.
 			set_process(true);
 			set_process_input(true);
 			if (ProgressDialog::get_singleton()) {
@@ -178,7 +171,7 @@ void EditorIntro::_notification(int p_what) {
 			// A gold line opens out from the middle under the logo.
 			const double line = ease_in_out(phase(t, LINE_IN, LINE_IN_END));
 			const float line_y = logo_pos.y + logo_size.y + 20 * EDSCALE;
-			const float half = logo_size.x * 0.42 * line;
+			const float half = logo_size.x * 0.4 * line;
 			const int pieces = 24;
 			for (int i = 0; i < pieces; i++) {
 				// Brightest in the middle, fading out to its ends.
@@ -187,32 +180,14 @@ void EditorIntro::_notification(int p_what) {
 				draw_rect(Rect2(x0, line_y, 2 * half / pieces + 0.5f, Math::round(2 * EDSCALE)), Color(GOLD, a * alpha * line));
 			}
 
-			// The Editor badge pops in under the line.
-			const double badge = phase(t, BADGE_IN, BADGE_IN_END);
-			if (badge > 0) {
-				const Ref<Font> bold = get_theme_font(SNAME("bold"), EditorStringName(EditorFonts));
-				const int font_size = Math::round(15 * EDSCALE);
-				const String word = TTR("EDITOR");
-				const Size2 text = bold->get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size);
-				const float pop = ease_back(badge);
-				const Size2 pill = Size2(text.x + 28 * EDSCALE, text.y + 10 * EDSCALE) * pop;
-				const Rect2 pill_rect(Vector2(center.x - pill.x / 2, line_y + 16 * EDSCALE), pill);
-				Ref<StyleBoxFlat> box;
-				box.instantiate();
-				box->set_bg_color(Color(GOLD, alpha * MIN(1.0, badge * 2)));
-				box->set_corner_radius_all(pill.y / 2);
-				box->set_anti_aliased(true);
-				draw_style_box(box, pill_rect);
-				if (pop > 0.6) {
-					const Vector2 at(center.x - text.x / 2, pill_rect.position.y + (pill.y - text.y) / 2 + bold->get_ascent(font_size));
-					draw_string(bold, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(COAL, alpha));
-				}
-				// The version, quietly, under it.
+			// The version fades in, quietly, under the line.
+			const double version_in = ease_out(phase(t, VERSION_IN, VERSION_IN_END));
+			if (version_in > 0) {
 				const Ref<Font> main = get_theme_font(SNAME("main"), EditorStringName(EditorFonts));
 				const int small = Math::round(12 * EDSCALE);
 				const String version = OPENRAC_EDITOR_VERSION;
 				const float vw = main->get_string_size(version, HORIZONTAL_ALIGNMENT_LEFT, -1, small).x;
-				draw_string(main, Vector2(center.x - vw / 2, pill_rect.get_end().y + 26 * EDSCALE), version, HORIZONTAL_ALIGNMENT_LEFT, -1, small, Color(0.7, 0.67, 0.6, 0.8 * alpha * ease_out(badge)));
+				draw_string(main, Vector2(center.x - vw / 2, line_y + (30 + 6 * (1.0 - version_in)) * EDSCALE), version, HORIZONTAL_ALIGNMENT_LEFT, -1, small, Color(0.7, 0.67, 0.6, 0.8 * alpha * version_in));
 			}
 
 			// What is loading, quietly at the bottom.

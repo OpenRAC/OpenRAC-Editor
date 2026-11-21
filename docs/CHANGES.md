@@ -92,8 +92,8 @@ These are deleted from the source:
   and the behaviours set in a moby's Inspector, spin, bob, patrol, orbit, face or follow the hero
   ([BEHAVIOUR_FORMAT.md](BEHAVIOUR_FORMAT.md)).
 
-- **Motion** (`editor/gui/editor_motion.cpp`): an intro when the editor opens (the logo, a gold line
-  and the Editor badge, with what is loading; any key, click or pad button skips it), tab pages fade
+- **Motion** (`editor/gui/editor_motion.cpp`): an intro when the editor opens (the README's logo over a
+  gold line, with what is loading; any key, click or pad button skips it), tab pages fade
   and slide in, menus and windows fade in, lists scroll smoothly (`ScrollBar::wheel`), the pad bar
   slides up and away, and a gold frame glides after the pad's focus. Settings > Editor > Animations
   and Intro turn them off.
