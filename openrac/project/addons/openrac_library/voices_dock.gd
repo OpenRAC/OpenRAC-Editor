@@ -75,6 +75,8 @@ var sample_button: Button
 var name_edit: LineEdit
 var name_button: Button
 var known_pick: OptionButton
+var voice_box: VBoxContainer
+var voice_hint: Label
 
 # 3. Lines
 var who_pick: OptionButton
@@ -90,6 +92,9 @@ var speak_button: Button
 var take_pick: OptionButton
 var take_button: Button
 var speak_all_button: Button
+var line_box: VBoxContainer
+var line_hint: Label
+var no_lines_hint: Label
 
 # 4. Cutscene
 var cutscene_info: Label
@@ -125,6 +130,7 @@ func _init() -> void:
 	var top := HBoxContainer.new()
 	box.add_child(top)
 	status = Label.new()
+	status.visible = false
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(status)
@@ -141,6 +147,8 @@ func _init() -> void:
 	box.add_child(progress)
 
 	tabs = TabContainer.new()
+	# Four tabs never push the dock wider than it is: their names shorten instead.
+	tabs.clip_tabs = true
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(tabs)
 	tabs.add_child(build_model_tab())
@@ -148,13 +156,12 @@ func _init() -> void:
 	tabs.add_child(build_lines_tab())
 	tabs.add_child(build_cutscene_tab())
 
-	var bottom := HBoxContainer.new()
-	box.add_child(bottom)
 	pack_button = action_button("Put the voices in your mods",
 		"Makes the AI voices pack from the takes you kept and adds it to your mods. Switch it on in the launcher's Mods page and play with your edits.")
 	pack_button.pressed.connect(make_pack)
-	bottom.add_child(pack_button)
+	box.add_child(pack_button)
 	pack_label = Label.new()
+	pack_label.visible = false
 	pack_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pack_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(pack_label)
@@ -167,11 +174,12 @@ static func px(value: float) -> float:
 	return value * EditorInterface.get_editor_scale() if Engine.is_editor_hint() else value
 
 
+## A button that starts work. Its words stay on one line: a button that wraps is squeezed to
+## nothing in a row.
 func action_button(text: String, tip: String) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.tooltip_text = tip
-	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	actions.append(button)
 	return button
 
@@ -185,12 +193,12 @@ func wrapped_label(text: String = "") -> Label:
 
 func build_model_tab() -> Control:
 	var tab := VBoxContainer.new()
-	tab.name = "1 Model"
+	tab.name = "Model"
 	hardware_label = wrapped_label()
 	tab.add_child(hardware_label)
 	model_list = ItemList.new()
-	model_list.custom_minimum_size.y = px(150.0)
-	model_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# Fits the catalogue's models, so what is said about the picked one sits right under them.
+	model_list.custom_minimum_size.y = px(170.0)
 	model_list.item_selected.connect(func(_index: int) -> void: show_model())
 	tab.add_child(model_list)
 	model_info = RichTextLabel.new()
@@ -206,7 +214,7 @@ func build_model_tab() -> Control:
 		if not row.is_empty():
 			set_setting(SERVER_SETTING + String(row["id"]), text.strip_edges()))
 	tab.add_child(server_edit)
-	var row := HBoxContainer.new()
+	var row := HFlowContainer.new()
 	tab.add_child(row)
 	use_button = action_button("Use this model", "Lines are spoken with this model.")
 	use_button.pressed.connect(use_model)
@@ -228,7 +236,7 @@ func build_model_tab() -> Control:
 
 func build_characters_tab() -> Control:
 	var tab := VBoxContainer.new()
-	tab.name = "2 Characters"
+	tab.name = "Characters"
 	disc_label = wrapped_label()
 	tab.add_child(disc_label)
 	read_button = action_button("Read the disc", "Finds every spoken line on your disc (nothing leaves your computer).")
@@ -255,18 +263,27 @@ func build_characters_tab() -> Control:
 	voice_tree.custom_minimum_size.y = px(160.0)
 	voice_tree.item_selected.connect(show_voice)
 	tab.add_child(voice_tree)
+	voice_hint = wrapped_label("Pick a voice to hear it and say who it is.")
+	voice_hint.modulate = MUTED_COLOUR
+	tab.add_child(voice_hint)
+	# Shown once a voice is picked.
+	voice_box = VBoxContainer.new()
+	voice_box.visible = false
+	tab.add_child(voice_box)
 	sample_button = Button.new()
 	sample_button.text = "Hear this voice"
 	sample_button.pressed.connect(hear_voice)
-	tab.add_child(sample_button)
+	voice_box.add_child(sample_button)
 	var naming := HBoxContainer.new()
-	tab.add_child(naming)
+	voice_box.add_child(naming)
 	name_edit = LineEdit.new()
 	name_edit.placeholder_text = "Who is it? (Clank)"
 	name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_edit.text_submitted.connect(func(_text: String) -> void: name_voice())
 	naming.add_child(name_edit)
 	known_pick = OptionButton.new()
+	# As wide as "Names...", not as the longest name in it.
+	known_pick.fit_to_longest_item = false
 	known_pick.tooltip_text = "The game's characters"
 	known_pick.item_selected.connect(func(index: int) -> void:
 		if index > 0:
@@ -281,7 +298,10 @@ func build_characters_tab() -> Control:
 
 func build_lines_tab() -> Control:
 	var tab := VBoxContainer.new()
-	tab.name = "3 Lines"
+	tab.name = "Lines"
+	no_lines_hint = wrapped_label("Read your disc first, in Characters: its lines are listed here.")
+	no_lines_hint.modulate = MUTED_COLOUR
+	tab.add_child(no_lines_hint)
 	var row := HBoxContainer.new()
 	tab.add_child(row)
 	who_pick = OptionButton.new()
@@ -313,14 +333,22 @@ func build_lines_tab() -> Control:
 	tab.add_child(line_tree)
 	line_info = wrapped_label()
 	line_info.modulate = MUTED_COLOUR
+	line_info.visible = false
 	tab.add_child(line_info)
+	line_hint = wrapped_label("Pick a line to change its words, hear it or speak it again.")
+	line_hint.modulate = MUTED_COLOUR
+	tab.add_child(line_hint)
+	# Shown once a line is picked.
+	line_box = VBoxContainer.new()
+	line_box.visible = false
+	tab.add_child(line_box)
 	words_edit = TextEdit.new()
 	words_edit.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
 	words_edit.custom_minimum_size.y = px(60.0)
 	words_edit.placeholder_text = "What the character says"
-	tab.add_child(words_edit)
+	line_box.add_child(words_edit)
 	var buttons := HFlowContainer.new()
-	tab.add_child(buttons)
+	line_box.add_child(buttons)
 	original_button = Button.new()
 	original_button.text = "Hear the disc's"
 	original_button.pressed.connect(func() -> void: hear(String(selected_line.get("snippet", ""))))
@@ -337,7 +365,7 @@ func build_lines_tab() -> Control:
 	speak_button.pressed.connect(speak_line)
 	buttons.add_child(speak_button)
 	var takes := HBoxContainer.new()
-	tab.add_child(takes)
+	line_box.add_child(takes)
 	take_pick = OptionButton.new()
 	take_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	take_pick.tooltip_text = "The take the game plays for this line, or the disc's own."
@@ -355,7 +383,7 @@ func build_lines_tab() -> Control:
 
 func build_cutscene_tab() -> Control:
 	var tab := VBoxContainer.new()
-	tab.name = "4 Cutscene"
+	tab.name = "Cutscene"
 	cutscene_info = wrapped_label("Select a subtitle of a cutscene (a CutsceneSubtitle node) in the Scene dock.")
 	tab.add_child(cutscene_info)
 	var row := HBoxContainer.new()
@@ -477,6 +505,7 @@ func _process(_delta: float) -> void:
 
 func say(text: String, colour: Color = Color(1, 1, 1)) -> void:
 	status.text = text
+	status.visible = text != ""
 	status.modulate = colour
 
 
@@ -551,6 +580,24 @@ func update_buttons() -> void:
 		speak_all_button.disabled = line_rows.is_empty()
 		cutscene_button.disabled = subtitle == null or cutscene_who.item_count == 0
 		pack_button.disabled = not has_disc
+
+	# What a pick shows is there only once something is picked; the hint says so before.
+	var voice_picked: bool = voice_tree.get_selected() != null
+	voice_tree.visible = not voice_rows.is_empty()
+	voice_box.visible = voice_picked
+	voice_hint.visible = not voice_picked and not voice_rows.is_empty()
+	line_box.visible = not selected_line.is_empty()
+	line_hint.visible = selected_line.is_empty() and not line_rows.is_empty()
+	line_info.visible = line_info.text != ""
+	# Nothing to pick from before the disc is read: no empty lists.
+	var read: bool = not summary.is_empty()
+	language_pick.get_parent().visible = read
+	no_lines_hint.visible = not read
+	for part in [who_pick.get_parent(), search_edit, line_tree, speak_all_button]:
+		part.visible = read
+	cutscene_who.visible = cutscene_who.item_count > 0
+	cutscene_language.visible = cutscene_language.item_count > 0
+	pack_label.visible = pack_label.text != ""
 
 
 # ---- 1. Model ---------------------------------------------------------------------------------------
