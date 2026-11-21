@@ -150,7 +150,6 @@ private:
 	ErrorHandlerList eh;
 
 	//void _dragged(const Point2& p_ofs);
-	void _meta_clicked(const String &p_meta);
 	void _clear_request();
 	static void _undo_redo_cbk(void *p_self, const String &p_name);
 

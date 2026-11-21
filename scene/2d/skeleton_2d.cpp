@@ -38,7 +38,6 @@
 
 #ifdef TOOLS_ENABLED
 #include "editor/editor_data.h"
-#include "editor/scene/canvas_item_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
 #endif //TOOLS_ENABLED
 
@@ -219,7 +218,6 @@ void Bone2D::_notification(int p_what) {
 			Color bone_color2 = EDITOR_GET("editors/2d/bone_color2");
 			Color bone_ik_color = EDITOR_GET("editors/2d/bone_ik_color");
 			Color bone_outline_color = EDITOR_GET("editors/2d/bone_outline_color");
-			Color bone_selected_color = EDITOR_GET("editors/2d/bone_selected_color");
 
 			bool Bone2D_found = false;
 			for (int i = 0; i < get_child_count(); i++) {
@@ -249,21 +247,12 @@ void Bone2D::_notification(int p_what) {
 				}
 
 				Vector<Color> outline_colors;
-				if (CanvasItemEditor::get_singleton()->editor_selection->is_selected(this)) {
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-				} else {
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-				}
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
 
 				RenderingServer::get_singleton()->canvas_item_add_polygon(editor_gizmo_rid, bone_shape_outline, outline_colors);
 				RenderingServer::get_singleton()->canvas_item_add_polygon(editor_gizmo_rid, bone_shape, colors);
@@ -289,21 +278,12 @@ void Bone2D::_notification(int p_what) {
 				}
 
 				Vector<Color> outline_colors;
-				if (CanvasItemEditor::get_singleton()->editor_selection->is_selected(this)) {
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-					outline_colors.push_back(bone_selected_color);
-				} else {
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-					outline_colors.push_back(bone_outline_color);
-				}
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
+				outline_colors.push_back(bone_outline_color);
 
 				RenderingServer::get_singleton()->canvas_item_add_polygon(editor_gizmo_rid, bone_shape_outline, outline_colors);
 				RenderingServer::get_singleton()->canvas_item_add_polygon(editor_gizmo_rid, bone_shape, colors);

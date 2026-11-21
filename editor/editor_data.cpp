@@ -307,12 +307,6 @@ void EditorData::copy_object_params(Object *p_object) {
 	}
 }
 
-void EditorData::get_editor_breakpoints(List<String> *p_breakpoints) {
-	for (int i = 0; i < editor_plugins.size(); i++) {
-		editor_plugins[i]->get_breakpoints(p_breakpoints);
-	}
-}
-
 Dictionary EditorData::get_editor_plugin_states() const {
 	Dictionary metadata;
 	for (int i = 0; i < editor_plugins.size(); i++) {
@@ -432,23 +426,13 @@ void EditorData::apply_changes_in_editors() {
 
 void EditorData::paste_object_params(Object *p_object) {
 	ERR_FAIL_NULL(p_object);
-	undo_redo_manager->create_action(TTR("Paste Params"));
+	undo_redo_manager->create_action(TTR("Paste Settings"));
 	for (const PropertyData &E : clipboard) {
 		String name = E.name;
 		undo_redo_manager->add_do_property(p_object, name, E.value);
 		undo_redo_manager->add_undo_property(p_object, name, p_object->get(name));
 	}
 	undo_redo_manager->commit_action();
-}
-
-bool EditorData::call_build() {
-	bool result = true;
-
-	for (int i = 0; i < editor_plugins.size() && result; i++) {
-		result &= editor_plugins[i]->build();
-	}
-
-	return result;
 }
 
 void EditorData::set_scene_as_saved(int p_idx) {
@@ -779,12 +763,12 @@ bool EditorData::reload_scene_from_memory(int p_idx, bool p_mark_unsaved) {
 	Ref<PackedScene> pscene;
 	pscene.instantiate();
 
-	EditorProgress ep("update_scene", TTR("Updating Scene"), 2);
-	ep.step(TTR("Storing local changes..."), 0);
+	EditorProgress ep("update_scene", TTR("Updating Level"), 2);
+	ep.step(TTR("Saving your changes"), 0);
 	// Pack first, so it stores diffs to previous version of saved scene.
 	Error err = pscene->pack(edited_scene[p_idx].root);
 	ERR_FAIL_COND_V(err != OK, false);
-	ep.step(TTR("Updating scene..."), 1);
+	ep.step(TTR("Updating level"), 1);
 	Node *new_scene = pscene->instantiate(PackedScene::GEN_EDIT_STATE_MAIN);
 	ERR_FAIL_NULL_V(new_scene, false);
 
@@ -901,29 +885,13 @@ void EditorData::move_edited_scene_to_index(int p_idx) {
 	current_edited_scene = p_idx;
 }
 
-Ref<Script> EditorData::get_scene_root_script(int p_idx) const {
-	ERR_FAIL_INDEX_V(p_idx, edited_scene.size(), Ref<Script>());
-	if (!edited_scene[p_idx].root) {
-		return Ref<Script>();
-	}
-	Ref<Script> s = edited_scene[p_idx].root->get_script();
-	if (s.is_null() && edited_scene[p_idx].root->get_child_count()) {
-		Node *n = edited_scene[p_idx].root->get_child(0);
-		while (s.is_null() && n && !n->is_instance()) {
-			s = n->get_script();
-			n = n->get_parent();
-		}
-	}
-	return s;
-}
-
 String EditorData::get_scene_title(int p_idx, bool p_always_strip_extension) const {
 	ERR_FAIL_INDEX_V(p_idx, edited_scene.size(), String());
 	if (!edited_scene[p_idx].root) {
 		return TTR("[empty]");
 	}
 	if (edited_scene[p_idx].root->get_scene_file_path().is_empty()) {
-		return TTR("[unsaved]");
+		return TTR("(unsaved)");
 	}
 
 	const String filename = edited_scene[p_idx].root->get_scene_file_path().get_file();

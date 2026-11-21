@@ -150,7 +150,6 @@ class EditorSettingsPropertyWrapper : public EditorProperty {
 	HBoxContainer *override_container = nullptr;
 	TextureRect *override_icon = nullptr;
 	EditorProperty *override_editor_property = nullptr;
-	Button *goto_button = nullptr;
 	Button *remove_button = nullptr;
 
 	void _setup_override_info();

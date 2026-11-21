@@ -31,7 +31,6 @@
 #include "editor_bottom_panel.h"
 
 #include "core/object/callable_mp.h"
-#include "editor/debugger/editor_debugger_node.h"
 #include "editor/docks/editor_dock.h"
 #include "editor/docks/editor_dock_manager.h"
 #include "editor/editor_node.h"
@@ -333,7 +332,7 @@ EditorBottomPanel::EditorBottomPanel() :
 	bottom_hbox->add_child(pin_button);
 	pin_button->set_theme_type_variation("BottomPanelButton");
 	pin_button->set_toggle_mode(true);
-	pin_button->set_tooltip_text(TTRC("Pin Bottom Panel Switching"));
+	pin_button->set_tooltip_text(TTRC("Keep Bottom Panel Open"));
 	pin_button->connect(SceneStringName(toggled), callable_mp(this, &EditorBottomPanel::_pin_button_toggled));
 
 	callable_mp(this, &EditorBottomPanel::_repaint).call_deferred();

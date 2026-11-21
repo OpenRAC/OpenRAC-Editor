@@ -172,7 +172,6 @@ class AnimationPlayerEditor : public EditorDock {
 			double anim_player_position = 0.0;
 			Ref<AnimatedValuesBackup> anim_values_backup;
 			Rect2 screen_rect;
-			Dictionary canvas_edit_state;
 			Dictionary spatial_edit_state;
 		} temp;
 	} onion;
@@ -309,7 +308,6 @@ public:
 	virtual bool handles(Object *p_object) const override;
 	virtual void make_visible(bool p_visible) override;
 
-	virtual void forward_canvas_force_draw_over_viewport(Control *p_overlay) override { anim_editor->forward_force_draw_over_viewport(p_overlay); }
 	virtual void forward_3d_force_draw_over_viewport(Control *p_overlay) override { anim_editor->forward_force_draw_over_viewport(p_overlay); }
 
 	AnimationPlayerEditorPlugin();

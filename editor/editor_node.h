@@ -40,7 +40,6 @@
 
 typedef void (*EditorNodeInitCallback)();
 typedef void (*EditorPluginInitializeCallback)();
-typedef bool (*EditorBuildCallback)();
 
 class AcceptDialog;
 class ColorPicker;
@@ -71,41 +70,28 @@ class DependencyErrorDialog;
 class DockSplitContainer;
 class DynamicFontImportSettingsDialog;
 class EditorAbout;
-class EditorBuildProfileManager;
 class EditorBottomPanel;
 class EditorCommandPalette;
 class EditorDockManager;
-class EditorExport;
-class EditorExportPreset;
 class EditorFeatureProfileManager;
 class EditorFileDialog;
 class EditorFolding;
 class EditorLayoutsDialog;
 class EditorLog;
 class EditorMainScreen;
-class EditorNativeShaderSourceVisualizer;
 class EditorPluginList;
 class EditorResourcePreview;
 class EditorResourceConversionPlugin;
-class EditorRunBar;
 class EditorSceneTabs;
 class EditorSelectionHistory;
 class EditorSettingsDialog;
 class EditorTitleBar;
-class ExportTemplateManager;
 class EditorQuickOpenDialog;
-class FBXImporterManager;
-class FileSystemDock;
 class HistoryDock;
-class OrphanResourcesDialog;
 class ProgressDialog;
-class ProjectExportDialog;
-class ProjectSettingsEditor;
 class SceneImportSettingsDialog;
-class ProjectUpgradeTool;
 
 #ifdef ANDROID_ENABLED
-class TouchActionsPanel;
 #endif
 
 struct EditorProgress {
@@ -153,7 +139,6 @@ public:
 		SCENE_MULTI_SAVE_AS_SCENE,
 		SCENE_QUICK_OPEN,
 		SCENE_QUICK_OPEN_SCENE,
-		SCENE_QUICK_OPEN_SCRIPT,
 		SCENE_EXPORT_AS,
 		SCENE_UNDO,
 		SCENE_REDO,
@@ -164,20 +149,9 @@ public:
 
 
 		// Project menu.
-		PROJECT_OPEN_SETTINGS,
-		PROJECT_FIND_IN_FILES,
-		PROJECT_VERSION_CONTROL,
-		PROJECT_EXPORT,
-		PROJECT_PACK_AS_ZIP,
-		PROJECT_INSTALL_ANDROID_SOURCE,
-		PROJECT_OPEN_USER_DATA_FOLDER,
 		PROJECT_RELOAD_CURRENT_PROJECT,
 		PROJECT_QUIT_TO_PROJECT_MANAGER,
 
-		TOOLS_ORPHAN_RESOURCES,
-		TOOLS_BUILD_PROFILE_MANAGER,
-		TOOLS_PROJECT_UPGRADE,
-		TOOLS_CUSTOM,
 
 
 		// Editor menu.
@@ -185,27 +159,17 @@ public:
 		EDITOR_COMMAND_PALETTE,
 		EDITOR_TAKE_SCREENSHOT,
 		EDITOR_TOGGLE_FULLSCREEN,
-		EDITOR_OPEN_DATA_FOLDER,
-		EDITOR_OPEN_CONFIG_FOLDER,
 		EDITOR_MANAGE_FEATURE_PROFILES,
-		EDITOR_MANAGE_EXPORT_TEMPLATES,
-		EDITOR_CONFIGURE_FBX_IMPORTER,
 
 		LAYOUT_SAVE,
 		LAYOUT_DELETE,
 		LAYOUT_DEFAULT,
 
 		// Help menu.
-		HELP_SEARCH,
 		HELP_DOCS,
-		HELP_FORUM,
-		HELP_COMMUNITY,
 		HELP_COPY_SYSTEM_INFO,
 		HELP_REPORT_A_BUG,
-		HELP_SUGGEST_A_FEATURE,
-		HELP_SEND_DOCS_FEEDBACK,
 		HELP_ABOUT,
-		HELP_SUPPORT_GODOT_DEVELOPMENT,
 
 		// Update spinner menu.
 		SPINNER_UPDATE_CONTINUOUSLY,
@@ -215,13 +179,8 @@ public:
 		// Non-menu options.
 		SCENE_TAB_CLOSE,
 		SCENE_TAB_SAVE_SCENE,
-		SCENE_TAB_SAVE_AS_AND_RUN,
-		SCENE_TAB_SAVE_AS_MAIN_SCENE,
-		SAVE_AND_RUN,
-		SAVE_AND_RUN_MAIN_SCENE,
 		RESOURCE_SAVE,
 		RESOURCE_SAVE_AS,
-		SETTINGS_PICK_MAIN_SCENE,
 	};
 
 	struct ExecuteThreadArgs {
@@ -239,18 +198,7 @@ private:
 
 	enum {
 		MAX_INIT_CALLBACKS = 128,
-		MAX_BUILD_CALLBACKS = 128,
 	};
-
-	struct ExportDefer {
-		String preset;
-		String path;
-		bool debug = false;
-		bool pack_only = false;
-		bool android_build_template = false;
-		bool patch = false;
-		Vector<String> patches;
-	} export_defer;
 
 	static EditorNode *singleton;
 
@@ -260,9 +208,7 @@ private:
 
 	EditorCommandPalette *command_palette = nullptr;
 	EditorQuickOpenDialog *quick_open_dialog = nullptr;
-	EditorExport *editor_export = nullptr;
 	EditorLog *log = nullptr;
-	EditorNativeShaderSourceVisualizer *native_shader_source_visualizer = nullptr;
 	EditorPluginList *editor_plugins_force_input_forwarding = nullptr;
 	EditorPluginList *editor_plugins_force_over = nullptr;
 	EditorPluginList *editor_plugins_over = nullptr;
@@ -272,10 +218,7 @@ private:
 	EditorSettingsDialog *editor_settings_dialog = nullptr;
 	HistoryDock *history_dock = nullptr;
 
-	ProjectExportDialog *project_export = nullptr;
-	ProjectSettingsEditor *project_settings_editor = nullptr;
 
-	FBXImporterManager *fbx_importer_manager = nullptr;
 
 	Vector<EditorPlugin *> editor_plugins;
 	bool _initializing_plugins = false;
@@ -287,13 +230,6 @@ private:
 	Control *gui_base = nullptr;
 	VBoxContainer *main_vbox = nullptr;
 	OptionButton *renderer = nullptr;
-
-#ifdef ANDROID_ENABLED
-	VBoxContainer *base_vbox = nullptr; // It only contains the title_bar and main_hbox.
-	HBoxContainer *main_hbox = nullptr; // It only contains the touch_actions_panel and main_vbox.
-	TouchActionsPanel *touch_actions_panel = nullptr;
-	void _touch_actions_panel_mode_changed();
-#endif
 
 	ConfirmationDialog *video_restart_dialog = nullptr;
 
@@ -325,24 +261,19 @@ private:
 	Control *left_menu_spacer = nullptr;
 	Control *right_menu_spacer = nullptr;
 	EditorTitleBar *title_bar = nullptr;
-	EditorRunBar *project_run_bar = nullptr;
 	HBoxContainer *right_menu_hb = nullptr;
 
 	// Spacers to center 2D / 3D / Script buttons.
 	HBoxContainer *left_spacer = nullptr;
 	Control *right_spacer = nullptr;
 
-	Control *menu_btn_spacer = nullptr;
 	MenuButton *main_menu_button = nullptr;
 	MenuBar *main_menu_bar = nullptr;
 
 	PopupMenu *apple_menu = nullptr;
 	PopupMenu *file_menu = nullptr;
-	PopupMenu *project_menu = nullptr;
-	PopupMenu *debug_menu = nullptr;
 	PopupMenu *settings_menu = nullptr;
 	PopupMenu *help_menu = nullptr;
-	PopupMenu *tool_menu = nullptr;
 	PopupMenu *export_as_menu = nullptr;
 	Button *export_button = nullptr;
 
@@ -370,14 +301,9 @@ private:
 	Node *_last_instantiated_scene = nullptr;
 
 	ConfirmationDialog *confirmation = nullptr;
-	bool stop_project_confirmation = false;
-	bool stop_download_confirmation = false;
 	Button *confirmation_button = nullptr;
 	ConfirmationDialog *save_confirmation = nullptr;
 	ConfirmationDialog *import_confirmation = nullptr;
-	ConfirmationDialog *pick_main_scene = nullptr;
-	ConfirmationDialog *open_project_settings = nullptr;
-	Button *select_current_scene_button = nullptr;
 	AcceptDialog *accept = nullptr;
 	AcceptDialog *save_accept = nullptr;
 	EditorAbout *about = nullptr;
@@ -389,20 +315,9 @@ private:
 	PopupMenu *editor_layouts = nullptr;
 	EditorLayoutsDialog *layout_dialog = nullptr;
 
-	ConfirmationDialog *gradle_build_manage_templates = nullptr;
-	ConfirmationDialog *install_android_build_template = nullptr;
-	ConfirmationDialog *remove_android_build_template = nullptr;
-	Label *install_android_build_template_message = nullptr;
-	OptionButton *choose_android_export_profile = nullptr;
-	Ref<EditorExportPreset> android_export_preset;
 
 	EditorFileDialog *file = nullptr;
-	ExportTemplateManager *export_template_manager = nullptr;
 	EditorFeatureProfileManager *feature_profile_manager = nullptr;
-	EditorBuildProfileManager *build_profile_manager = nullptr;
-	EditorFileDialog *file_templates = nullptr;
-	EditorFileDialog *file_android_build_source = nullptr;
-	EditorFileDialog *file_pack_zip = nullptr;
 	MenuButton *update_spinner = nullptr;
 
 	EditorMainScreen *editor_main_screen = nullptr;
@@ -413,7 +328,6 @@ private:
 
 	DependencyErrorDialog *dependency_error = nullptr;
 	HashMap<String, HashSet<String>> dependency_errors;
-	OrphanResourcesDialog *orphan_resources = nullptr;
 	ConfirmationDialog *open_imported = nullptr;
 	Button *new_inherited_button = nullptr;
 	String open_import_request;
@@ -432,8 +346,6 @@ private:
 	ConfirmationDialog *disk_changed = nullptr;
 	ConfirmationDialog *project_data_missing = nullptr;
 
-	bool scene_distraction_free = false;
-	bool script_distraction_free = false;
 
 	bool changing_scene = false;
 	bool cmdline_mode = false;
@@ -469,7 +381,6 @@ private:
 	SceneImportSettingsDialog *scene_import_settings = nullptr;
 	AudioStreamImportSettingsDialog *audio_stream_import_settings = nullptr;
 
-	HashSet<String> force_textfile_extensions;
 	HashSet<String> textfile_extensions;
 	HashSet<String> other_file_extensions;
 	HashSet<FileDialog *> file_dialogs;
@@ -481,16 +392,12 @@ private:
 	HashMap<String, Ref<Texture2D>> icon_type_cache;
 	HashMap<Pair<String, String>, Ref<Texture2D>> class_icon_cache;
 
-	ProjectUpgradeTool *project_upgrade_tool = nullptr;
-	bool run_project_upgrade_tool = false;
 
 	bool was_window_windowed_last = false;
 
 	bool unfocused_low_processor_usage_mode_enabled = true;
 
-	static EditorBuildCallback build_callbacks[MAX_BUILD_CALLBACKS];
 	static EditorPluginInitializeCallback plugin_init_callbacks[MAX_INIT_CALLBACKS];
-	static int build_callback_count;
 	static int plugin_init_callback_count;
 	static Vector<EditorNodeInitCallback> _init_callbacks;
 
@@ -535,19 +442,13 @@ private:
 	void _menu_confirm_current();
 	void _menu_option_confirm(int p_option, bool p_confirmed);
 
-	void _android_build_source_selected(const String &p_file);
-	void _android_export_preset_selected(int p_index);
-	void _android_install_build_template();
-	void _android_explore_build_templates();
 
 	void _request_screenshot();
 	void _screenshot(bool p_use_utc = false);
 	void _save_screenshot(const String &p_path);
-	void _save_screenshot_with_embedded_process(int64_t p_w, int64_t p_h, const String &p_emb_path, const Rect2i &p_rect, const String &p_path);
 
 	void _check_system_theme_changed();
 
-	void _tool_menu_option(int p_idx);
 	void _export_as_menu_option(int p_idx);
 	void _update_file_menu_opened();
 	void _palette_quick_open_dialog();
@@ -588,18 +489,13 @@ private:
 	void _discard_changes(const String &p_str = String());
 	void _scene_tab_closed(int p_tab);
 	void _cancel_close_scene_tab();
-	void _cancel_confirmation();
 
 	void _prepare_save_confirmation_popup();
 
-	void _inherit_request(String p_file);
-	void _instantiate_request(const Vector<String> &p_files);
 
 	void _quick_opened(const String &p_file_path);
 	void _open_command_palette();
 
-	void _project_run_started();
-	void _project_run_stopped();
 
 	void _update_prev_closed_scenes(const String &p_scene_path, bool p_add_scene);
 
@@ -684,7 +580,6 @@ private:
 
 	Ref<Texture2D> _get_class_or_script_icon(const String &p_class, const String &p_script_path, const String &p_fallback = "", bool p_fallback_script_to_theme = false, bool p_skip_fallback_virtual = false);
 
-	void _pick_main_scene_custom_action(const String &p_custom_action_name);
 
 	void _immediate_dialog_confirmed();
 
@@ -697,7 +592,6 @@ private:
 	void _progress_dialog_visibility_changed();
 	void _load_error_dialog_visibility_changed();
 
-	void _execute_upgrades();
 
 	bool _is_project_data_missing();
 
@@ -711,7 +605,6 @@ private:
 	Vector<PopupMenu *> main_menu_items;
 
 	void _build_file_menu();
-	void _build_project_menu();
 	void _build_settings_menu();
 	void _build_help_menu();
 
@@ -721,7 +614,6 @@ private:
 	void _bottom_panel_resized();
 
 protected:
-	friend class FileSystemDock;
 
 	static void _bind_methods();
 	void _apply_light_mode();
@@ -729,12 +621,9 @@ protected:
 
 public:
 	// Public for use as signal callback.
-	void _on_plugin_ready(Object *p_script, const String &p_activate_name);
 
 	void init_plugins();
 
-	bool call_build();
-	void call_run_scene(const String &p_scene, Vector<String> &r_args);
 
 	// This is a very naive estimation, but we need something now. Will be reworked later.
 	bool is_editor_ready() const { return is_inside_tree() && !waiting_for_first_scan; }
@@ -778,9 +667,8 @@ public:
 
 	static void add_plugin_init_callback(EditorPluginInitializeCallback p_callback);
 	static void add_init_callback(EditorNodeInitCallback p_callback) { _init_callbacks.push_back(p_callback); }
-	static void add_build_callback(EditorBuildCallback p_callback);
 
-	static bool immediate_confirmation_dialog(const String &p_text, const String &p_ok_text = TTR("Ok"), const String &p_cancel_text = TTR("Cancel"), uint32_t p_wrap_width = 0);
+	static bool immediate_confirmation_dialog(const String &p_text, const String &p_ok_text = TTR("OK"), const String &p_cancel_text = TTR("Cancel"), uint32_t p_wrap_width = 0);
 
 	static bool is_cmdline_mode();
 
@@ -796,14 +684,12 @@ public:
 	EditorSelection *get_editor_selection() { return editor_selection; }
 	EditorSelectionHistory *get_editor_selection_history() { return &editor_history; }
 
-	ProjectSettingsEditor *get_project_settings() { return project_settings_editor; }
 
 	void trigger_menu_option(int p_option, bool p_confirmed);
 	bool has_previous_closed_scenes() const;
 
 	void new_inherited_scene() { _menu_option_confirm(SCENE_NEW_INHERITED_SCENE, false); }
 
-	void update_distraction_free_mode();
 	void set_distraction_free_mode(bool p_enter);
 	bool is_distraction_free_mode_enabled() const;
 	void update_distraction_free_button_theme();
@@ -947,13 +833,9 @@ public:
 
 	void set_convert_old_scene(bool p_old) { convert_old = p_old; }
 
-	void notify_all_debug_sessions_exited();
 
-	ProcessID has_child_process(ProcessID p_pid) const;
-	void stop_child_process(ProcessID p_pid);
 
 	Ref<Theme> get_editor_theme() const { return theme; }
-	void update_preview_themes(int p_mode);
 
 	Ref<Script> get_object_custom_type_base(const Object *p_object) const;
 	StringName get_object_custom_type_name(const Object *p_object) const;
@@ -964,12 +846,10 @@ public:
 
 	void show_accept(const String &p_text, const String &p_title);
 	void show_save_accept(const String &p_text, const String &p_title);
-	void show_warning(const String &p_text, const String &p_title = TTR("Warning!"));
+	void show_warning(const String &p_text, const String &p_title = TTR("Warning"));
 
 	void _copy_warning(const String &p_str);
 
-	Error export_preset(const String &p_preset, const String &p_path, bool p_debug, bool p_pack_only, bool p_android_build_template, bool p_patch, const Vector<String> &p_patches);
-	bool is_project_exporting() const;
 
 	Control *get_gui_base() { return gui_base; }
 
@@ -988,7 +868,6 @@ public:
 	void save_editor_layout_delayed();
 	void save_default_environment();
 
-	void open_export_template_manager();
 
 	void reload_scene(const String &p_path);
 
@@ -1003,21 +882,16 @@ public:
 
 	EditorQuickOpenDialog *get_quick_open_dialog() { return quick_open_dialog; }
 
-	void add_tool_menu_item(const String &p_name, const Callable &p_callback);
-	void add_tool_submenu_item(const String &p_name, PopupMenu *p_submenu);
-	void remove_tool_menu_item(const String &p_name);
 
 	PopupMenu *get_export_as_menu();
 
 	void save_all_scenes();
 	void save_scene_if_open(const String &p_scene_path);
 	void save_scene_list(const HashSet<String> &p_scene_paths);
-	void save_before_run();
 	void try_autosave();
 	void restart_editor(bool p_goto_project_manager = false);
 	void unload_editor_addons();
 
-	void open_setting_override(const String &p_property);
 	void notify_settings_overrides_changed();
 
 	void dim_editor(bool p_dimming);
@@ -1040,9 +914,6 @@ public:
 	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin_for_resource(const Ref<Resource> &p_for_resource);
 	Vector<Ref<EditorResourceConversionPlugin>> find_resource_conversion_plugin_for_type_name(const String &p_type);
 
-	bool ensure_main_scene(bool p_from_native);
-	bool validate_custom_directory();
-	void run_editor_script(const Ref<Script> &p_script);
 	bool is_scene_unsaved(int p_idx);
 };
 

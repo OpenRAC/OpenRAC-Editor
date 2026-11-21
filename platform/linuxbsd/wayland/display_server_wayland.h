@@ -358,10 +358,6 @@ public:
 
 	virtual bool get_swap_cancel_ok() override;
 
-	virtual Error embed_process(DisplayServerEnums::WindowID p_window, ProcessID p_pid, const Rect2i &p_rect, bool p_visible, bool p_grab_focus) override;
-	virtual Error request_close_embedded_process(ProcessID p_pid) override;
-	virtual Error remove_embedded_process(ProcessID p_pid) override;
-	virtual ProcessID get_focused_process_id() override;
 
 	virtual int keyboard_get_layout_count() const override;
 	virtual int keyboard_get_current_layout() const override;

@@ -39,11 +39,7 @@
 class Node3D;
 class Button;
 class PopupMenu;
-class EditorDebuggerPlugin;
 class EditorDock;
-class EditorExport;
-class EditorExportPlugin;
-class EditorExportPlatform;
 class EditorImportPlugin;
 class EditorInspectorPlugin;
 class EditorInterface;
@@ -54,7 +50,6 @@ class EditorScenePostImportPlugin;
 class EditorToolAddons;
 class EditorTranslationParserPlugin;
 class EditorUndoRedoManager;
-class ScriptCreateDialog;
 
 class EditorPlugin : public Node {
 	GDCLASS(EditorPlugin, Node);
@@ -79,13 +74,7 @@ public:
 		CONTAINER_SPATIAL_EDITOR_SIDE_LEFT,
 		CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT,
 		CONTAINER_SPATIAL_EDITOR_BOTTOM,
-		CONTAINER_CANVAS_EDITOR_MENU,
-		CONTAINER_CANVAS_EDITOR_SIDE_LEFT,
-		CONTAINER_CANVAS_EDITOR_SIDE_RIGHT,
-		CONTAINER_CANVAS_EDITOR_BOTTOM,
 		CONTAINER_INSPECTOR_BOTTOM,
-		CONTAINER_PROJECT_SETTING_TAB_LEFT,
-		CONTAINER_PROJECT_SETTING_TAB_RIGHT,
 	};
 
 #ifndef DISABLE_DEPRECATED
@@ -119,9 +108,6 @@ protected:
 	void add_custom_type(const String &p_type, const String &p_base, const Ref<Script> &p_script, const Ref<Texture2D> &p_icon);
 	void remove_custom_type(const String &p_type);
 
-	GDVIRTUAL1R(bool, _forward_canvas_gui_input, Ref<InputEvent>)
-	GDVIRTUAL1(_forward_canvas_draw_over_viewport, Control *)
-	GDVIRTUAL1(_forward_canvas_force_draw_over_viewport, Control *)
 	GDVIRTUAL2R(int, _forward_3d_gui_input, Camera3D *, Ref<InputEvent>)
 	GDVIRTUAL1(_forward_3d_draw_over_viewport, Control *)
 	GDVIRTUAL1(_forward_3d_force_draw_over_viewport, Control *)
@@ -137,11 +123,8 @@ protected:
 	GDVIRTUAL1RC(String, _get_unsaved_status, String)
 	GDVIRTUAL0(_save_external_data)
 	GDVIRTUAL0(_apply_changes)
-	GDVIRTUAL0RC(Vector<String>, _get_breakpoints)
 	GDVIRTUAL1(_set_window_layout, Ref<ConfigFile>)
 	GDVIRTUAL1(_get_window_layout, Ref<ConfigFile>)
-	GDVIRTUAL0R(bool, _build)
-	GDVIRTUAL2RC(Vector<String>, _run_scene, String, Vector<String>)
 	GDVIRTUAL0(_enable_plugin)
 	GDVIRTUAL0(_disable_plugin)
 
@@ -167,9 +150,6 @@ public:
 	void add_dock(EditorDock *p_dock);
 	void remove_dock(EditorDock *p_dock);
 
-	void add_tool_menu_item(const String &p_name, const Callable &p_callable);
-	void add_tool_submenu_item(const String &p_name, PopupMenu *p_submenu);
-	void remove_tool_menu_item(const String &p_name);
 
 	PopupMenu *get_export_as_menu();
 
@@ -185,9 +165,6 @@ public:
 	void notify_resource_saved(const Ref<Resource> &p_resource);
 	void notify_scene_saved(const String &p_scene_filepath);
 
-	virtual bool forward_canvas_gui_input(const Ref<InputEvent> &p_event);
-	virtual void forward_canvas_draw_over_viewport(Control *p_overlay);
-	virtual void forward_canvas_force_draw_over_viewport(Control *p_overlay);
 
 	virtual EditorPlugin::AfterGUIInput forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event);
 	virtual void forward_3d_draw_over_viewport(Control *p_overlay);
@@ -210,16 +187,12 @@ public:
 	virtual String get_unsaved_status(const String &p_for_scene = "") const;
 	virtual void save_external_data(); // if editor references external resources/scenes, save them
 	virtual void apply_changes(); // if changes are pending in editor, apply them
-	virtual void get_breakpoints(List<String> *p_breakpoints);
 	virtual bool get_remove_list(List<Node *> *p_list);
 	virtual void set_window_layout(Ref<ConfigFile> p_layout);
 	virtual void get_window_layout(Ref<ConfigFile> p_layout);
 	virtual void edited_scene_changed() {} // if changes are pending in editor, apply them
-	virtual bool build(); // builds with external tools. Returns true if safe to continue running scene.
-	virtual void run_scene(const String &p_scene, Vector<String> &r_args);
 
 	EditorInterface *get_editor_interface();
-	ScriptCreateDialog *get_script_create_dialog();
 
 	void add_undo_redo_inspector_hook_callback(Callable p_callable);
 	void remove_undo_redo_inspector_hook_callback(Callable p_callable);
@@ -237,11 +210,7 @@ public:
 	void add_import_plugin(const Ref<EditorImportPlugin> &p_importer, bool p_first_priority = false);
 	void remove_import_plugin(const Ref<EditorImportPlugin> &p_importer);
 
-	void add_export_plugin(const Ref<EditorExportPlugin> &p_exporter);
-	void remove_export_plugin(const Ref<EditorExportPlugin> &p_exporter);
 
-	void add_export_platform(const Ref<EditorExportPlatform> &p_platform);
-	void remove_export_platform(const Ref<EditorExportPlatform> &p_platform);
 
 	void add_node_3d_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin);
 	void remove_node_3d_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin);
@@ -255,11 +224,7 @@ public:
 	void add_scene_post_import_plugin(const Ref<EditorScenePostImportPlugin> &p_importer, bool p_first_priority = false);
 	void remove_scene_post_import_plugin(const Ref<EditorScenePostImportPlugin> &p_importer);
 
-	void add_autoload_singleton(const String &p_name, const String &p_path);
-	void remove_autoload_singleton(const String &p_name);
 
-	void add_debugger_plugin(const Ref<EditorDebuggerPlugin> &p_plugin);
-	void remove_debugger_plugin(const Ref<EditorDebuggerPlugin> &p_plugin);
 
 	void add_resource_conversion_plugin(const Ref<EditorResourceConversionPlugin> &p_plugin);
 	void remove_resource_conversion_plugin(const Ref<EditorResourceConversionPlugin> &p_plugin);

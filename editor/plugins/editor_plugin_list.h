@@ -39,9 +39,6 @@ class EditorPluginList {
 	LocalVector<EditorPlugin *> plugins_list;
 
 public:
-	bool forward_gui_input(const Ref<InputEvent> &p_event) const;
-	void forward_canvas_draw_over_viewport(Control *p_overlay) const;
-	void forward_canvas_force_draw_over_viewport(Control *p_overlay) const;
 	EditorPlugin::AfterGUIInput forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event, bool p_serve_when_force_input_enabled) const;
 	void forward_3d_draw_over_viewport(Control *p_overlay) const;
 	void forward_3d_force_draw_over_viewport(Control *p_overlay) const;

@@ -50,14 +50,12 @@ class InspectorDock : public EditorDock {
 		RESOURCE_LOAD,
 		RESOURCE_SAVE,
 		RESOURCE_SAVE_AS,
-		RESOURCE_SHOW_IN_FILESYSTEM,
 		RESOURCE_MAKE_BUILT_IN,
 		RESOURCE_COPY,
 		RESOURCE_EDIT_CLIPBOARD,
 		OBJECT_COPY_PARAMS,
 		OBJECT_PASTE_PARAMS,
 		OBJECT_UNIQUE_RESOURCES,
-		OBJECT_REQUEST_HELP,
 
 		COLLAPSE_ALL,
 		EXPAND_ALL,
@@ -89,7 +87,6 @@ class InspectorDock : public EditorDock {
 	MenuButton *history_menu = nullptr;
 	LineEdit *search = nullptr;
 
-	Button *open_docs_button = nullptr;
 	MenuButton *object_menu = nullptr;
 	EditorObjectSelector *object_selector = nullptr;
 
@@ -125,7 +122,6 @@ class InspectorDock : public EditorDock {
 	void _info_pressed();
 	void _resource_created();
 	void _resource_selected(const Ref<Resource> &p_res, const String &p_property);
-	void _files_moved(const String &p_old_file, const String &p_new_file);
 	void _edit_forward();
 	void _edit_back();
 	void _menu_collapseall();

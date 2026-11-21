@@ -522,7 +522,6 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/fonts/main_font_bold", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/fonts/code_font", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/editor/timers/dragging_hover_wait_seconds", 0.5, "0.01,10,0.01,or_greater,suffix:s");
-	_initial_set("interface/editor/behavior/separate_distraction_mode", false, true);
 	_initial_set("interface/editor/behavior/automatically_open_screenshots", true, true);
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/single_window_mode", false, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED | PROPERTY_USAGE_EDITOR_BASIC_SETTING)
 	_initial_set("interface/editor/input/mouse_extra_buttons_navigate_history", true);
@@ -567,7 +566,6 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/appearance/show_renderer_selector", false, "")
 
 	_initial_set("interface/editors/derive_script_globals_by_name", true);
-	_initial_set("docks/scene_tree/ask_before_revoking_unique_name", true);
 
 	// Inspector
 	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_RANGE, "interface/inspector/max_array_dictionary_items_per_page", 20, "10,100,1")
@@ -642,7 +640,6 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::INT, PROPERTY_HINT_ENUM, "interface/scene_tabs/display_close_button", 1, "Never,If Tab Active,Always"); // TabBar::CloseButtonDisplayPolicy
 	_initial_set("interface/scene_tabs/show_thumbnail_on_hover", true);
 	EDITOR_SETTING_USAGE(Variant::INT, PROPERTY_HINT_RANGE, "interface/scene_tabs/maximum_width", 350, "0,9999,1", PROPERTY_USAGE_DEFAULT)
-	_initial_set("interface/scene_tabs/show_script_button", false, true);
 	_initial_set("interface/scene_tabs/restore_scenes_on_load", true, true);
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/scene_tabs/auto_select_current_scene_file", false, "");
 
@@ -1307,7 +1304,6 @@ void EditorSettings::_handle_setting_compatibility() {
 	_rename_setting("interface/editor/main_font_bold", "interface/editor/fonts/main_font_bold");
 	_rename_setting("interface/editor/code_font", "interface/editor/fonts/code_font");
 	_rename_setting("interface/editor/dragging_hover_wait_seconds", "interface/editor/timers/dragging_hover_wait_seconds");
-	_rename_setting("interface/editor/separate_distraction_mode", "interface/editor/behavior/separate_distraction_mode");
 	_rename_setting("interface/editor/automatically_open_screenshots", "interface/editor/behavior/automatically_open_screenshots");
 	_rename_setting("interface/editor/single_window_mode", "interface/editor/display/single_window_mode");
 	_rename_setting("interface/editor/mouse_extra_buttons_navigate_history", "interface/editor/input/mouse_extra_buttons_navigate_history");
@@ -1475,7 +1471,7 @@ fail:
 }
 
 void EditorSettings::init_shortcuts() {
-	ED_SHORTCUT("editor/open_search", TTRC("Focus Search/Filter Bar"), KeyModifierMask::CMD_OR_CTRL | Key::F);
+	ED_SHORTCUT("editor/open_search", TTRC("Focus Search Bar"), KeyModifierMask::CMD_OR_CTRL | Key::F);
 }
 
 void EditorSettings::setup_language(bool p_initial_setup) {
@@ -1971,27 +1967,6 @@ void EditorSettings::update_text_editor_themes_list() {
 		themes += "," + String(",").join(custom_themes);
 	}
 	add_property_hint(PropertyInfo(Variant::STRING, "text_editor/theme/color_theme", PROPERTY_HINT_ENUM, themes));
-}
-
-Vector<String> EditorSettings::get_script_templates(const String &p_extension, const String &p_custom_path) {
-	Vector<String> templates;
-	String template_dir = EditorPaths::get_singleton()->get_script_templates_dir();
-	if (!p_custom_path.is_empty()) {
-		template_dir = p_custom_path;
-	}
-	Ref<DirAccess> d = DirAccess::open(template_dir);
-	if (d.is_valid()) {
-		d->list_dir_begin();
-		String file = d->get_next();
-		while (!file.is_empty()) {
-			if (file.get_extension() == p_extension) {
-				templates.push_back(file.get_basename());
-			}
-			file = d->get_next();
-		}
-		d->list_dir_end();
-	}
-	return templates;
 }
 
 String EditorSettings::get_editor_layouts_config() const {

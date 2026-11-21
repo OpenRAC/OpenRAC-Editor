@@ -36,7 +36,6 @@
 #include "core/object/class_db.h"
 #include "core/os/os.h"
 #include "core/string/fuzzy_search.h"
-#include "editor/docks/filesystem_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
 #include "editor/file_system/editor_file_system.h"
@@ -316,8 +315,6 @@ void EditorQuickOpenDialog::shortcut_input(const Ref<InputEvent> &p_event) {
 			new_base_types.push_back("Resource");
 		} else if (settings->is_shortcut("editor/quick_open_scene", p_event)) {
 			new_base_types.push_back("PackedScene");
-		} else if (settings->is_shortcut("editor/quick_open_script", p_event)) {
-			new_base_types.push_back("Script");
 		}
 	}
 
@@ -414,7 +411,6 @@ QuickOpenResultContainer::QuickOpenResultContainer() {
 			scroll_container->add_child(grid);
 
 			file_context_menu = memnew(PopupMenu);
-			file_context_menu->add_item(TTR("Show in FileSystem"), FILE_SHOW_IN_FILESYSTEM);
 			file_context_menu->add_item(OS::get_singleton()->get_platform_string(OS::PLATFORM_STRING_FILE_MANAGER_SHOW), FILE_SHOW_IN_FILE_MANAGER);
 			file_context_menu->connect(SceneStringName(id_pressed), callable_mp(this, &QuickOpenResultContainer::_menu_option));
 			file_context_menu->hide();
@@ -479,9 +475,6 @@ void QuickOpenResultContainer::_menu_option(int p_option) {
 	String selected_path = get_selected_path();
 
 	switch (p_option) {
-		case FILE_SHOW_IN_FILESYSTEM: {
-			FileSystemDock::get_singleton()->navigate_to_path(selected_path);
-		} break;
 		case FILE_SHOW_IN_FILE_MANAGER: {
 			String dir = ProjectSettings::get_singleton()->globalize_path(selected_path);
 			OS::get_singleton()->shell_show_in_file_manager(dir, true);
@@ -1180,7 +1173,6 @@ void QuickOpenResultContainer::_notification(int p_what) {
 			file_details_path->add_theme_color_override(SceneStringName(font_color), text_color);
 			no_results_label->add_theme_color_override(SceneStringName(font_color), text_color);
 
-			file_context_menu->set_item_icon(FILE_SHOW_IN_FILESYSTEM, get_editor_theme_icon(SNAME("ShowInFileSystem")));
 			file_context_menu->set_item_icon(FILE_SHOW_IN_FILE_MANAGER, get_editor_theme_icon(SNAME("Filesystem")));
 
 			panel_container->add_theme_style_override(SceneStringName(panel), get_theme_stylebox(SceneStringName(panel), SNAME("Tree")));

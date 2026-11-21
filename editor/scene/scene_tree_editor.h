@@ -49,14 +49,10 @@ class SceneTreeEditor : public Control {
 	enum SceneTreeEditorButton {
 		BUTTON_SUBSCENE = 0,
 		BUTTON_VISIBILITY = 1,
-		BUTTON_SCRIPT = 2,
 		BUTTON_LOCK = 3,
 		BUTTON_GROUP = 4,
 		BUTTON_WARNING = 5,
-		BUTTON_SIGNALS = 6,
-		BUTTON_GROUPS = 7,
 		BUTTON_PIN = 8,
-		BUTTON_UNIQUE = 9,
 	};
 
 	struct CachedNode {
@@ -121,16 +117,10 @@ class SceneTreeEditor : public Control {
 	AcceptDialog *error = nullptr;
 	AcceptDialog *warning = nullptr;
 
-	ConfirmationDialog *revoke_dialog = nullptr;
-	Label *revoke_dialog_label = nullptr;
-	CheckBox *ask_before_revoke_checkbox = nullptr;
-	Node *revoke_node = nullptr;
 
 	bool auto_expand_selected = true;
 	bool hide_filtered_out_parents = false;
 	bool accessibility_warnings = false;
-	bool connect_to_script_mode = false;
-	bool connecting_signal = false;
 	bool update_when_invisible = true;
 
 	int blocked;
@@ -219,14 +209,10 @@ class SceneTreeEditor : public Control {
 
 	Timer *update_timer = nullptr;
 
-	LocalVector<StringName> *script_types;
 	bool _has_drop_selection(TreeItem *p_item, const Point2 &p_point) const;
-	bool _is_script_type(const StringName &p_type) const;
 
 	Vector<StringName> valid_types;
 
-	void _update_ask_before_revoking_unique_name();
-	void _revoke_unique_name();
 
 public:
 	// Public for use as signal callback.
@@ -258,8 +244,6 @@ public:
 	void set_auto_expand_selected(bool p_auto, bool p_update_settings);
 	void set_hide_filtered_out_parents(bool p_hide, bool p_update_settings);
 	void set_accessibility_warnings(bool p_enable, bool p_update_settings);
-	void set_connect_to_script_mode(bool p_enable);
-	void set_connecting_signal(bool p_enable);
 	void set_update_when_invisible(bool p_enable);
 
 	Tree *get_scene_tree() { return tree; }
@@ -267,7 +251,6 @@ public:
 	void update_warning();
 
 	SceneTreeEditor(bool p_label = true, bool p_can_rename = false, bool p_can_open_instance = false);
-	~SceneTreeEditor();
 };
 
 class SceneTreeDialog : public ConfirmationDialog {

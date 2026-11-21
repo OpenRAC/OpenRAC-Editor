@@ -34,8 +34,6 @@
 #include "core/io/resource_importer.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
-#include "editor/debugger/editor_debugger_node.h"
-#include "editor/debugger/editor_debugger_plugin.h"
 #include "editor/docks/editor_dock.h"
 #include "editor/docks/editor_dock_manager.h"
 #include "editor/docks/inspector_dock.h"
@@ -43,8 +41,6 @@
 #include "editor/editor_interface.h"
 #include "editor/editor_node.h"
 #include "editor/editor_undo_redo_manager.h"
-#include "editor/export/editor_export.h"
-#include "editor/export/editor_export_platform.h"
 #include "editor/file_system/editor_file_system.h"
 #include "editor/gui/editor_bottom_panel.h"
 #include "editor/gui/editor_title_bar.h"
@@ -54,9 +50,6 @@
 #include "editor/plugins/editor_plugin_list.h"
 #include "editor/plugins/editor_resource_conversion_plugin.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h"
-#include "editor/scene/canvas_item_editor_plugin.h"
-#include "editor/script/script_editor_plugin.h"
-#include "editor/settings/project_settings_editor.h"
 #include "editor/translations/editor_translation_parser.h"
 #include "scene/3d/camera_3d.h"
 #include "scene/gui/popup_menu.h"
@@ -67,21 +60,6 @@ void EditorPlugin::add_custom_type(const String &p_type, const String &p_base, c
 
 void EditorPlugin::remove_custom_type(const String &p_type) {
 	EditorNode::get_editor_data().remove_custom_type(p_type);
-}
-
-void EditorPlugin::add_autoload_singleton(const String &p_name, const String &p_path) {
-	if (p_path.begins_with("res://")) {
-		EditorNode::get_singleton()->get_project_settings()->get_autoload_settings()->autoload_add(p_name, p_path);
-	} else {
-		const Ref<Script> plugin_script = static_cast<Ref<Script>>(get_script());
-		ERR_FAIL_COND(plugin_script.is_null());
-		const String script_base_path = plugin_script->get_path().get_base_dir();
-		EditorNode::get_singleton()->get_project_settings()->get_autoload_settings()->autoload_add(p_name, script_base_path.path_join(p_path));
-	}
-}
-
-void EditorPlugin::remove_autoload_singleton(const String &p_name) {
-	EditorNode::get_singleton()->get_project_settings()->get_autoload_settings()->autoload_remove(p_name);
 }
 
 #ifndef DISABLE_DEPRECATED
@@ -159,31 +137,8 @@ void EditorPlugin::add_control_to_container(CustomControlContainer p_location, C
 			Node3DEditor::get_singleton()->get_shader_split()->add_child(p_control);
 
 		} break;
-		case CONTAINER_CANVAS_EDITOR_MENU: {
-			CanvasItemEditor::get_singleton()->add_control_to_menu_panel(p_control);
-
-		} break;
-		case CONTAINER_CANVAS_EDITOR_SIDE_LEFT: {
-			CanvasItemEditor::get_singleton()->add_control_to_left_panel(p_control);
-		} break;
-		case CONTAINER_CANVAS_EDITOR_SIDE_RIGHT: {
-			CanvasItemEditor::get_singleton()->add_control_to_right_panel(p_control);
-		} break;
-		case CONTAINER_CANVAS_EDITOR_BOTTOM: {
-			CanvasItemEditor::get_singleton()->get_bottom_split()->add_child(p_control);
-
-		} break;
 		case CONTAINER_INSPECTOR_BOTTOM: {
 			InspectorDock::get_singleton()->get_addon_area()->add_child(p_control);
-
-		} break;
-		case CONTAINER_PROJECT_SETTING_TAB_LEFT: {
-			ProjectSettingsEditor::get_singleton()->get_tabs()->add_child(p_control);
-			ProjectSettingsEditor::get_singleton()->get_tabs()->move_child(p_control, 0);
-
-		} break;
-		case CONTAINER_PROJECT_SETTING_TAB_RIGHT: {
-			ProjectSettingsEditor::get_singleton()->get_tabs()->add_child(p_control);
 
 		} break;
 	}
@@ -211,43 +166,11 @@ void EditorPlugin::remove_control_from_container(CustomControlContainer p_locati
 			Node3DEditor::get_singleton()->get_shader_split()->remove_child(p_control);
 
 		} break;
-		case CONTAINER_CANVAS_EDITOR_MENU: {
-			CanvasItemEditor::get_singleton()->remove_control_from_menu_panel(p_control);
-
-		} break;
-		case CONTAINER_CANVAS_EDITOR_SIDE_LEFT: {
-			CanvasItemEditor::get_singleton()->remove_control_from_left_panel(p_control);
-		} break;
-		case CONTAINER_CANVAS_EDITOR_SIDE_RIGHT: {
-			CanvasItemEditor::get_singleton()->remove_control_from_right_panel(p_control);
-		} break;
-		case CONTAINER_CANVAS_EDITOR_BOTTOM: {
-			CanvasItemEditor::get_singleton()->get_bottom_split()->remove_child(p_control);
-
-		} break;
 		case CONTAINER_INSPECTOR_BOTTOM: {
 			InspectorDock::get_singleton()->get_addon_area()->remove_child(p_control);
 
 		} break;
-		case CONTAINER_PROJECT_SETTING_TAB_LEFT:
-		case CONTAINER_PROJECT_SETTING_TAB_RIGHT: {
-			ProjectSettingsEditor::get_singleton()->get_tabs()->remove_child(p_control);
-
-		} break;
 	}
-}
-
-void EditorPlugin::add_tool_menu_item(const String &p_name, const Callable &p_callable) {
-	EditorNode::get_singleton()->add_tool_menu_item(p_name, p_callable);
-}
-
-void EditorPlugin::add_tool_submenu_item(const String &p_name, PopupMenu *p_submenu) {
-	ERR_FAIL_NULL(p_submenu);
-	EditorNode::get_singleton()->add_tool_submenu_item(p_name, p_submenu);
-}
-
-void EditorPlugin::remove_tool_menu_item(const String &p_name) {
-	EditorNode::get_singleton()->remove_tool_menu_item(p_name);
 }
 
 PopupMenu *EditorPlugin::get_export_as_menu() {
@@ -289,20 +212,6 @@ void EditorPlugin::notify_scene_saved(const String &p_scene_filepath) {
 	emit_signal(SNAME("scene_saved"), p_scene_filepath);
 }
 
-bool EditorPlugin::forward_canvas_gui_input(const Ref<InputEvent> &p_event) {
-	bool success = false;
-	GDVIRTUAL_CALL(_forward_canvas_gui_input, p_event, success);
-	return success;
-}
-
-void EditorPlugin::forward_canvas_draw_over_viewport(Control *p_overlay) {
-	GDVIRTUAL_CALL(_forward_canvas_draw_over_viewport, p_overlay);
-}
-
-void EditorPlugin::forward_canvas_force_draw_over_viewport(Control *p_overlay) {
-	GDVIRTUAL_CALL(_forward_canvas_force_draw_over_viewport, p_overlay);
-}
-
 // Updates the overlays of the 2D viewport or, if in 3D mode, of every 3D viewport.
 int EditorPlugin::update_overlays() const {
 	if (Node3DEditor::get_singleton()->is_visible()) {
@@ -315,11 +224,8 @@ int EditorPlugin::update_overlays() const {
 			}
 		}
 		return count;
-	} else {
-		// This will update the normal viewport itself as well
-		CanvasItemEditor::get_singleton()->get_viewport_control()->queue_redraw();
-		return 1;
 	}
+	return 0;
 }
 
 EditorPlugin::AfterGUIInput EditorPlugin::forward_3d_gui_input(Camera3D *p_camera, const Ref<InputEvent> &p_event) {
@@ -409,15 +315,6 @@ void EditorPlugin::apply_changes() {
 	GDVIRTUAL_CALL(_apply_changes);
 }
 
-void EditorPlugin::get_breakpoints(List<String> *p_breakpoints) {
-	PackedStringArray arr;
-	if (GDVIRTUAL_CALL(_get_breakpoints, arr)) {
-		for (int i = 0; i < arr.size(); i++) {
-			p_breakpoints->push_back(arr[i]);
-		}
-	}
-}
-
 bool EditorPlugin::get_remove_list(List<Node *> *p_list) {
 	return false;
 }
@@ -458,26 +355,6 @@ void EditorPlugin::remove_import_plugin(const Ref<EditorImportPlugin> &p_importe
 	if (!EditorNode::get_singleton()->is_exiting() && !EditorFileSystem::get_singleton()->doing_first_scan()) {
 		callable_mp(EditorFileSystem::get_singleton(), &EditorFileSystem::scan).call_deferred();
 	}
-}
-
-void EditorPlugin::add_export_plugin(const Ref<EditorExportPlugin> &p_exporter) {
-	ERR_FAIL_COND(p_exporter.is_null());
-	EditorExport::get_singleton()->add_export_plugin(p_exporter);
-}
-
-void EditorPlugin::remove_export_plugin(const Ref<EditorExportPlugin> &p_exporter) {
-	ERR_FAIL_COND(p_exporter.is_null());
-	EditorExport::get_singleton()->remove_export_plugin(p_exporter);
-}
-
-void EditorPlugin::add_export_platform(const Ref<EditorExportPlatform> &p_platform) {
-	ERR_FAIL_COND(p_platform.is_null());
-	EditorExport::get_singleton()->add_export_platform(p_platform);
-}
-
-void EditorPlugin::remove_export_platform(const Ref<EditorExportPlatform> &p_platform) {
-	ERR_FAIL_COND(p_platform.is_null());
-	EditorExport::get_singleton()->remove_export_platform(p_platform);
 }
 
 void EditorPlugin::add_node_3d_gizmo_plugin(const Ref<EditorNode3DGizmoPlugin> &p_gizmo_plugin) {
@@ -556,19 +433,6 @@ void EditorPlugin::get_window_layout(Ref<ConfigFile> p_layout) {
 	GDVIRTUAL_CALL(_get_window_layout, p_layout);
 }
 
-bool EditorPlugin::build() {
-	bool success = true;
-	GDVIRTUAL_CALL(_build, success);
-	return success;
-}
-
-void EditorPlugin::run_scene(const String &p_scene, Vector<String> &r_args) {
-	Vector<String> new_args;
-	if (GDVIRTUAL_CALL(_run_scene, p_scene, r_args, new_args)) {
-		r_args = new_args;
-	}
-}
-
 void EditorPlugin::queue_save_layout() {
 	EditorNode::get_singleton()->save_editor_layout_delayed();
 }
@@ -583,18 +447,6 @@ void EditorPlugin::hide_bottom_panel() {
 
 EditorInterface *EditorPlugin::get_editor_interface() {
 	return EditorInterface::get_singleton();
-}
-
-ScriptCreateDialog *EditorPlugin::get_script_create_dialog() {
-	return SceneTreeDock::get_singleton()->get_script_create_dialog();
-}
-
-void EditorPlugin::add_debugger_plugin(const Ref<EditorDebuggerPlugin> &p_plugin) {
-	EditorDebuggerNode::get_singleton()->add_debugger_plugin(p_plugin);
-}
-
-void EditorPlugin::remove_debugger_plugin(const Ref<EditorDebuggerPlugin> &p_plugin) {
-	EditorDebuggerNode::get_singleton()->remove_debugger_plugin(p_plugin);
 }
 
 void EditorPlugin::add_resource_conversion_plugin(const Ref<EditorResourceConversionPlugin> &p_plugin) {
@@ -630,9 +482,6 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_dock", "dock"), &EditorPlugin::remove_dock);
 	ClassDB::bind_method(D_METHOD("add_control_to_container", "container", "control"), &EditorPlugin::add_control_to_container);
 	ClassDB::bind_method(D_METHOD("remove_control_from_container", "container", "control"), &EditorPlugin::remove_control_from_container);
-	ClassDB::bind_method(D_METHOD("add_tool_menu_item", "name", "callable"), &EditorPlugin::add_tool_menu_item);
-	ClassDB::bind_method(D_METHOD("add_tool_submenu_item", "name", "submenu"), &EditorPlugin::add_tool_submenu_item);
-	ClassDB::bind_method(D_METHOD("remove_tool_menu_item", "name"), &EditorPlugin::remove_tool_menu_item);
 	ClassDB::bind_method(D_METHOD("get_export_as_menu"), &EditorPlugin::get_export_as_menu);
 	ClassDB::bind_method(D_METHOD("add_custom_type", "type", "base", "script", "icon"), &EditorPlugin::add_custom_type);
 	ClassDB::bind_method(D_METHOD("remove_custom_type", "type"), &EditorPlugin::remove_custom_type);
@@ -644,9 +493,6 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("add_control_to_bottom_panel", "control", "title", "shortcut"), &EditorPlugin::add_control_to_bottom_panel, DEFVAL(Ref<Shortcut>()));
 	ClassDB::bind_method(D_METHOD("remove_control_from_bottom_panel", "control"), &EditorPlugin::remove_control_from_bottom_panel);
 #endif
-
-	ClassDB::bind_method(D_METHOD("add_autoload_singleton", "name", "path"), &EditorPlugin::add_autoload_singleton);
-	ClassDB::bind_method(D_METHOD("remove_autoload_singleton", "name"), &EditorPlugin::remove_autoload_singleton);
 
 	ClassDB::bind_method(D_METHOD("update_overlays"), &EditorPlugin::update_overlays);
 
@@ -665,10 +511,6 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_scene_format_importer_plugin", "scene_format_importer"), &EditorPlugin::remove_scene_format_importer_plugin);
 	ClassDB::bind_method(D_METHOD("add_scene_post_import_plugin", "scene_import_plugin", "first_priority"), &EditorPlugin::add_scene_post_import_plugin, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("remove_scene_post_import_plugin", "scene_import_plugin"), &EditorPlugin::remove_scene_post_import_plugin);
-	ClassDB::bind_method(D_METHOD("add_export_plugin", "plugin"), &EditorPlugin::add_export_plugin);
-	ClassDB::bind_method(D_METHOD("remove_export_plugin", "plugin"), &EditorPlugin::remove_export_plugin);
-	ClassDB::bind_method(D_METHOD("add_export_platform", "platform"), &EditorPlugin::add_export_platform);
-	ClassDB::bind_method(D_METHOD("remove_export_platform", "platform"), &EditorPlugin::remove_export_platform);
 	ClassDB::bind_method(D_METHOD("add_node_3d_gizmo_plugin", "plugin"), &EditorPlugin::add_node_3d_gizmo_plugin);
 	ClassDB::bind_method(D_METHOD("remove_node_3d_gizmo_plugin", "plugin"), &EditorPlugin::remove_node_3d_gizmo_plugin);
 	ClassDB::bind_method(D_METHOD("add_inspector_plugin", "plugin"), &EditorPlugin::add_inspector_plugin);
@@ -681,14 +523,8 @@ void EditorPlugin::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("remove_context_menu_plugin", "plugin"), &EditorPlugin::remove_context_menu_plugin);
 
 	ClassDB::bind_method(D_METHOD("get_editor_interface"), &EditorPlugin::get_editor_interface);
-	ClassDB::bind_method(D_METHOD("get_script_create_dialog"), &EditorPlugin::get_script_create_dialog);
-	ClassDB::bind_method(D_METHOD("add_debugger_plugin", "script"), &EditorPlugin::add_debugger_plugin);
-	ClassDB::bind_method(D_METHOD("remove_debugger_plugin", "script"), &EditorPlugin::remove_debugger_plugin);
 	ClassDB::bind_method(D_METHOD("get_plugin_version"), &EditorPlugin::get_plugin_version);
 
-	GDVIRTUAL_BIND(_forward_canvas_gui_input, "event");
-	GDVIRTUAL_BIND(_forward_canvas_draw_over_viewport, "viewport_control");
-	GDVIRTUAL_BIND(_forward_canvas_force_draw_over_viewport, "viewport_control");
 	GDVIRTUAL_BIND(_forward_3d_gui_input, "viewport_camera", "event");
 	GDVIRTUAL_BIND(_forward_3d_draw_over_viewport, "viewport_control");
 	GDVIRTUAL_BIND(_forward_3d_force_draw_over_viewport, "viewport_control");
@@ -704,11 +540,8 @@ void EditorPlugin::_bind_methods() {
 	GDVIRTUAL_BIND(_get_unsaved_status, "for_scene");
 	GDVIRTUAL_BIND(_save_external_data);
 	GDVIRTUAL_BIND(_apply_changes);
-	GDVIRTUAL_BIND(_get_breakpoints);
 	GDVIRTUAL_BIND(_set_window_layout, "configuration");
 	GDVIRTUAL_BIND(_get_window_layout, "configuration");
-	GDVIRTUAL_BIND(_build);
-	GDVIRTUAL_BIND(_run_scene, "scene", "args");
 	GDVIRTUAL_BIND(_enable_plugin);
 	GDVIRTUAL_BIND(_disable_plugin);
 
@@ -724,13 +557,7 @@ void EditorPlugin::_bind_methods() {
 	BIND_ENUM_CONSTANT(CONTAINER_SPATIAL_EDITOR_SIDE_LEFT);
 	BIND_ENUM_CONSTANT(CONTAINER_SPATIAL_EDITOR_SIDE_RIGHT);
 	BIND_ENUM_CONSTANT(CONTAINER_SPATIAL_EDITOR_BOTTOM);
-	BIND_ENUM_CONSTANT(CONTAINER_CANVAS_EDITOR_MENU);
-	BIND_ENUM_CONSTANT(CONTAINER_CANVAS_EDITOR_SIDE_LEFT);
-	BIND_ENUM_CONSTANT(CONTAINER_CANVAS_EDITOR_SIDE_RIGHT);
-	BIND_ENUM_CONSTANT(CONTAINER_CANVAS_EDITOR_BOTTOM);
 	BIND_ENUM_CONSTANT(CONTAINER_INSPECTOR_BOTTOM);
-	BIND_ENUM_CONSTANT(CONTAINER_PROJECT_SETTING_TAB_LEFT);
-	BIND_ENUM_CONSTANT(CONTAINER_PROJECT_SETTING_TAB_RIGHT);
 
 #ifndef DISABLE_DEPRECATED
 	BIND_ENUM_CONSTANT(DOCK_SLOT_NONE);

@@ -36,7 +36,6 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/keyboard.h"
-#include "editor/debugger/editor_debugger_node.h"
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
@@ -270,8 +269,6 @@ void EditorSettingsDialog::_notification(int p_what) {
 				return;
 			}
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_method_notify_callback(EditorDebuggerNode::_methods_changed, nullptr);
-			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_property_notify_callback(EditorDebuggerNode::_properties_changed, nullptr);
 			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_commit_notify_callback(_undo_redo_callback, this);
 		} break;
 
@@ -390,7 +387,7 @@ void EditorSettingsDialog::_update_builtin_action(const String &p_name, const Ar
 		_settings_changed();
 	} else {
 		EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-		undo_redo->create_action(vformat(TTR("Edit Built-in Action: %s"), p_name));
+		undo_redo->create_action(vformat(TTR("Edit Shortcut: %s"), p_name));
 		undo_redo->add_do_method(EditorSettings::get_singleton(), "mark_setting_changed", "builtin_action_overrides");
 		undo_redo->add_undo_method(EditorSettings::get_singleton(), "mark_setting_changed", "builtin_action_overrides");
 		undo_redo->add_do_method(EditorSettings::get_singleton(), "set_builtin_action_override", p_name, p_events);
@@ -502,7 +499,7 @@ TreeItem *EditorSettingsDialog::_create_shortcut_treeitem(TreeItem *p_parent, co
 		TreeItem *event_item = shortcuts->create_item(shortcut_item);
 
 		// TRANSLATORS: This is the label for the main input event of a shortcut.
-		event_item->set_text(0, shortcut_item->get_child_count() == 1 ? TTRC("Primary") : "");
+		event_item->set_text(0, shortcut_item->get_child_count() == 1 ? TTRC("Main") : "");
 		event_item->set_text(1, ie->as_text());
 		event_item->set_auto_translate_mode(1, AUTO_TRANSLATE_MODE_DISABLED);
 
@@ -821,7 +818,7 @@ Variant EditorSettingsDialog::get_drag_data_fw(const Point2 &p_point, Control *p
 		return Variant();
 	}
 
-	String label_text = vformat(TTR("Event %d"), selected->get_meta("event_index"));
+	String label_text = vformat(TTR("Key %d"), selected->get_meta("event_index"));
 	Label *label = memnew(Label(label_text));
 	label->set_modulate(Color(1, 1, 1, 1.0f));
 	shortcuts->set_drag_preview(label);
@@ -960,7 +957,7 @@ void EditorSettingsDialog::_bind_methods() {
 }
 
 EditorSettingsDialog::EditorSettingsDialog() {
-	set_title(TTRC("Editor Settings"));
+	set_title(TTRC("Settings"));
 	set_flag(FLAG_MAXIMIZE_DISABLED, false);
 	set_clamp_to_embedder(true);
 
@@ -1059,7 +1056,7 @@ EditorSettingsDialog::EditorSettingsDialog() {
 	shortcuts->set_hide_root(true);
 	shortcuts->set_column_titles_visible(true);
 	shortcuts->set_column_title(0, TTRC("Name"));
-	shortcuts->set_column_title(1, TTRC("Binding"));
+	shortcuts->set_column_title(1, TTRC("Keys"));
 	shortcuts->connect("button_clicked", callable_mp(this, &EditorSettingsDialog::_shortcut_button_pressed));
 	shortcuts->connect("item_activated", callable_mp(this, &EditorSettingsDialog::_shortcut_cell_double_clicked));
 	mc->add_child(shortcuts);
@@ -1102,13 +1099,6 @@ void EditorSettingsPropertyWrapper::_setup_override_info() {
 	override_editor_property->set_label(TTR("Overridden in project"));
 	override_editor_property->set_h_size_flags(SIZE_EXPAND_FILL);
 	override_container->add_child(override_editor_property);
-
-	goto_button = memnew(Button);
-	goto_button->set_tooltip_text(TTRC("Go to the override in the Project Settings."));
-	override_container->add_child(goto_button);
-	if (EditorNode::get_singleton()) {
-		goto_button->connect(SceneStringName(pressed), callable_mp(EditorNode::get_singleton(), &EditorNode::open_setting_override).bind(property), CONNECT_DEFERRED);
-	}
 
 	remove_button = memnew(Button);
 	remove_button->set_tooltip_text(TTRC("Remove this override."));
@@ -1167,7 +1157,6 @@ void EditorSettingsPropertyWrapper::_remove_override() {
 void EditorSettingsPropertyWrapper::_notification(int p_what) {
 	if (override_container && p_what == NOTIFICATION_THEME_CHANGED) {
 		override_icon->set_texture(get_editor_theme_icon(SNAME("Hierarchy")));
-		goto_button->set_button_icon(get_editor_theme_icon(SNAME("MethodOverride")));
 		remove_button->set_button_icon(get_editor_theme_icon(SNAME("Close")));
 	}
 }

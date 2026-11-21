@@ -46,9 +46,7 @@
 #include "editor/editor_node.h"
 #include "editor/file_system/editor_paths.h"
 #include "editor/inspector/editor_resource_preview.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
-#include "editor/settings/project_settings_editor.h"
 #include "scene/main/scene_tree.h"
 #include "scene/resources/packed_scene.h"
 #include "servers/display/display_server.h"
@@ -315,12 +313,12 @@ void EditorFileSystem::_scan_for_uid_directory(const ScannedDirectory *p_scan_di
 }
 
 void EditorFileSystem::_first_scan_filesystem() {
-	EditorProgress ep = EditorProgress("first_scan_filesystem", TTR("Project initialization"), 5);
+	EditorProgress ep = EditorProgress("first_scan_filesystem", TTR("Starting up"), 4);
 	HashSet<String> existing_class_names;
 	HashSet<String> extensions;
 
 	if (!first_scan_root_dir) {
-		ep.step(TTR("Scanning file structure..."), 0, true);
+		ep.step(TTR("Looking at files"), 0, true);
 		_load_first_scan_root_dir();
 	}
 
@@ -350,16 +348,12 @@ void EditorFileSystem::_first_scan_filesystem() {
 	ep.step(TTR("Verifying GDExtensions..."), 2, true);
 	GDExtensionManager::get_singleton()->ensure_extensions_loaded(extensions);
 
-	// Now that all the global class names should be loaded, create autoloads and plugins.
-	// This is done after loading the global class names because autoloads and plugins can use
-	// global class names.
-	ep.step(TTR("Creating autoload scripts..."), 3, true);
-	ProjectSettingsEditor::get_singleton()->init_autoloads();
-
-	ep.step(TTR("Initializing plugins..."), 4, true);
+	// Now that all the global class names should be loaded, create plugins.
+	// OpenRAC Editor: no autoloads (the project settings editor is gone).
+	ep.step(TTR("Initializing plugins..."), 3, true);
 	EditorNode::get_singleton()->init_plugins();
 
-	ep.step(TTR("Starting file scan..."), 5, true);
+	ep.step(TTR("Looking at files"), 4, true);
 }
 
 void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_scan_dir, List<String> &p_gdextension_extensions, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions) {
@@ -1667,7 +1661,7 @@ int EditorFileSystem::_insert_actions_delete_files_directory(EditorFileSystemDir
 void EditorFileSystem::_thread_func_sources(void *_userdata) {
 	EditorFileSystem *efs = (EditorFileSystem *)_userdata;
 	if (efs->filesystem) {
-		EditorProgressBG pr("sources", TTR("ScanSources"), 1000);
+		EditorProgressBG pr("sources", TTR("Looking at files"), 1000);
 		ScanProgress sp;
 		sp.progress = &pr;
 		sp.hi = efs->nb_files_total;
@@ -1722,7 +1716,7 @@ void EditorFileSystem::scan_changes() {
 
 	if (!use_threads) {
 		if (filesystem) {
-			EditorProgressBG pr("sources", TTR("ScanSources"), 1000);
+			EditorProgressBG pr("sources", TTR("Looking at files"), 1000);
 			ScanProgress sp;
 			sp.progress = &pr;
 			sp.hi = nb_files_total;
@@ -2244,10 +2238,6 @@ void EditorFileSystem::_update_script_documentation() {
 						if (scr.is_valid()) {
 							for (const DocData::ClassDoc &cd : scr->get_documentation()) {
 								EditorHelp::add_doc(cd);
-								if (!first_scan) {
-									// Update the documentation in the Script Editor if it is open.
-									ScriptEditor::get_singleton()->update_doc(cd.name);
-								}
 							}
 						}
 					}
@@ -2271,10 +2261,6 @@ void EditorFileSystem::_update_script_documentation() {
 				}
 				for (const DocData::ClassDoc &cd : scr->get_documentation()) {
 					EditorHelp::add_doc(cd);
-					if (!first_scan) {
-						// Update the documentation in the Script Editor if it is open.
-						ScriptEditor::get_singleton()->update_doc(cd.name);
-					}
 				}
 			}
 		}
@@ -2297,11 +2283,6 @@ bool EditorFileSystem::_should_reload_script(const String &p_path) {
 	Ref<Script> scr = ResourceCache::get_ref(p_path);
 	if (scr.is_null()) {
 		// Not a script or not already loaded.
-		return false;
-	}
-
-	// Scripts are reloaded via the script editor if they are currently opened.
-	if (ScriptEditor::get_singleton()->get_open_scripts().has(scr)) {
 		return false;
 	}
 
@@ -2630,7 +2611,7 @@ Error EditorFileSystem::_reimport_group(const String &p_group_file, const Vector
 		ERR_CONTINUE(file_importer_name.is_empty());
 
 		if (!importer_name.is_empty() && importer_name != file_importer_name) {
-			EditorNode::get_singleton()->show_warning(vformat(TTR("There are multiple importers for different types pointing to file %s, import aborted"), p_group_file));
+			EditorNode::get_singleton()->show_warning(vformat(TTR("Couldn't read %s: more than one reader wants it."), p_group_file));
 			ERR_FAIL_V(ERR_FILE_CORRUPT);
 		}
 
@@ -3261,7 +3242,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 
 	Vector<String> reloads;
 
-	EditorProgress *ep = memnew(EditorProgress("reimport", TTR("(Re)Importing Assets"), p_files.size()));
+	EditorProgress *ep = memnew(EditorProgress("reimport", TTR("Reading Files"), p_files.size()));
 
 	// The method reimport_files runs on the main thread, and if VSync is enabled
 	// or Update Continuously is disabled, Main::Iteration takes longer each frame.
@@ -3278,7 +3259,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 	HashSet<String> groups_to_reimport;
 
 	for (int i = 0; i < p_files.size(); i++) {
-		ep->step(TTR("Preparing files to reimport..."), i, false);
+		ep->step(TTR("Getting files ready"), i, false);
 
 		String file = p_files[i];
 
@@ -3319,7 +3300,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 
 	reimport_files.sort();
 
-	ep->step(TTR("Executing pre-reimport operations..."), 0, true);
+	ep->step(TTR("Getting files ready"), 0, true);
 
 	// Emit the resource_reimporting signal for the single file before the actual importation.
 	emit_signal(SNAME("resources_reimporting"), reloads);
@@ -3365,7 +3346,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 					tdata.imported_sem = &imported_sem;
 
 					int item_count = i - from + 1;
-					WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &EditorFileSystem::_reimport_thread, &tdata, item_count, -1, false, vformat(TTR("Import resources of type: %s"), reimport_files[from].importer));
+					WorkerThreadPool::GroupID group_task = WorkerThreadPool::get_singleton()->add_template_group_task(this, &EditorFileSystem::_reimport_thread, &tdata, item_count, -1, false, vformat(TTR("Reading %s files"), reimport_files[from].importer));
 
 					int imported_count = 0;
 					while (true) {
@@ -3417,7 +3398,7 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 			}
 		}
 	}
-	ep->step(TTR("Finalizing Asset Import..."), p_files.size());
+	ep->step(TTR("Finishing up"), p_files.size());
 
 	ResourceUID::get_singleton()->update_cache(); // After reimporting, update the cache.
 	_save_filesystem_cache();
@@ -3432,8 +3413,8 @@ void EditorFileSystem::reimport_files(const Vector<String> &p_files) {
 
 	importing = false;
 
-	ep = memnew(EditorProgress("reimport", TTR("(Re)Importing Assets"), p_files.size()));
-	ep->step(TTR("Executing post-reimport operations..."), 0, true);
+	ep = memnew(EditorProgress("reimport", TTR("Reading Files"), p_files.size()));
+	ep->step(TTR("Finishing up"), 0, true);
 	if (!is_scanning()) {
 		emit_signal(SNAME("filesystem_changed"));
 	}
@@ -3623,7 +3604,7 @@ Error EditorFileSystem::copy_directory(const String &p_from, const String &p_to)
 	if (success) {
 		EditorProgress *ep = nullptr;
 		if (files.size() > 10) {
-			ep = memnew(EditorProgress("copy_directory", TTR("Copying files..."), files.size()));
+			ep = memnew(EditorProgress("copy_directory", TTR("Copying files"), files.size()));
 		}
 		int i = 0;
 		for (const KeyValue<String, String> &tuple : files) {
@@ -3641,7 +3622,7 @@ Error EditorFileSystem::copy_directory(const String &p_from, const String &p_to)
 	if (success) {
 		EditorProgress *ep = nullptr;
 		if (files.size() > 10) {
-			ep = memnew(EditorProgress("copy_directory", TTR("Remapping dependencies..."), files.size()));
+			ep = memnew(EditorProgress("copy_directory", TTR("Updating links"), files.size()));
 		}
 		int i = 0;
 		for (const KeyValue<String, String> &tuple : files) {

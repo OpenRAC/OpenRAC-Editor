@@ -36,10 +36,8 @@
 #include "core/os/os.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
-#include "editor/gui/credits_roll.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/gui/editor_version_button.h"
-#include "editor/run/editor_run_bar.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/item_list.h"
 #include "scene/gui/rich_text_label.h"
@@ -109,34 +107,10 @@ void EditorAbout::_license_tree_selected() {
 	_tpl_text->set_text(selected->get_metadata(0));
 }
 
-void EditorAbout::_credits_visibility_changed() {
-	if (!credits_roll->is_visible()) {
-		credits_roll->queue_free();
-		credits_roll = nullptr;
-
-		show();
-	}
-}
-
 void EditorAbout::_item_activated(int p_idx, ItemList *p_il) {
 	const Variant val = p_il->get_item_metadata(p_idx);
 	if (val.get_type() == Variant::STRING) {
 		OS::get_singleton()->shell_open(val);
-	} else {
-		// Easter egg! :D
-		if (EditorRunBar::get_singleton() && EditorRunBar::get_singleton()->is_playing()) {
-			// Don't allow if the game is running, as it will look weird if it's embedded.
-			EditorToaster::get_singleton()->popup_str(TTR("No distractions for this, close that game first."));
-			return;
-		}
-
-		if (!credits_roll) {
-			credits_roll = memnew(CreditsRoll);
-			credits_roll->connect("visibility_changed", callable_mp(this, &EditorAbout::_credits_visibility_changed));
-			get_tree()->get_root()->add_child(credits_roll);
-		}
-		credits_roll->roll_credits();
-		hide();
 	}
 }
 
@@ -287,7 +261,7 @@ EditorAbout::EditorAbout() {
 	license_thirdparty->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	tc->add_child(license_thirdparty);
 
-	Label *tpl_label = memnew(Label(TTRC("Godot Engine relies on a number of third-party free and open source libraries, all compatible with the terms of its MIT license. The following is an exhaustive list of all such third-party components with their respective copyright statements and license terms.")));
+	Label *tpl_label = memnew(Label(TTRC("OpenRAC Editor is built on Godot Engine and uses these free, open source libraries.")));
 	tpl_label->set_focus_mode(Control::FOCUS_ACCESSIBILITY);
 	tpl_label->set_h_size_flags(Control::SIZE_EXPAND_FILL);
 	tpl_label->set_autowrap_mode(TextServer::AUTOWRAP_WORD_SMART);

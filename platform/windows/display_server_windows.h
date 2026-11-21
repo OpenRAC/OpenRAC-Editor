@@ -541,15 +541,6 @@ class DisplayServerWindows : public DisplayServer {
 	String _get_keyboard_layout_display_name(const String &p_klid) const;
 	String _get_klid(HKL p_hkl) const;
 
-	struct EmbeddedProcessData {
-		HWND window_handle = nullptr;
-		HWND parent_window_handle = nullptr;
-		bool is_visible = false;
-	};
-	HashMap<ProcessID, EmbeddedProcessData *> embedded_processes;
-
-	HWND _find_window_from_process_id(ProcessID p_pid, HWND p_current_hwnd);
-
 	void initialize_tts() const;
 	void process_raw_input();
 	Vector2 _get_raw_mouse_motion(const RAWINPUT &p_raw, DisplayServerEnums::WindowID p_window_id);
@@ -744,10 +735,6 @@ public:
 	virtual bool get_swap_cancel_ok() override;
 
 	virtual void enable_for_stealing_focus(ProcessID pid) override;
-	virtual Error embed_process(DisplayServerEnums::WindowID p_window, ProcessID p_pid, const Rect2i &p_rect, bool p_visible, bool p_grab_focus) override;
-	virtual Error request_close_embedded_process(ProcessID p_pid) override;
-	virtual Error remove_embedded_process(ProcessID p_pid) override;
-	virtual ProcessID get_focused_process_id() override;
 
 	virtual Error dialog_show(String p_title, String p_description, Vector<String> p_buttons, const Callable &p_callback) override;
 	virtual Error dialog_input_text(String p_title, String p_description, String p_partial, const Callable &p_callback) override;

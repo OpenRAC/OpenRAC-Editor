@@ -58,7 +58,6 @@ class InputEventWithModifiers;
 class NativeMenuMacOS;
 
 #ifdef TOOLS_ENABLED
-class EmbeddedProcessMacOS;
 #endif
 
 #ifdef GLES3_ENABLED
@@ -229,14 +228,6 @@ private:
 
 	Error _file_dialog_with_options_show(const String &p_title, const String &p_current_directory, const String &p_root, const String &p_filename, bool p_show_hidden, DisplayServerEnums::FileDialogMode p_mode, const Vector<String> &p_filters, const TypedArray<Dictionary> &p_options, const Callable &p_callback, bool p_options_in_cb, DisplayServerEnums::WindowID p_window_id);
 
-#ifdef TOOLS_ENABLED
-	struct EmbeddedProcessData {
-		EmbeddedProcessMacOS *process = nullptr;
-		WindowData *wd = nullptr;
-		CALayer *layer_host = nil;
-	};
-	HashMap<ProcessID, EmbeddedProcessData> embedded_processes;
-#endif
 	void _window_update_display_id(WindowData *p_wd);
 
 public:
@@ -404,11 +395,6 @@ public:
 	virtual bool get_swap_cancel_ok() override;
 
 	virtual void enable_for_stealing_focus(ProcessID pid) override;
-#ifdef TOOLS_ENABLED
-	Error embed_process_update(DisplayServerEnums::WindowID p_window, EmbeddedProcessMacOS *p_process);
-	virtual Error request_close_embedded_process(ProcessID p_pid) override;
-	virtual Error remove_embedded_process(ProcessID p_pid) override;
-#endif
 
 	void _process_events(bool p_pump);
 	virtual void process_events() override;

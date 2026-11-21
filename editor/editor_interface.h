@@ -46,12 +46,10 @@ class EditorSelection;
 class EditorSettings;
 class EditorToaster;
 class EditorUndoRedoManager;
-class FileSystemDock;
 class Mesh;
 class Node;
 class PropertySelector;
 class SceneTreeDialog;
-class ScriptEditor;
 class SubViewport;
 class Texture2D;
 class Theme;
@@ -120,7 +118,6 @@ public:
 
 	Control *get_base_control() const;
 	VBoxContainer *get_editor_main_screen() const;
-	ScriptEditor *get_script_editor() const;
 	SubViewport *get_editor_viewport_2d() const;
 	SubViewport *get_editor_viewport_3d(int p_idx = 0) const;
 
@@ -156,12 +153,6 @@ public:
 
 	// Editor docks.
 
-	FileSystemDock *get_file_system_dock() const;
-	void select_file(const String &p_file);
-	Vector<String> get_selected_paths() const;
-	String get_current_path() const;
-	String get_current_directory() const;
-
 	EditorInspector *get_inspector() const;
 
 	// Object/Resource/Node editing.
@@ -170,7 +161,6 @@ public:
 
 	void edit_resource(const Ref<Resource> &p_resource);
 	void edit_node(Node *p_node);
-	void edit_script(const Ref<Script> &p_script, int p_line = -1, int p_col = 0, bool p_grab_focus = true);
 	void open_scene_from_path(const String &scene_path, bool p_set_inherited = false);
 	void reload_scene_from_path(const String &scene_path);
 
@@ -190,18 +180,6 @@ public:
 	void mark_scene_as_unsaved();
 	void save_all_scenes();
 	Error close_scene();
-
-	// Scene playback.
-
-	void play_main_scene();
-	void play_current_scene();
-	void play_custom_scene(const String &scene_path);
-	void stop_playing_scene();
-	bool is_playing_scene() const;
-	String get_playing_scene() const;
-
-	void set_movie_maker_enabled(bool p_enabled);
-	bool is_movie_maker_enabled() const;
 
 #ifdef TOOLS_ENABLED
 	virtual void get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const override;

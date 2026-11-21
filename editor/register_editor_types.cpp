@@ -31,28 +31,20 @@
 #include "register_editor_types.h"
 
 #include "core/config/engine.h"
+#include "core/config/project_settings.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
 #include "core/os/os.h"
-#include "editor/animation/animation_tree_editor_plugin.h"
 #include "editor/audio/audio_stream_editor_plugin.h"
 #include "editor/audio/audio_stream_randomizer_editor_plugin.h"
-#include "editor/debugger/debug_adapter/debug_adapter_server.h"
-#include "editor/debugger/editor_debugger_plugin.h"
-#include "editor/docks/filesystem_dock.h"
 #include "editor/editor_interface.h"
+#include "editor/docks/editor_dock.h"
 #include "editor/editor_node.h"
 #include "editor/mcp/editor_mcp_server.h" // OpenRAC Editor: addons register MCP tools.
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
-#include "editor/export/editor_export_platform.h"
-#include "editor/export/editor_export_platform_apple_embedded.h"
-#include "editor/export/editor_export_platform_extension.h"
-#include "editor/export/editor_export_platform_pc.h"
-#include "editor/export/editor_export_plugin.h"
-#include "editor/export/register_exporters.h"
 #include "editor/file_system/editor_file_system.h"
 #include "editor/file_system/editor_paths.h"
 #include "editor/gui/editor_file_dialog.h"
@@ -68,7 +60,6 @@
 #include "editor/import/resource_importer_image.h"
 #include "editor/import/resource_importer_imagefont.h"
 #include "editor/import/resource_importer_layered_texture.h"
-#include "editor/import/resource_importer_shader_file.h"
 #include "editor/import/resource_importer_svg.h"
 #include "editor/import/resource_importer_texture.h"
 #include "editor/import/resource_importer_texture_atlas.h"
@@ -76,9 +67,6 @@
 #include "editor/inspector/editor_context_menu_plugin.h"
 #include "editor/inspector/editor_resource_picker.h"
 #include "editor/inspector/editor_resource_preview.h"
-#include "editor/inspector/editor_resource_tooltip_plugins.h"
-#include "editor/inspector/input_event_editor_plugin.h"
-#include "editor/inspector/sub_viewport_preview_editor_plugin.h"
 #include "editor/inspector/tool_button_editor_plugin.h"
 #include "editor/scene/3d/bone_map_editor_plugin.h"
 #include "editor/scene/3d/camera_3d_editor_plugin.h"
@@ -93,28 +81,14 @@
 #include "editor/scene/3d/skeleton_3d_editor_plugin.h"
 #include "editor/scene/curve_editor_plugin.h"
 #include "editor/scene/gradient_editor_plugin.h"
-#include "editor/scene/gui/control_editor_plugin.h"
-#include "editor/scene/gui/font_config_plugin.h"
-#include "editor/scene/gui/margin_container_editor_plugin.h"
-#include "editor/scene/gui/style_box_editor_plugin.h"
 #include "editor/scene/material_editor_plugin.h"
 #include "editor/scene/packed_scene_editor_plugin.h"
-#include "editor/scene/resource_preloader_editor_plugin.h"
-#include "editor/scene/texture/bit_map_editor_plugin.h"
-#include "editor/scene/texture/gradient_texture_2d_editor_plugin.h"
 #include "editor/scene/texture/texture_3d_editor_plugin.h"
 #include "editor/scene/texture/texture_editor_plugin.h"
 #include "editor/scene/texture/texture_layered_editor_plugin.h"
-#include "editor/scene/texture/texture_region_editor_plugin.h"
-#include "editor/script/editor_script.h"
-#include "editor/script/editor_script_plugin.h"
-#include "editor/script/script_editor_plugin.h"
-#include "editor/script/syntax_highlighters.h"
 #include "editor/settings/editor_command_palette.h"
 #include "editor/settings/editor_feature_profile.h"
 #include "editor/settings/editor_settings.h"
-#include "editor/shader/shader_editor_plugin.h"
-#include "editor/shader/shader_file_editor_plugin.h"
 #include "editor/translations/editor_translation_parser.h"
 #include "servers/rendering/rendering_server.h"
 
@@ -135,7 +109,6 @@ void register_editor_types() {
 	GDREGISTER_VIRTUAL_CLASS(EditorPlugin);
 	GDREGISTER_CLASS(EditorTranslationParserPlugin);
 	GDREGISTER_CLASS(EditorImportPlugin);
-	GDREGISTER_CLASS(EditorScript);
 	GDREGISTER_CLASS(EditorDock);
 	GDREGISTER_CLASS(EditorSelection);
 	GDREGISTER_CLASS(EditorFileDialog);
@@ -145,21 +118,9 @@ void register_editor_types() {
 	GDREGISTER_CLASS(EditorNode3DGizmoPlugin);
 	GDREGISTER_ABSTRACT_CLASS(EditorResourcePreview);
 	GDREGISTER_CLASS(EditorResourcePreviewGenerator);
-	GDREGISTER_CLASS(EditorResourceTooltipPlugin);
 	GDREGISTER_ABSTRACT_CLASS(EditorFileSystem);
 	GDREGISTER_CLASS(EditorFileSystemDirectory);
-	GDREGISTER_ABSTRACT_CLASS(ScriptEditor);
-	GDREGISTER_ABSTRACT_CLASS(ScriptEditorBase);
-	GDREGISTER_CLASS(EditorSyntaxHighlighter);
 	GDREGISTER_ABSTRACT_CLASS(EditorInterface);
-	GDREGISTER_CLASS(EditorExportPlugin);
-	GDREGISTER_ABSTRACT_CLASS(EditorExportPlatform);
-	GDREGISTER_ABSTRACT_CLASS(EditorExportPlatformPC);
-	GDREGISTER_ABSTRACT_CLASS(EditorExportPlatformAppleEmbedded);
-	GDREGISTER_CLASS(EditorExportPlatformExtension);
-	GDREGISTER_ABSTRACT_CLASS(EditorExportPreset);
-
-	register_exporter_types();
 
 	GDREGISTER_CLASS(EditorResourceConversionPlugin);
 	GDREGISTER_CLASS(EditorSceneFormatImporter);
@@ -167,21 +128,16 @@ void register_editor_types() {
 	GDREGISTER_CLASS(EditorInspector);
 	GDREGISTER_CLASS(EditorInspectorPlugin);
 	GDREGISTER_CLASS(EditorProperty);
-	GDREGISTER_CLASS(ScriptCreateDialog);
 	GDREGISTER_CLASS(EditorFeatureProfile);
 	GDREGISTER_CLASS(EditorSpinSlider);
 	GDREGISTER_CLASS(EditorResourcePicker);
-	GDREGISTER_CLASS(EditorScriptPicker);
 	GDREGISTER_ABSTRACT_CLASS(EditorUndoRedoManager);
 	GDREGISTER_CLASS(EditorContextMenuPlugin);
 
-	GDREGISTER_ABSTRACT_CLASS(FileSystemDock);
 	GDREGISTER_VIRTUAL_CLASS(EditorFileSystemImportFormatSupportQuery);
 
 	GDREGISTER_CLASS(EditorScenePostImport);
 	GDREGISTER_VIRTUAL_CLASS(EditorCommandPalette);
-	GDREGISTER_CLASS(EditorDebuggerPlugin);
-	GDREGISTER_ABSTRACT_CLASS(EditorDebuggerSession);
 
 	// Required to document import options in the class reference.
 	GDREGISTER_CLASS(ResourceImporterBitMap);
@@ -194,31 +150,19 @@ void register_editor_types() {
 	GDREGISTER_CLASS(ResourceImporterLayeredTexture);
 	GDREGISTER_CLASS(ResourceImporterOBJ);
 	GDREGISTER_CLASS(ResourceImporterScene);
-	GDREGISTER_CLASS(ResourceImporterShaderFile);
 	GDREGISTER_CLASS(ResourceImporterTexture);
 	GDREGISTER_CLASS(ResourceImporterTextureAtlas);
 	GDREGISTER_CLASS(ResourceImporterWAV);
 
 	// This list is alphabetized, and plugins that depend on Node2D are in their own section below.
-	EditorPlugins::add_by_type<AnimationTreeEditorPlugin>();
 	EditorPlugins::add_by_type<AudioStreamEditorPlugin>();
 	EditorPlugins::add_by_type<AudioStreamRandomizerEditorPlugin>();
-	EditorPlugins::add_by_type<BitMapEditorPlugin>();
 	EditorPlugins::add_by_type<BoneMapEditorPlugin>();
 	EditorPlugins::add_by_type<Camera3DEditorPlugin>();
-	EditorPlugins::add_by_type<ControlEditorPlugin>();
 	EditorPlugins::add_by_type<CPUParticles3DEditorPlugin>();
 	EditorPlugins::add_by_type<CurveEditorPlugin>();
-	if (!Engine::get_singleton()->is_recovery_mode_hint()) {
-		EditorPlugins::add_by_type<DebugAdapterServer>();
-	}
-	EditorPlugins::add_by_type<EditorScriptPlugin>();
-	EditorPlugins::add_by_type<FontEditorPlugin>();
 	EditorPlugins::add_by_type<GPUParticles3DEditorPlugin>();
 	EditorPlugins::add_by_type<GradientEditorPlugin>();
-	EditorPlugins::add_by_type<GradientTexture2DEditorPlugin>();
-	EditorPlugins::add_by_type<InputEventEditorPlugin>();
-	EditorPlugins::add_by_type<MarginContainerEditorPlugin>();
 	EditorPlugins::add_by_type<MaterialEditorPlugin>();
 	EditorPlugins::add_by_type<MeshEditorPlugin>();
 	EditorPlugins::add_by_type<MeshInstance3DEditorPlugin>();
@@ -227,16 +171,10 @@ void register_editor_types() {
 	EditorPlugins::add_by_type<PackedSceneEditorPlugin>();
 	EditorPlugins::add_by_type<Path3DEditorPlugin>();
 	EditorPlugins::add_by_type<Polygon3DEditorPlugin>();
-	EditorPlugins::add_by_type<ResourcePreloaderEditorPlugin>();
-	EditorPlugins::add_by_type<ShaderEditorPlugin>();
-	EditorPlugins::add_by_type<ShaderFileEditorPlugin>();
 	EditorPlugins::add_by_type<Skeleton3DEditorPlugin>();
-	EditorPlugins::add_by_type<StyleBoxEditorPlugin>();
-	EditorPlugins::add_by_type<SubViewportPreviewEditorPlugin>();
 	EditorPlugins::add_by_type<Texture3DEditorPlugin>();
 	EditorPlugins::add_by_type<TextureEditorPlugin>();
 	EditorPlugins::add_by_type<TextureLayeredEditorPlugin>();
-	EditorPlugins::add_by_type<TextureRegionEditorPlugin>();
 	EditorPlugins::add_by_type<ToolButtonEditorPlugin>();
 #ifndef DISABLE_DEPRECATED
 	EditorPlugins::add_by_type<SkeletonIK3DEditorPlugin>();
@@ -245,21 +183,13 @@ void register_editor_types() {
 	// OpenRAC Editor: no 2D node editors; levels are 3D.
 
 	// For correct doc generation.
-	GLOBAL_DEF(PropertyInfo(Variant::STRING, "editor/run/main_run_args", PROPERTY_HINT_NONE, "monospace"), "");
-
-	GLOBAL_DEF(PropertyInfo(Variant::STRING, "editor/script/templates_search_path", PROPERTY_HINT_DIR), "res://script_templates");
-
-	GLOBAL_DEF("editor/naming/default_signal_callback_name", "_on_{node_name}_{signal_name}");
-	GLOBAL_DEF("editor/naming/default_signal_callback_to_self_name", "_on_{signal_name}");
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/scene_name_casing", PROPERTY_HINT_ENUM, "Auto,PascalCase,snake_case,kebab-case,camelCase"), EditorNode::SCENE_NAME_CASING_SNAKE_CASE);
-	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/naming/script_name_casing", PROPERTY_HINT_ENUM, "Auto,PascalCase,snake_case,kebab-case,camelCase"), ScriptLanguage::SCRIPT_NAME_CASING_AUTO);
 
 	GLOBAL_DEF("editor/import/reimport_missing_imported_files", true);
 	GLOBAL_DEF("editor/import/use_multiple_threads", true);
 
 	GLOBAL_DEF(PropertyInfo(Variant::INT, "editor/import/atlas_max_width", PROPERTY_HINT_RANGE, "128,8192,1,or_greater"), 2048);
 
-	GLOBAL_DEF("editor/export/convert_text_resources_to_binary", true);
 
 
 	EditorInterface::create();

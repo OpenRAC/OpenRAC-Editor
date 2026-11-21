@@ -442,7 +442,6 @@ class AnimationTrackEdit : public Control {
 		MENU_KEY_PASTE,
 		MENU_KEY_ADD_RESET,
 		MENU_KEY_DELETE,
-		MENU_KEY_LOOKUP,
 		MENU_USE_BLEND_ENABLED,
 		MENU_USE_BLEND_DISABLED,
 	};
@@ -490,8 +489,6 @@ class AnimationTrackEdit : public Control {
 	bool _is_value_key_valid(const Variant &p_key_value, Variant::Type &r_valid_type) const;
 	bool _try_select_at_ui_pos(const Point2 &p_pos, bool p_aggregate, bool p_deselectable);
 
-	int lookup_key_idx = -1;
-	bool _lookup_key(int p_key_idx) const;
 
 	Ref<Texture2D> _get_key_type_icon() const;
 

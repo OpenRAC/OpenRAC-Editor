@@ -39,7 +39,6 @@
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h"
-#include "editor/scene/canvas_item_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
 #include "scene/3d/camera_3d.h"
 #include "scene/3d/mesh_instance_3d.h"
@@ -147,7 +146,6 @@ EditorPlugin::AfterGUIInput Polygon3DEditor::forward_3d_gui_input(Camera3D *p_ca
 
 		//DO NOT snap here, it's confusing in 3D for adding points.
 		//Let the snap happen when the point is being moved, instead.
-		//cpoint = CanvasItemEditor::get_singleton()->snap_point(cpoint);
 
 		PackedVector2Array poly = _get_polygon();
 

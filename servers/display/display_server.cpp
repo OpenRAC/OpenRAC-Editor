@@ -1158,26 +1158,6 @@ bool DisplayServer::get_swap_cancel_ok() {
 void DisplayServer::enable_for_stealing_focus(ProcessID pid) {
 }
 
-Error DisplayServer::embed_process(DisplayServerEnums::WindowID p_window, ProcessID p_pid, const Rect2i &p_rect, bool p_visible, bool p_grab_focus) {
-	WARN_PRINT("Embedded process not supported by this display server.");
-	return ERR_UNAVAILABLE;
-}
-
-Error DisplayServer::request_close_embedded_process(ProcessID p_pid) {
-	WARN_PRINT("Embedded process not supported by this display server.");
-	return ERR_UNAVAILABLE;
-}
-
-Error DisplayServer::remove_embedded_process(ProcessID p_pid) {
-	WARN_PRINT("Embedded process not supported by this display server.");
-	return ERR_UNAVAILABLE;
-}
-
-ProcessID DisplayServer::get_focused_process_id() {
-	WARN_PRINT("Embedded process not supported by this display server.");
-	return 0;
-}
-
 Error DisplayServer::dialog_show(String p_title, String p_description, Vector<String> p_buttons, const Callable &p_callback) {
 	WARN_PRINT("Native dialogs not supported by this display server.");
 	return ERR_UNAVAILABLE;

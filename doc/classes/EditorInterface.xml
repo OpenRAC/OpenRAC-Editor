@@ -4,7 +4,7 @@
 		Godot editor's interface.
 	</brief_description>
 	<description>
-		[EditorInterface] gives you control over Godot editor's window. It allows customizing the window, saving and (re-)loading scenes, rendering mesh previews, inspecting and editing resources and objects, and provides access to [EditorSettings], [EditorFileSystem], [EditorResourcePreview], [ScriptEditor], the editor viewport, and information about scenes.
+		[EditorInterface] gives you control over Godot editor's window. It allows customizing the window, saving and (re-)loading scenes, rendering mesh previews, inspecting and editing resources and objects, and provides access to [EditorSettings], [EditorFileSystem], [EditorResourcePreview], the editor viewport, and information about scenes.
 		[b]Note:[/b] This class shouldn't be instantiated directly. Instead, access the singleton directly by its name.
 		[codeblocks]
 		[gdscript]
@@ -43,17 +43,7 @@
 			<return type="void" />
 			<param index="0" name="resource" type="Resource" />
 			<description>
-				Edits the given [Resource]. If the resource is a [Script] you can also edit it with [method edit_script] to specify the line and column position.
-			</description>
-		</method>
-		<method name="edit_script">
-			<return type="void" />
-			<param index="0" name="script" type="Script" />
-			<param index="1" name="line" type="int" default="-1" />
-			<param index="2" name="column" type="int" default="0" />
-			<param index="3" name="grab_focus" type="bool" default="true" />
-			<description>
-				Edits the given [Script]. The line and column on which to open the script can also be specified. The script will be open with the user-configured editor for the script's language which may be an external editor.
+				Edits the given [Resource].
 			</description>
 		</method>
 		<method name="get_base_control" qualifiers="const">
@@ -70,24 +60,12 @@
 				[b]Warning:[/b] Removing and freeing this node will render a part of the editor useless and may cause a crash.
 			</description>
 		</method>
-		<method name="get_current_directory" qualifiers="const">
-			<return type="String" />
-			<description>
-				Returns the current directory being viewed in the [FileSystemDock]. If a file is selected, its base directory will be returned using [method String.get_base_dir] instead.
-			</description>
-		</method>
 		<method name="get_current_feature_profile" qualifiers="const">
 			<return type="String" />
 			<description>
 				Returns the name of the currently activated feature profile. If the default profile is currently active, an empty string is returned instead.
 				In order to get a reference to the [EditorFeatureProfile], you must load the feature profile using [method EditorFeatureProfile.load_from_file].
 				[b]Note:[/b] Feature profiles created via the user interface are loaded from the [code]feature_profiles[/code] directory, as a file with the [code].profile[/code] extension. The editor configuration folder can be found by using [method EditorPaths.get_config_dir].
-			</description>
-		</method>
-		<method name="get_current_path" qualifiers="const">
-			<return type="String" />
-			<description>
-				Returns the current path being viewed in the [FileSystemDock].
 			</description>
 		</method>
 		<method name="get_edited_scene_root" qualifiers="const">
@@ -161,13 +139,6 @@
 				Returns the specified 3D editor [SubViewport], from [code]0[/code] to [code]3[/code]. The viewport can be used to access the active editor cameras with [method Viewport.get_camera_3d].
 			</description>
 		</method>
-		<method name="get_file_system_dock" qualifiers="const">
-			<return type="FileSystemDock" />
-			<description>
-				Returns the editor's [FileSystemDock] instance.
-				[b]Warning:[/b] Removing and freeing this node will render a part of the editor useless and may cause a crash.
-			</description>
-		</method>
 		<method name="get_inspector" qualifiers="const">
 			<return type="EditorInspector" />
 			<description>
@@ -205,12 +176,6 @@
 				Returns an array with the file paths of the currently opened scenes.
 			</description>
 		</method>
-		<method name="get_playing_scene" qualifiers="const">
-			<return type="String" />
-			<description>
-				Returns the name of the scene that is being played. If no scene is currently being played, returns an empty string.
-			</description>
-		</method>
 		<method name="get_resource_filesystem" qualifiers="const">
 			<return type="EditorFileSystem" />
 			<description>
@@ -221,19 +186,6 @@
 			<return type="EditorResourcePreview" />
 			<description>
 				Returns the editor's [EditorResourcePreview] instance.
-			</description>
-		</method>
-		<method name="get_script_editor" qualifiers="const">
-			<return type="ScriptEditor" />
-			<description>
-				Returns the editor's [ScriptEditor] instance.
-				[b]Warning:[/b] Removing and freeing this node will render a part of the editor useless and may cause a crash.
-			</description>
-		</method>
-		<method name="get_selected_paths" qualifiers="const">
-			<return type="PackedStringArray" />
-			<description>
-				Returns an array containing the paths of the currently selected files (and directories) in the [FileSystemDock].
 			</description>
 		</method>
 		<method name="get_selection" qualifiers="const">
@@ -279,12 +231,6 @@
 				Returns [code]true[/code] if the object has been marked as edited through [method set_object_edited].
 			</description>
 		</method>
-		<method name="is_playing_scene" qualifiers="const">
-			<return type="bool" />
-			<description>
-				Returns [code]true[/code] if a scene is currently being played, [code]false[/code] otherwise. Paused scenes are considered as being played.
-			</description>
-		</method>
 		<method name="is_plugin_enabled" qualifiers="const">
 			<return type="bool" />
 			<param index="0" name="plugin" type="String" />
@@ -312,25 +258,6 @@
 			<param index="1" name="set_inherited" type="bool" default="false" />
 			<description>
 				Opens the scene at the given path. If [param set_inherited] is [code]true[/code], creates a new inherited scene.
-			</description>
-		</method>
-		<method name="play_current_scene">
-			<return type="void" />
-			<description>
-				Plays the currently active scene.
-			</description>
-		</method>
-		<method name="play_custom_scene">
-			<return type="void" />
-			<param index="0" name="scene_filepath" type="String" />
-			<description>
-				Plays the scene specified by its filepath.
-			</description>
-		</method>
-		<method name="play_main_scene">
-			<return type="void" />
-			<description>
-				Plays the main scene.
 			</description>
 		</method>
 		<method name="popup_create_dialog" experimental="">
@@ -480,13 +407,6 @@
 				Saves the currently active scene as a file at [param path].
 			</description>
 		</method>
-		<method name="select_file">
-			<return type="void" />
-			<param index="0" name="file" type="String" />
-			<description>
-				Selects the file, with the path provided by [param file], in the FileSystem dock.
-			</description>
-		</method>
 		<method name="set_current_feature_profile">
 			<return type="void" />
 			<param index="0" name="profile_name" type="String" />
@@ -521,19 +441,10 @@
 				Sets the enabled status of a plugin. The plugin name is the same as its directory name.
 			</description>
 		</method>
-		<method name="stop_playing_scene">
-			<return type="void" />
-			<description>
-				Stops the scene that is currently playing.
-			</description>
-		</method>
 	</methods>
 	<members>
 		<member name="distraction_free_mode" type="bool" setter="set_distraction_free_mode" getter="is_distraction_free_mode_enabled">
 			If [code]true[/code], enables distraction-free mode which hides side docks to increase the space available for the main view.
-		</member>
-		<member name="movie_maker_enabled" type="bool" setter="set_movie_maker_enabled" getter="is_movie_maker_enabled">
-			If [code]true[/code], the Movie Maker mode is enabled in the editor. See [MovieWriter] for more information.
 		</member>
 	</members>
 </class>
