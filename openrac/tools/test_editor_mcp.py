@@ -198,6 +198,18 @@ class EditorMCP(unittest.TestCase):
         self.editor.call("planet_set", {"name": "Museum Two"})
         self.assertEqual(planet.settings(self.editor.project).get(planet.ID), "museum.1234abcd")
 
+    def test_3d_an_add_while_another_comes_in_waits(self):
+        flag = ('for p in editor.get_base_control().find_children("*", "", true, false):\n'
+                '\tif p.get_script() != null and String(p.get_script().resource_path).ends_with("openrac_library/dock.gd"):\n'
+                '\t\tp.plugin.waiting_for_import = %s\n\t\treturn true\nreturn false')
+        self.assertTrue(self.editor.call("run_gdscript", {"code": flag % "true"})["result"])
+        answer = self.editor.call("moby_add", {"class": 11, "position": [40, 0, 0]})
+        self.assertEqual(answer.get("state"), "running", answer)
+        self.assertTrue(self.editor.call("run_gdscript", {"code": flag % "false"})["result"])
+        done = self.editor.call("job_wait", {"id": answer["job"], "seconds": 30})
+        self.assertEqual(done["state"], "done", done)
+        self.editor.call("moby_remove", {"nodes": [done["result"]["node"]]})
+
     def test_4_writes_and_checks_a_cutscene(self):
         doc = {
             "length": 300,

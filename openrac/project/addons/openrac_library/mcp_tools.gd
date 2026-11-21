@@ -480,30 +480,54 @@ func moby_add(args: Dictionary) -> Variant:
 	if mode == "auto":
 		mode = "own" if full else ("import" if Library.import_refusal(asset, here).is_empty() else "look")
 
+	if mode not in ["own", "look", "import", "skin"]:
+		return fail("mode is auto, own, import, look or skin.")
+
+	if mode == "own" and not full:
+		return fail("This level has no class %d of its own: use mode import or look." % number)
+
 	var job: String = server.job_create("Add %s" % asset["name"])
-	plugin.last_result = {}
 
-	match mode:
-		"own":
-			if not full:
-				server.job_finish(job, {}, true)
-				return fail("This level has no class %d of its own: use mode import or look." % number)
+	# The editor brings one asset in at a time: a second add waits for the first, not fails.
+	if plugin.waiting_for_import:
+		add_when_free.call_deferred(job, mode, asset, place, int(args.get("host_class", -1)))
+		return {"job": job, "state": "running", "note": "Waiting for the last asset to come in; job_wait for the node."}
 
-			plugin.add_in_view(asset, place, job)
-		"look":
-			plugin.add_in_view(asset, place, job)
-		"import":
-			plugin.add_foreign(asset, place, job)
-		"skin":
-			plugin.add_as(asset, int(args.get("host_class", -1)), place, job)
-		_:
-			server.job_finish(job, {}, true)
-			return fail("mode is auto, own, import, look or skin.")
+	start_add(job, mode, asset, place, int(args.get("host_class", -1)))
 
 	if server.job_running(job):
 		return {"job": job, "state": "running", "note": "The editor is importing the class's files; job_wait for the node."}
 
 	return plugin.last_result
+
+
+## Adds ASSET once the asset being brought in now is in (up to a minute), finishing JOB.
+func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:
+	for _i in range(240):
+		# The plugin was switched off meanwhile: its server is gone with it.
+		if server == null or plugin == null or not is_instance_valid(plugin) or plugin.dock == null:
+			return
+
+		if not plugin.waiting_for_import:
+			start_add(job, mode, asset, place, host_class)
+			return
+
+		await plugin.get_tree().create_timer(0.25).timeout
+
+	if server != null:
+		server.job_finish(job, fail("The last asset is still coming in: try again."), true)
+
+
+func start_add(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:
+	plugin.last_result = {}
+
+	match mode:
+		"own", "look":
+			plugin.add_in_view(asset, place, job)
+		"import":
+			plugin.add_foreign(asset, place, job)
+		"skin":
+			plugin.add_as(asset, host_class, place, job)
 
 
 func moby_set(args: Dictionary) -> Variant:
