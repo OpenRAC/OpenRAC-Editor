@@ -35,12 +35,12 @@ const ADD_DISTANCE: float = 12.0
 var dock: Dock
 var behaviour_inspector: BehaviourInspector
 var foreign_inspector: ForeignInspector
-## The Planet Name section of the level (planet_inspector.gd).
-var planet_inspector: PlanetInspector
 ## Check level and Play level, on the toolbar (play.gd).
 var play: Play
 ## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
 var voices: VoicesDock
+## The Planet Name section of the level (planet_inspector.gd).
+var planet_inspector: PlanetInspector
 
 ## What placed files are, by res:// path: the asset placed, until its node arrives.
 var pending: Dictionary = {}

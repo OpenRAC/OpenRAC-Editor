@@ -72,6 +72,16 @@ static func this_level() -> Dictionary:
 	return {}
 
 
+## The game program beside the states program STATES (openrac-rac1-pal-states -> openrac-rac1-pal), or
+## "". Only the program's own name changes: a folder with "-states" in it stays as it is.
+static func game_beside(states: String) -> String:
+	if states.is_empty():
+		return ""
+
+	var name: String = states.get_file()
+	return states.left(states.length() - name.length()) + name.replace("-states", "")
+
+
 ## The command for KIND ("check" or "play"), or a sentence saying what is missing.
 static func command_for(kind: String, level: Dictionary) -> Variant:
 	var python: String = user_arg("--openrac-python")
@@ -96,16 +106,6 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 			"--data", user_arg("--openrac-data"), "--levels", user_arg("--openrac-levels")])
 
 	return {"program": python, "args": args}
-
-
-## The game program beside the states program STATES (openrac-rac1-pal-states -> openrac-rac1-pal), or
-## "". Only the program's own name changes: a folder with "-states" in it stays as it is.
-static func game_beside(states: String) -> String:
-	if states.is_empty():
-		return ""
-
-	var name: String = states.get_file()
-	return states.left(states.length() - name.length()) + name.replace("-states", "")
 
 
 ## Saves the scenes and runs KIND in the background; the result shows in the dialog.
