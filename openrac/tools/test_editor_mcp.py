@@ -254,6 +254,9 @@ class EditorMCP(unittest.TestCase):
         self.editor.call("undo")
         missing = self.editor.error("job_status", {"id": "nope"})
         self.assertIn("nope", missing)
+        # The tools that start a job answer {"job": id}: that name works too.
+        self.assertIn("nope", self.editor.error("job_wait", {"job": "nope"}))
+        self.assertIn("id", self.editor.error("job_wait", {}))
 
     def test_6_the_plugin_bridge(self):
         # ai/openrac's stdio bridge finds the editor by its mcp.json and passes messages through.
