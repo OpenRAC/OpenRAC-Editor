@@ -10,6 +10,8 @@ const Dock = preload("dock.gd")
 const LevelFaces = preload("level_faces.gd")
 const ClassCollision = preload("class_collision.gd")
 const Surfaces = preload("surfaces.gd")
+## The Assets panel's glTF reading and writing (both addons come with every level project).
+const Library = preload("../openrac_library/library.gd")
 
 # =============================================================================
 # VARIABLES
@@ -66,8 +68,11 @@ var reload_timer: Timer
 ## The fingerprint of the collision faces were last read for (LevelFaces.fingerprint()).
 var read_fingerprint: int = 0
 
-## The project-local static model picker.
+## The model picker: a model in this project, or anywhere on the computer (copied in first).
 var static_model_dialog: EditorFileDialog
+
+## Set while a model from outside the project is being brought in (copied and imported).
+var is_bringing_model: bool = false
 
 ## Whether the shared model picker should create a spinning prop instead of static scenery.
 var animated_model_pick: bool = false
@@ -117,7 +122,8 @@ func _enter_tree() -> void:
 	add_child(reload_timer)
 	static_model_dialog = EditorFileDialog.new()
 	static_model_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
-	static_model_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	# The editor has no file panel to bring a model in, so the picker reaches the whole computer.
+	static_model_dialog.access = EditorFileDialog.ACCESS_FILESYSTEM
 	static_model_dialog.add_filter("*.glb,*.gltf ; glTF model")
 	static_model_dialog.file_selected.connect(handle_static_model_selected)
 	add_child(static_model_dialog)
@@ -155,8 +161,7 @@ func add_static_model() -> void:
 		dock.show_report("Open a level first.")
 		return
 	animated_model_pick = false
-	static_model_dialog.current_dir = "res://"
-	static_model_dialog.popup_file_dialog()
+	popup_model_dialog()
 
 
 ## Opens the project asset picker for a mod-only spinning visual prop.
@@ -165,12 +170,119 @@ func add_animated_model() -> void:
 		dock.show_report("Open a level first.")
 		return
 	animated_model_pick = true
-	static_model_dialog.current_dir = "res://"
+	popup_model_dialog()
+
+
+## Opens the model picker in the folder it was last in, else the project's.
+func popup_model_dialog() -> void:
+	if is_bringing_model:
+		dock.show_report("Still bringing the last model in; try again in a moment.")
+		return
+	if static_model_dialog.current_dir.is_empty() or not DirAccess.dir_exists_absolute(static_model_dialog.current_dir):
+		static_model_dialog.current_dir = ProjectSettings.globalize_path("res://")
 	static_model_dialog.popup_file_dialog()
 
 
-## Instances a project GLB/glTF below Game/StaticAssets as an undoable scene edit.
+## A model picked anywhere: one in the project is placed now; one from outside is copied into
+## res://models first (the packer reads project files only), imported, then placed.
 func handle_static_model_selected(path: String) -> void:
+	var local: String = ProjectSettings.localize_path(path)
+	if local.begins_with("res://"):
+		place_model(local)
+		return
+	if path.get_extension().to_lower() not in ["glb", "gltf"]:
+		dock.show_report("Choose a .glb or .gltf model.")
+		return
+	var copied: Array = copy_model_in(path)
+	if copied.is_empty():
+		return
+	is_bringing_model = true
+	dock.show_report("Bringing %s in; it's placed when ready." % path.get_file())
+	var filesystem := EditorInterface.get_resource_filesystem()
+	filesystem.scan()
+	var target: String = copied[0]
+	for _i in range(240):
+		await get_tree().create_timer(0.25).timeout
+		if dock == null:    # the plugin was switched off meanwhile
+			is_bringing_model = false
+			return
+		if ResourceLoader.exists(target) and not filesystem.is_scanning() \
+				and not filesystem.get_file_type(target).is_empty():
+			is_bringing_model = false
+			place_model(target)
+			return
+	is_bringing_model = false
+	dock.show_report("Couldn't load %s." % path.get_file())
+
+
+## Copies the model file at PATH (outside the project) into a folder of its own under res://models,
+## with the files it names (textures, buffers) beside it, wherever they were (an extracted model's
+## textures sit in ../textures): [the copy's res:// path], or [] after saying why.
+func copy_model_in(path: String) -> Array:
+	var base: String = path.get_file().get_basename().validate_filename().replace(" ", "_")
+	if base.is_empty():
+		base = "model"
+	var folder: String = "res://models/" + base
+	var suffix := 2
+	while DirAccess.dir_exists_absolute(folder):
+		folder = "res://models/%s_%d" % [base, suffix]
+		suffix += 1
+	var is_glb: bool = path.get_extension().to_lower() == "glb"
+	var document: Dictionary = {}
+	if is_glb:
+		document = Library.read_glb(FileAccess.get_file_as_bytes(path))
+	else:
+		var json: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if json is Dictionary:
+			document = {"json": json}
+	if document.is_empty():
+		dock.show_report("%s isn't a model the editor can read." % path.get_file())
+		return []
+	# Each file it names goes beside it under a name of its own, and the model names it there.
+	var copies: Dictionary = {}
+	var taken: Dictionary = {}
+	for list in ["buffers", "images"]:
+		for entry in document["json"].get(list, []):
+			if not entry is Dictionary or String(entry.get("uri", "")).is_empty() \
+					or String(entry["uri"]).begins_with("data:"):
+				continue
+			var uri: String = String(entry["uri"]).uri_decode()
+			var from: String = uri if uri.is_absolute_path() else path.get_base_dir().path_join(uri).simplify_path()
+			if not FileAccess.file_exists(from):
+				dock.show_report("%s's file %s is missing." % [path.get_file(), uri])
+				return []
+			var name: String = from.get_file()
+			var number := 2
+			while taken.has(name) and taken[name] != from:
+				name = "%s_%d.%s" % [from.get_file().get_basename(), number, from.get_extension()]
+				number += 1
+			taken[name] = from
+			copies[name] = from
+			entry["uri"] = name.uri_encode()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(folder))
+	for name in copies:
+		if DirAccess.copy_absolute(copies[name], ProjectSettings.globalize_path(folder.path_join(name))) != OK:
+			dock.show_report("Couldn't save %s." % folder.path_join(name))
+			return []
+	var target: String = folder.path_join(path.get_file())
+	var out := FileAccess.open(target, FileAccess.WRITE)
+	if out == null:
+		dock.show_report("Couldn't save %s." % target)
+		return []
+	if is_glb:
+		out.store_buffer(Library.write_glb(document["json"], document["bin"]))
+	else:
+		out.store_string(JSON.stringify(document["json"], "  "))
+	out.close()
+	return [target]
+
+
+## Instances a project GLB/glTF below Game/StaticAssets as an undoable scene edit.
+func place_model(path: String) -> void:
+	# The level may have been closed while the model was brought in.
+	if scene_root == null or not is_instance_valid(scene_root) or faces == null:
+		dock.show_report("Open a level first.")
+		return
 	if not path.begins_with("res://") or path.get_extension().to_lower() not in ["glb", "gltf"]:
 		dock.show_report("Choose a .glb or .gltf model in this project.")
 		return
