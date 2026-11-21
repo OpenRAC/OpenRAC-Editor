@@ -115,7 +115,9 @@ def editor_settings(config: Path, scale: float) -> dict:
     (folder / "editor_settings-4.7.tres").write_text(
         '[gd_resource type="EditorSettings" format=3]\n\n[resource]\n'
         'interface/editor/appearance/display_scale = 7\n'
-        f'interface/editor/appearance/custom_display_scale = {scale}\n')
+        f'interface/editor/appearance/custom_display_scale = {scale}\n'
+        # At 200% a 1280x900 screen is 640x450: the hint bar would leave the Level list no room.
+        'interface/editor/display/hints = false\n')
     return dict(os.environ, XDG_CONFIG_HOME=str(config))
 
 

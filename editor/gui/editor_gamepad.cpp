@@ -4,6 +4,7 @@
 #include "editor_gamepad.h"
 
 #include "core/input/input.h"
+#include "core/object/class_db.h"
 #include "core/input/input_map.h"
 #include "core/os/os.h"
 #include "editor/docks/dock_tab_container.h"
@@ -1026,7 +1027,7 @@ void EditorGamepad::_set_active(bool p_active) {
 	}
 	active = p_active;
 	if (bar) {
-		bar->slide(active);
+		bar->slide(active || _hints_on());
 	}
 	// Menus without "Ctrl+A" and the like, and the eye (and other buttons) in list rows in reach.
 	PopupMenu::set_keys_hidden(active);
@@ -1065,6 +1066,67 @@ void EditorGamepad::_update_hint(Control *p_focus, Node3DEditorViewport *p_view)
 		items = { "A", TTR("Choose"), "B", TTR("Back"), "Y", TTR("More"), "X", TTR("Undo"), "LT+X", TTR("Redo"), "LB+RB", TTR("Tabs"), "R", TTR("Scroll"), "View", TTR("Next panel"), "Start", TTR("Menu") };
 	}
 	bar->set_items(items);
+}
+
+bool EditorGamepad::_hints_on() {
+	return EDITOR_GET("interface/editor/display/hints");
+}
+
+// Without the pad, the same bar says what the mouse and keys do where the pointer is, so what can
+// be done is always in sight.
+void EditorGamepad::_update_mouse_hint() {
+	if (!bar) {
+		return;
+	}
+	const bool on = _hints_on();
+	if (on != bar->is_visible()) {
+		bar->slide(on);
+	}
+	if (!on) {
+		return;
+	}
+	String place;
+	for (Node *n = get_tree()->get_root()->gui_get_hovered_control(); n && place.is_empty(); n = n->get_parent()) {
+		if (Object::cast_to<Node3DEditorViewport>(n)) {
+			place = "view";
+		} else if (n->is_class("SceneTreeEditor")) {
+			place = "level";
+		} else if (Object::cast_to<EditorInspector>(n)) {
+			place = "properties";
+		} else if (n->is_class("CutsceneTimeline")) {
+			place = "cutscene";
+		} else if (n->is_class("AnimationPlayerEditor")) {
+			place = "keys";
+		} else if (EditorDock *dock = Object::cast_to<EditorDock>(n)) {
+			place = dock->get_effective_layout_key().to_lower();
+		}
+	}
+	const bool picked = !EditorNode::get_singleton()->get_editor_selection()->get_top_selected_node_list().is_empty();
+	Vector<String> items;
+	if (place == "view" && picked) {
+		items = { TTR("Drag arrows"), TTR("Move"), TTR("Drag rings"), TTR("Turn"), "F", TTR("Look at it"), "Ctrl+D", TTR("Copy"), "Del", TTR("Remove"), "Ctrl+Z", TTR("Undo") };
+	} else if (place == "view") {
+		items = { TTR("Click"), TTR("Pick"), TTR("Right drag"), TTR("Look"), TTR("Hold right") + "+WASD", TTR("Fly"), TTR("Wheel"), TTR("Closer, farther"), TTR("Drag from Assets"), TTR("Add") };
+	} else if (place == "level") {
+		items = { TTR("Click"), TTR("Pick"), TTR("Double-click"), TTR("Rename"), TTR("Drag"), TTR("Put inside another"), TTR("Eye"), TTR("Show or hide"), TTR("Right-click"), TTR("More"), "Del", TTR("Remove") };
+	} else if (place == "assets") {
+		items = { TTR("Drag into the level"), TTR("Add"), TTR("Double-click"), TTR("Add in front of you"), TTR("Search"), TTR("Find by name") };
+	} else if (place == "properties" || place == "inspector") {
+		items = picked ? Vector<String>{ TTR("Click a value"), TTR("Change it"), TTR("Drag a number"), TTR("Slide it"), TTR("Circle arrow"), TTR("Back to the game's value"), "Ctrl+Z", TTR("Undo") }
+					   : Vector<String>{ TTR("Click something in the level"), TTR("Change it here") };
+	} else if (place == "collision") {
+		items = { TTR("Show Collision"), TTR("Colour the ground by type"), TTR("Pick Faces"), TTR("Then click the ground"), TTR("Ground type"), TTR("Set it for the picked faces") };
+	} else if (place == "voices") {
+		items = { TTR("Search"), TTR("Find a line"), TTR("Click a line"), TTR("Change its words"), TTR("Hear"), TTR("Listen") };
+	} else if (place == "cutscene") {
+		items = { TTR("Click"), TTR("Jump or pick"), TTR("Drag a start"), TTR("Move it"), TTR("Ctrl+Wheel"), TTR("Zoom"), TTR("Shift+Wheel"), TTR("Scroll") };
+	} else if (place == "keys") {
+		items = { TTR("Click"), TTR("Jump"), TTR("Drag a key"), TTR("Move it"), TTR("Right-click"), TTR("More"), TTR("Ctrl+Wheel"), TTR("Zoom") };
+	} else {
+		// Anywhere else: the way through the editor.
+		items = { TTR("Assets"), TTR("Drag in to add"), TTR("Click in the level"), TTR("Pick"), TTR("Properties"), TTR("Change it"), TTR("Play Level"), TTR("Try it in the game"), "Ctrl+Z", TTR("Undo") };
+	}
+	bar->set_items(items, true);
 }
 
 void EditorGamepad::input(const Ref<InputEvent> &p_event) {
@@ -1256,6 +1318,8 @@ void EditorGamepad::_notification(int p_what) {
 			}
 			if (active) {
 				_update_hint(_focus_owner(), view);
+			} else {
+				_update_mouse_hint();
 			}
 			if (glide) {
 				// The gold frame follows the focus in the main window (not in the 3D view, which flies).
@@ -1270,12 +1334,13 @@ EditorGamepad::EditorGamepad() {
 	set_name("EditorGamepad");
 }
 
-void EditorGamepadBar::set_items(const Vector<String> &p_pairs) {
-	const String new_key = String("|").join(p_pairs);
+void EditorGamepadBar::set_items(const Vector<String> &p_pairs, bool p_keys) {
+	const String new_key = String("|").join(p_pairs) + (p_keys ? "|keys" : "");
 	if (new_key == key) {
 		return;
 	}
 	key = new_key;
+	keys = p_keys;
 	items.clear();
 	for (int i = 0; i + 1 < p_pairs.size(); i += 2) {
 		items.push_back({ p_pairs[i], p_pairs[i + 1] });
@@ -1284,8 +1349,23 @@ void EditorGamepadBar::set_items(const Vector<String> &p_pairs) {
 	queue_redraw();
 }
 
-// The face buttons in their usual colours, the rest grey.
+String EditorGamepadBar::get_hint_text() const {
+	PackedStringArray lines;
+	for (const Item &item : items) {
+		lines.push_back(item.button + ": " + item.text);
+	}
+	return String("\n").join(lines);
+}
+
+void EditorGamepadBar::_bind_methods() {
+	ClassDB::bind_method(D_METHOD("get_hint_text"), &EditorGamepadBar::get_hint_text);
+}
+
+// The face buttons in their usual colours, the rest grey; keys and mouse buttons as dark keys.
 Color EditorGamepadBar::_button_colour(const String &p_button) const {
+	if (keys) {
+		return Color(0.27, 0.26, 0.25);
+	}
 	if (p_button == "A") {
 		return Color(0.36, 0.72, 0.29);
 	}
@@ -1352,8 +1432,9 @@ void EditorGamepadBar::_notification(int p_what) {
 	const real_t baseline = (h + main->get_ascent(size) - main->get_descent(size)) / 2;
 	for (const Item &item : items) {
 		// Each button of a pair ("LB+RB") as its own glyph.
-		for (const String &name : item.button.split("+")) {
-			const bool face = name.length() == 1 && String("ABXY").contains(name);
+		for (const String &part : item.button.split("+")) {
+			const String name = part.strip_edges();
+			const bool face = !keys && name.length() == 1 && String("ABXY").contains(name);
 			const Size2 label_size = bold->get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, size);
 			const real_t w = face ? glyph_h : MAX(glyph_h, label_size.x + pad * 2);
 			const Rect2 r(x, (h - glyph_h) / 2, w, glyph_h);
@@ -1363,7 +1444,13 @@ void EditorGamepadBar::_notification(int p_what) {
 				Ref<StyleBoxFlat> pill;
 				pill.instantiate();
 				pill->set_bg_color(_button_colour(name));
-				pill->set_corner_radius_all(glyph_h / 2);
+				// A key is a rounded square with a lighter edge; a pad button a round pill.
+				pill->set_corner_radius_all(keys ? Math::round(4 * EDSCALE) : glyph_h / 2);
+				if (keys) {
+					pill->set_border_width_all(MAX(1, Math::round(EDSCALE)));
+					pill->set_border_width(SIDE_BOTTOM, MAX(2, Math::round(2 * EDSCALE)));
+					pill->set_border_color(Color(0.43, 0.41, 0.38));
+				}
 				pill->set_anti_aliased(true);
 				draw_style_box(pill, r);
 			}

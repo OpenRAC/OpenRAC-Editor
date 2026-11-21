@@ -32,7 +32,6 @@
 
 #include "editor/docks/editor_dock.h"
 #include "editor/editor_data.h"
-#include "editor/gui/create_dialog.h"
 #include "editor/inspector/editor_inspector.h"
 #include "scene/gui/button.h"
 #include "scene/gui/dialogs.h"
@@ -40,19 +39,12 @@
 #include "scene/gui/menu_button.h"
 #include "scene/gui/tree.h"
 
-class EditorFileDialog;
 class EditorObjectSelector;
 
 class InspectorDock : public EditorDock {
 	GDCLASS(InspectorDock, EditorDock);
 
 	enum MenuOptions {
-		RESOURCE_LOAD,
-		RESOURCE_SAVE,
-		RESOURCE_SAVE_AS,
-		RESOURCE_MAKE_BUILT_IN,
-		RESOURCE_COPY,
-		RESOURCE_EDIT_CLIPBOARD,
 		OBJECT_COPY_PARAMS,
 		OBJECT_PASTE_PARAMS,
 		OBJECT_UNIQUE_RESOURCES,
@@ -60,11 +52,6 @@ class InspectorDock : public EditorDock {
 		COLLAPSE_ALL,
 		EXPAND_ALL,
 		EXPAND_REVERTABLE,
-
-		// Matches `EditorPropertyNameProcessor::Style`.
-		PROPERTY_NAME_STYLE_RAW,
-		PROPERTY_NAME_STYLE_CAPITALIZED,
-		PROPERTY_NAME_STYLE_LOCALIZED,
 
 		OBJECT_METHOD_BASE = 500
 	};
@@ -78,16 +65,11 @@ class InspectorDock : public EditorDock {
 	Button *backward_button = nullptr;
 	Button *forward_button = nullptr;
 
-	EditorFileDialog *load_resource_dialog = nullptr;
-	CreateDialog *new_resource_dialog = nullptr;
-	Button *resource_new_button = nullptr;
-	Button *resource_load_button = nullptr;
-	MenuButton *resource_save_button = nullptr;
-	MenuButton *resource_extra_button = nullptr;
 	MenuButton *history_menu = nullptr;
 	LineEdit *search = nullptr;
 
 	MenuButton *object_menu = nullptr;
+	Label *nothing_picked = nullptr;
 	EditorObjectSelector *object_selector = nullptr;
 
 	bool info_is_warning = false; // Display in yellow and use warning icon if true.
@@ -103,24 +85,12 @@ class InspectorDock : public EditorDock {
 	EditorPropertyNameProcessor::Style property_name_style;
 	List<Pair<StringName, Variant>> stored_properties;
 
-	void _prepare_menu();
 	void _menu_option(int p_option);
 	void _menu_confirm_current();
 	void _menu_option_confirm(int p_option, bool p_confirmed);
 
-	void _new_resource();
-	void _load_resource(const String &p_type = "");
-	void _open_resource_selector() { _load_resource(); } // just used to call from arg-less signal
-	void _resource_file_selected(const String &p_file);
-	void _save_resource(bool save_as);
-	void _unref_resource();
-	void _copy_resource();
-	void _paste_resource();
-	void _prepare_resource_extra_popup();
-	Ref<Resource> _get_current_resource() const;
 
 	void _info_pressed();
-	void _resource_created();
 	void _resource_selected(const Ref<Resource> &p_res, const String &p_property);
 	void _edit_forward();
 	void _edit_back();
@@ -146,7 +116,6 @@ protected:
 public:
 	void go_back();
 	void edit_resource(const Ref<Resource> &p_resource);
-	void open_resource(const String &p_type);
 	void clear();
 	void set_info(const String &p_button_text, const String &p_message, bool p_is_warning);
 	void update(Object *p_object);

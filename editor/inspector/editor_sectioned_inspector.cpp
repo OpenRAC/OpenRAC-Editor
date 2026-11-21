@@ -65,7 +65,8 @@ static bool _openrac_setting_shown(const Object *p_edited, const String &p_name)
 	static const char *shown[] = {
 		"interface/editor/appearance/display_scale", "interface/editor/appearance/custom_display_scale",
 		"interface/editor/appearance/editor_screen", "interface/editor/display/light_mode",
-		"interface/editor/display/single_window_mode", "interface/editor/display/animations", "interface/editor/display/intro", "interface/editor/fonts/main_font_size",
+		"interface/editor/display/single_window_mode", "interface/editor/display/animations", "interface/editor/display/intro", "interface/editor/display/hints",
+		"interface/editor/fonts/main_font_size",
 		"interface/editor/behavior/save_on_focus_loss", "interface/editor/behavior/save_each_scene_on_quit",
 		"interface/theme/", "editors/3d/navigation/", "editors/3d/navigation_feel/", "editors/3d/freelook/",
 		"editors/3d/default_fov", "editors/3d/grid_size", "editors/3d/manipulator_gizmo_size", "openrac/",

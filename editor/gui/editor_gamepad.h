@@ -31,6 +31,7 @@ class EditorGamepadBar : public Control {
 	};
 	Vector<Item> items;
 	String key;
+	bool keys = false; // Keyboard and mouse hints, drawn as keys instead of pad buttons.
 	float shown = 0.0; // 0: away, 1: all the way up.
 	bool want = false;
 
@@ -38,10 +39,14 @@ class EditorGamepadBar : public Control {
 
 protected:
 	void _notification(int p_what);
+	static void _bind_methods();
 
 public:
-	// Pairs of a button (A, B, X, Y, LB, View, ...; LB+RB for two) and what it does.
-	void set_items(const Vector<String> &p_pairs);
+	// Pairs of a button (A, B, X, Y, LB, View, ...; LB+RB for two) and what it does. With p_keys,
+	// keys and mouse buttons (Ctrl+Z, Click, Wheel) instead.
+	void set_items(const Vector<String> &p_pairs, bool p_keys = false);
+	// What it says, as "button: what it does" lines (for tests).
+	String get_hint_text() const;
 	// Slides up into view (or away down), or just shows (hides) when animations are off.
 	void slide(bool p_in);
 	virtual Size2 get_minimum_size() const override;
@@ -175,6 +180,8 @@ class EditorGamepad : public Node {
 
 	void _set_active(bool p_active);
 	void _update_hint(Control *p_focus, Node3DEditorViewport *p_view);
+	void _update_mouse_hint();
+	static bool _hints_on();
 
 protected:
 	void _notification(int p_what);

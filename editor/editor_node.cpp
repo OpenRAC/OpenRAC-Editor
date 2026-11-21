@@ -72,6 +72,7 @@
 #include "editor/gui/editor_quick_open_dialog.h"
 #include "editor/gui/editor_title_bar.h"
 #include "editor/gui/editor_gamepad.h"
+#include "editor/gui/editor_first_steps.h"
 #include "editor/gui/editor_motion.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/gui/progress_dialog.h"
@@ -910,7 +911,13 @@ void EditorNode::_notification(int p_what) {
 				EditorDock *dock = Object::cast_to<EditorDock>(bottom_panel->get_tab_control(i));
 				bottom_docks.append(dock->get_effective_layout_key());
 			}
+			// OpenRAC Editor: the Cutscene timeline first; the bottom panel stays closed until needed.
+			if (bottom_docks.has("Cutscene")) {
+				bottom_docks.erase("Cutscene");
+				bottom_docks.insert(0, "Cutscene");
+			}
 			default_layout->set_value("docks", "dock_9", String(",").join(bottom_docks));
+			default_layout->set_value("docks", "dock_9_selected_tab_idx", -1);
 
 			RenderingServer::get_singleton()->viewport_set_disable_2d(get_scene_root()->get_viewport_rid(), true);
 			RenderingServer::get_singleton()->viewport_set_environment_mode(get_viewport()->get_viewport_rid(), RSE::VIEWPORT_ENVIRONMENT_DISABLED);
@@ -5499,6 +5506,9 @@ void EditorNode::_copy_warning(const String &p_str) {
 	DisplayServer::get_singleton()->clipboard_set(warning->get_text());
 }
 
+// OpenRAC Editor: raised when the default arrangement of panels changes, so saved levels take it.
+static constexpr int OPENRAC_PANELS_VERSION = 1;
+
 void EditorNode::_save_editor_layout() {
 	if (!load_editor_layout_done) {
 		return;
@@ -5509,6 +5519,7 @@ void EditorNode::_save_editor_layout() {
 	config->load(EditorPaths::get_singleton()->get_project_settings_dir().path_join("editor_layout.cfg"));
 
 	editor_dock_manager->save_docks_to_config(config, "docks");
+	config->set_value("openrac", "panels", OPENRAC_PANELS_VERSION);
 	_save_open_scenes_to_config(config);
 	_save_central_editor_layout_to_config(config);
 	_save_window_settings_to_config(config, "EditorWindow");
@@ -5552,7 +5563,9 @@ void EditorNode::_load_editor_layout() {
 		}
 	} else {
 		ep.step(TTR("Loading docks..."), 1, true);
-		editor_dock_manager->load_docks_from_config(config, "docks", true);
+		// OpenRAC Editor: a level saved with an older arrangement of panels gets the new one.
+		const bool old_panels = int(config->get_value("openrac", "panels", 0)) < OPENRAC_PANELS_VERSION;
+		editor_dock_manager->load_docks_from_config(old_panels ? default_layout : config, "docks", true);
 
 		ep.step(TTR("Reopening levels"), 2, true);
 		_load_open_scenes_from_config(config);
@@ -7946,21 +7959,17 @@ EditorNode::EditorNode() {
 	const String docks_section = "docks";
 	default_layout.instantiate();
 	// Dock numbers are based on DockSlot enum value + 1.
-	{
-		const String scene_key = SceneTreeDock::get_singleton()->get_effective_layout_key();
-		default_layout->set_value(docks_section, "dock_3", scene_key);
-		default_layout->set_value(docks_section, "dock_3_selected_tab_idx", 0);
-	}
-	{
-		const String history_key = history_dock->get_effective_layout_key();
-		default_layout->set_value(docks_section, "dock_4", history_key);
-		default_layout->set_value(docks_section, "dock_4_selected_tab_idx", 0);
-	}
-	{
-		const String inspector_key = InspectorDock::get_singleton()->get_effective_layout_key();
-		default_layout->set_value(docks_section, "dock_5", inspector_key);
-		default_layout->set_value(docks_section, "dock_5_selected_tab_idx", 0);
-	}
+	// OpenRAC Editor: each panel where it is used. Left: the Level list (and its History) above the
+	// Assets to add from. Right: Properties, the whole height it needs, then Collision and Voices.
+	// Bottom (closed until needed): Cutscene, Keys, Messages.
+	default_layout->set_value(docks_section, "dock_3", SceneTreeDock::get_singleton()->get_effective_layout_key() + "," + history_dock->get_effective_layout_key());
+	default_layout->set_value(docks_section, "dock_3_selected_tab_idx", 0);
+	default_layout->set_value(docks_section, "dock_4", "Assets");
+	default_layout->set_value(docks_section, "dock_4_selected_tab_idx", 0);
+	default_layout->set_value(docks_section, "dock_5", InspectorDock::get_singleton()->get_effective_layout_key());
+	default_layout->set_value(docks_section, "dock_5_selected_tab_idx", 0);
+	default_layout->set_value(docks_section, "dock_6", "Collision,Voices");
+	default_layout->set_value(docks_section, "dock_6_selected_tab_idx", 0);
 
 	int hsplits[] = { 0, dock_hsize, -dock_hsize, 0 };
 	for (int i = 0; i < (int)std_size(hsplits); i++) {
@@ -8158,6 +8167,9 @@ EditorNode::EditorNode() {
 		EditorIntro *intro = memnew(EditorIntro);
 		intro->set_z_index(100);
 		gui_base->add_child(intro);
+	}
+	if (!DisplayServer::get_singleton()->get_name().contains("headless") && EditorFirstSteps::is_wanted()) {
+		gui_base->add_child(memnew(EditorFirstSteps));
 	}
 
 	open_imported = memnew(ConfirmationDialog);

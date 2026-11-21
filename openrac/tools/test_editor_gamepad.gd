@@ -676,8 +676,12 @@ func hint() -> void:
 	click = click.duplicate()
 	click.pressed = false
 	Input.parse_input_event(click)
+	await get_tree().create_timer(0.6).timeout
+	check("a mouse click puts the mouse's hints in it", bar().is_visible_in_tree() and bar().get_hint_text().contains("Undo") and not bar().get_hint_text().begins_with("A:"), bar().get_hint_text())
+	EditorInterface.get_editor_settings().set_setting("interface/editor/display/hints", false)
 	await get_tree().create_timer(0.6).timeout # It slides away.
-	check("a mouse click hides it", not bar().is_visible_in_tree())
+	check("with Hints off, the mouse hides it", not bar().is_visible_in_tree())
+	EditorInterface.get_editor_settings().set_setting("interface/editor/display/hints", true)
 
 
 # The touchpads ------------------------------------------------------------------------------------

@@ -92,6 +92,14 @@ These are deleted from the source:
   and the behaviours set in a moby's Inspector, spin, bob, patrol, orbit, face or follow the hero
   ([BEHAVIOUR_FORMAT.md](BEHAVIOUR_FORMAT.md)).
 
+- **Where things are** (`editor/editor_node.cpp`, `editor/gui/editor_first_steps.cpp`): left, the Level
+  list (with Undo History) over the Assets to add from; right, Properties at full height over
+  Collision and Voices; the bottom panel (Cutscene, Messages, Keys) stays closed until needed.
+  Levels saved with the old arrangement take the new one once. The bar at the bottom says what the
+  mouse and keys do where the pointer is (Settings > Editor > Hints), a first steps card shows how
+  to make a level until "Got It", Properties says how to pick something, and Move, Turn and Size
+  are named on the toolbar. Properties lost Godot's file buttons and name styles.
+
 - **Motion** (`editor/gui/editor_motion.cpp`): an intro when the editor opens (the README's logo over a
   gold line, with what is loading; any key, click or pad button skips it), tab pages fade
   and slide in, menus and windows fade in, lists scroll smoothly (`ScrollBar::wheel`), the pad bar
