@@ -11,6 +11,8 @@
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_bottom_panel.h"
 #include "editor/gui/editor_spin_slider.h"
+#include "editor/inspector/editor_inspector.h"
+#include "scene/gui/dialogs.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/themes/editor_scale.h"
@@ -68,6 +70,7 @@ struct AreaOrder {
 bool is_text_field(const Control *p_control) {
 	return Object::cast_to<LineEdit>(p_control) || Object::cast_to<TextEdit>(p_control);
 }
+
 } // namespace
 
 void EditorGamepad::_read_pad() {
@@ -272,23 +275,139 @@ void EditorGamepad::_update_arrows(double p_delta, bool p_use_stick) {
 		}
 	}
 
-	if (want != held_arrow) {
-		if (held_arrow != Key::NONE) {
+	_keep_in_area();
+	Window *w = _active_window();
+	Control *focus = w ? w->gui_get_focus_owner() : nullptr;
+	Control *area = focus && w == get_tree()->get_root() ? _area_of(focus) : nullptr;
+	bool step = want != held_arrow;
+	if (step) {
+		if (held_arrow != Key::NONE && held_sent) {
 			_send_key(held_arrow, false);
 		}
 		held_arrow = want;
-		if (want != Key::NONE) {
-			_send_key(want, true);
-			arrow_repeat_in = ARROW_FIRST_REPEAT;
+		held_sent = false;
+		arrow_repeat_in = ARROW_FIRST_REPEAT;
+	} else if (held_arrow != Key::NONE) {
+		arrow_repeat_in -= p_delta;
+		if (arrow_repeat_in <= 0) {
+			arrow_repeat_in += ARROW_REPEAT;
+			step = true;
+		}
+	}
+	if (!step || held_arrow == Key::NONE) {
+		return;
+	}
+	// Properties go row by row; elsewhere the arrow key does what it does there.
+	if ((held_arrow == Key::UP || held_arrow == Key::DOWN) && focus && !_is_typing(focus) && _inspector_step(focus, held_arrow == Key::DOWN ? 1 : -1)) {
+		return;
+	}
+	Control *any_focus = focus;
+	if (Object::cast_to<TextEdit>(any_focus) && !_is_typing(any_focus)) {
+		// A many-line field not typed in: the d-pad leaves it, as from a button.
+		const Side side = held_arrow == Key::UP ? SIDE_TOP : (held_arrow == Key::DOWN ? SIDE_BOTTOM : (held_arrow == Key::LEFT ? SIDE_LEFT : SIDE_RIGHT));
+		if (Control *next = any_focus->find_valid_focus_neighbor(side)) {
+			next->grab_focus();
 		}
 		return;
 	}
-	if (held_arrow != Key::NONE) {
-		arrow_repeat_in -= p_delta;
-		if (arrow_repeat_in <= 0) {
-			_send_key(held_arrow, true, true);
-			arrow_repeat_in += ARROW_REPEAT;
+	arrow_from = area ? focus->get_instance_id() : ObjectID();
+	arrow_area = area ? area->get_instance_id() : ObjectID();
+	_send_key(held_arrow, true, held_sent);
+	held_sent = true;
+}
+
+// The panel p_control is in: a dock's page, the bottom panel's page, or a 3D view.
+Control *EditorGamepad::_area_of(Control *p_control) const {
+	for (Node *n = p_control; n; n = n->get_parent()) {
+		Control *c = Object::cast_to<Control>(n);
+		if (!c || Object::cast_to<Window>(n)) {
+			return nullptr;
 		}
+		if (Object::cast_to<DockTabContainer>(c->get_parent()) || Object::cast_to<Node3DEditorViewport>(c->get_parent())) {
+			return c;
+		}
+	}
+	return nullptr;
+}
+
+// Up and down in Properties go row by row, in the order they are listed (a section's header, then
+// what is in it), not by where the nearest box is: a section's box holds its rows, so that would
+// skip them or stop.
+bool EditorGamepad::_inspector_step(Control *p_focus, int p_dir) {
+	EditorInspector *inspector = nullptr;
+	for (Node *n = p_focus; n && !inspector; n = n->get_parent()) {
+		inspector = Object::cast_to<EditorInspector>(n);
+	}
+	if (!inspector) {
+		return false;
+	}
+	LocalVector<Control *> order;
+	LocalVector<Node *> stack;
+	stack.push_back(inspector);
+	while (!stack.is_empty()) {
+		Node *n = stack[stack.size() - 1];
+		stack.remove_at(stack.size() - 1);
+		Control *c = Object::cast_to<Control>(n);
+		if (c && !c->is_visible_in_tree()) {
+			continue;
+		}
+		if (c && c != inspector && c->get_focus_mode_with_override() == Control::FOCUS_ALL) {
+			order.push_back(c);
+		}
+		for (int i = n->get_child_count() - 1; i >= 0; i--) {
+			stack.push_back(n->get_child(i));
+		}
+	}
+	int at = -1;
+	for (uint32_t i = 0; i < order.size(); i++) {
+		if (order[i] == p_focus || order[i]->is_ancestor_of(p_focus)) {
+			at = i;
+		}
+	}
+	if (at < 0) {
+		if (p_focus == inspector && !order.is_empty()) {
+			order[0]->grab_focus(); // Properties itself has focus (Tab in a dialog): its first row.
+			return true;
+		}
+		return false;
+	}
+	const real_t top = order[at]->get_global_rect().position.y;
+	const real_t slack = 2 * EDSCALE;
+	int to = -1;
+	if (p_dir > 0) {
+		for (int i = at + 1; i < (int)order.size() && to < 0; i++) {
+			if (order[i]->get_global_rect().position.y > top + slack) {
+				to = i;
+			}
+		}
+	} else {
+		for (int i = at - 1; i >= 0 && to < 0; i--) {
+			if (order[i]->get_global_rect().position.y < top - slack) {
+				to = i;
+			}
+		}
+		// The first (left) one of that row.
+		while (to > 0 && Math::abs(order[to - 1]->get_global_rect().position.y - order[to]->get_global_rect().position.y) <= slack) {
+			to--;
+		}
+	}
+	if (to >= 0) {
+		order[to]->grab_focus();
+	}
+	return true; // At the first or last row it stays.
+}
+
+// The d-pad stays in its panel: at the end of Properties it does not jump to the bottom panel.
+void EditorGamepad::_keep_in_area() {
+	Control *from = ObjectDB::get_instance<Control>(arrow_from);
+	Control *area = ObjectDB::get_instance<Control>(arrow_area);
+	arrow_from = ObjectID();
+	if (!from || !area || !from->is_visible_in_tree() || from->get_window() != get_tree()->get_root()) {
+		return;
+	}
+	Control *now = get_tree()->get_root()->gui_get_focus_owner();
+	if (now && now != from && now->get_window() == from->get_window() && _area_of(now) != area) {
+		from->grab_focus();
 	}
 }
 
@@ -317,10 +436,11 @@ void EditorGamepad::_scroll(Control *p_focus, double p_delta) {
 }
 
 void EditorGamepad::_release_arrow() {
-	if (held_arrow != Key::NONE) {
+	if (held_arrow != Key::NONE && held_sent) {
 		_send_key(held_arrow, false);
-		held_arrow = Key::NONE;
 	}
+	held_arrow = Key::NONE;
+	held_sent = false;
 }
 
 EditorSpinSlider *EditorGamepad::_adjusting() const {
@@ -410,6 +530,24 @@ void EditorGamepad::_focus_into(Control *p_area) {
 		if (c && !c->is_visible_in_tree()) {
 			continue;
 		}
+		if (EditorInspector *inspector = Object::cast_to<EditorInspector>(n)) {
+			// Properties: its first field, not the buttons above it.
+			LocalVector<Node *> inner;
+			inner.push_back(inspector);
+			for (uint32_t i = 0; i < inner.size() && !first_list; i++) {
+				Control *ic = Object::cast_to<Control>(inner[i]);
+				if (ic && !ic->is_visible_in_tree()) {
+					continue;
+				}
+				if (ic && ic != inspector && ic->get_focus_mode_with_override() == Control::FOCUS_ALL) {
+					first_list = ic;
+				}
+				for (int j = 0; j < inner[i]->get_child_count(); j++) {
+					inner.push_back(inner[i]->get_child(j));
+				}
+			}
+			continue;
+		}
 		if (c && c->get_focus_mode_with_override() == Control::FOCUS_ALL) {
 			if (Object::cast_to<Tree>(c) || Object::cast_to<ItemList>(c) || Object::cast_to<Node3DEditorViewport>(c->get_parent())) {
 				first_list = c;
@@ -426,6 +564,58 @@ void EditorGamepad::_focus_into(Control *p_area) {
 	Control *target = first_list ? first_list : (first_other ? first_other : first_any);
 	if (target) {
 		target->grab_focus();
+	}
+}
+
+// A one-line field types once it is being edited; a many-line one (which has no such mode, and
+// would eat the d-pad) once A was pressed on it.
+bool EditorGamepad::_is_typing(const Control *p_control) const {
+	const LineEdit *le = Object::cast_to<LineEdit>(p_control);
+	const TextEdit *te = Object::cast_to<TextEdit>(p_control);
+	return (le && le->is_editing()) || (te && te->is_editable() && te->get_instance_id() == typing_in);
+}
+
+Control *EditorGamepad::_find_list(Node *p_area) const {
+	LocalVector<Node *> stack;
+	stack.push_back(p_area);
+	for (uint32_t i = 0; i < stack.size(); i++) {
+		Node *n = stack[i];
+		Control *c = Object::cast_to<Control>(n);
+		if (c && !c->is_visible_in_tree()) {
+			continue;
+		}
+		if (c && c->get_focus_mode_with_override() == Control::FOCUS_ALL && (Object::cast_to<Tree>(c) || Object::cast_to<ItemList>(c))) {
+			return c;
+		}
+		for (int j = 0; j < n->get_child_count(); j++) {
+			stack.push_back(n->get_child(j));
+		}
+	}
+	return nullptr;
+}
+
+// A dialog that opens with a text field in focus would have the pad typing in it: its list (files,
+// sections) gets the focus instead, or the field waits for A.
+void EditorGamepad::_window_opened(Window *p_window) {
+	Control *focus = p_window->gui_get_focus_owner();
+	if (focus && !is_text_field(focus)) {
+		return;
+	}
+	if (Control *list = _find_list(p_window)) {
+		list->grab_focus();
+		return;
+	}
+	if (!Object::cast_to<AcceptDialog>(p_window)) {
+		// A popup that is only a field (renaming a row): type in it straight away.
+		if (focus && _is_typing(focus)) {
+			_open_steam_keyboard();
+		}
+		return;
+	}
+	if (LineEdit *le = Object::cast_to<LineEdit>(focus)) {
+		le->unedit();
+	} else if (!focus) {
+		_focus_anything(p_window);
 	}
 }
 
@@ -510,7 +700,16 @@ void EditorGamepad::_switch_tab(Control *p_focus, int p_step) {
 			if (tc->get_tab_count() < 2 || !tc->is_visible_in_tree()) {
 				continue;
 			}
-			const bool moved = p_step > 0 ? tc->select_next_available() : tc->select_previous_available();
+			bool moved = p_step > 0 ? tc->select_next_available() : tc->select_previous_available();
+			if (!moved) {
+				// Round again from the other end.
+				const int from = tc->get_current_tab();
+				tc->set_current_tab(p_step > 0 ? 0 : tc->get_tab_count() - 1);
+				if (tc->is_tab_disabled(tc->get_current_tab()) || tc->is_tab_hidden(tc->get_current_tab())) {
+					p_step > 0 ? tc->select_next_available() : tc->select_previous_available();
+				}
+				moved = tc->get_current_tab() != from;
+			}
 			if (moved && tc->get_current_tab_control()) {
 				_focus_into(tc->get_current_tab_control());
 			}
@@ -518,7 +717,9 @@ void EditorGamepad::_switch_tab(Control *p_focus, int p_step) {
 		}
 		if (TabBar *tb = Object::cast_to<TabBar>(n)) {
 			if (tb->get_tab_count() >= 2) {
-				p_step > 0 ? tb->select_next_available() : tb->select_previous_available();
+				if (!(p_step > 0 ? tb->select_next_available() : tb->select_previous_available())) {
+					tb->set_current_tab(p_step > 0 ? 0 : tb->get_tab_count() - 1);
+				}
 				return;
 			}
 		}
@@ -853,8 +1054,10 @@ void EditorGamepad::_update_hint(Control *p_focus, Node3DEditorViewport *p_view)
 		items = { TTR("Right pad"), TTR("Point, press to click, hold to drag"), TTR("Left pad"), p_view ? TTR("Look, press for more") : TTR("Scroll, press for more") };
 	} else if (p_view) {
 		items = { "L", TTR("Fly"), "R", TTR("Look"), "LT+RT", TTR("Down, up"), "A", TTR("Pick"), "X", TTR("Hold: carry"), "LB+RB", TTR("Turn"), "Y", TTR("Look at it"), "B", TTR("Drop pick"), "View", TTR("Next panel") };
+	} else if (is_text_field(p_focus) && _is_typing(p_focus)) {
+		items = { "A", TTR("Done"), "B", TTR("Cancel"), "X", TTR("Keyboard"), "D-pad", TTR("Leave"), "View", TTR("Next field") };
 	} else if (is_text_field(p_focus)) {
-		items = { "A", TTR("Done"), "B", TTR("Cancel"), "X", TTR("Keyboard"), "View", TTR("Next field") };
+		items = { "A", TTR("Type"), "B", TTR("Back"), "Y", TTR("More"), "View", TTR("Next field"), "Start", TTR("Menu") };
 	} else if (Object::cast_to<EditorSpinSlider>(p_focus)) {
 		items = { "A", TTR("Change"), "B", TTR("Back"), "Y", TTR("More"), "X", TTR("Undo"), "LT+X", TTR("Redo"), "View", TTR("Next panel"), "Start", TTR("Menu") };
 	} else {
@@ -936,6 +1139,19 @@ void EditorGamepad::_notification(int p_what) {
 				touched_last = true;
 			}
 			_update_touchpads(window);
+			if (window->get_instance_id() != last_window) {
+				last_window = window->get_instance_id();
+				if (active && window != get_tree()->get_root() && !Object::cast_to<PopupMenu>(window)) {
+					_window_opened(window);
+					focus = window->gui_get_focus_owner();
+				}
+			}
+			// Up or down leaves a one-line field being typed in, as from any other row.
+			if (LineEdit *le = Object::cast_to<LineEdit>(focus)) {
+				if (le->is_editing() && (_pressed(PAD_UP) || _pressed(PAD_DOWN))) {
+					le->unedit();
+				}
+			}
 			// A menu takes keys without focus; elsewhere the first press only shows where the focus is.
 			if (pressed_any && !focus && !Object::cast_to<PopupMenu>(window) && _focus_anything(window)) {
 				return;
@@ -979,13 +1195,24 @@ void EditorGamepad::_notification(int p_what) {
 			} else {
 				_scroll(focus, delta);
 				EditorSpinSlider *number = Object::cast_to<EditorSpinSlider>(focus);
+				TextEdit *lines = Object::cast_to<TextEdit>(focus);
+				if (typing_in.is_valid() && (!lines || lines->get_instance_id() != typing_in)) {
+					typing_in = ObjectID(); // Focus left the field typed in.
+				}
 				if (_pressed(PAD_A) && number && !number->is_read_only()) {
 					_start_adjust(number);
-				} else if (_pressed(PAD_A)) {
+				} else if (_pressed(PAD_A) && lines && !_is_typing(lines)) {
+					if (lines->is_editable()) {
+						typing_in = lines->get_instance_id();
+						_open_steam_keyboard();
+					}
+				} else if (_pressed(PAD_A) && !lines) {
 					_tap_key(Key::ENTER);
 					keyboard_check_frames = 3;
 				}
-				if (_pressed(PAD_B)) {
+				if (_pressed(PAD_B) && lines && _is_typing(lines)) {
+					typing_in = ObjectID(); // Stop typing, stay on the field.
+				} else if (_pressed(PAD_B)) {
 					_tap_key(Key::ESCAPE);
 				}
 				if (_pressed(PAD_X)) {

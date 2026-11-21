@@ -7,7 +7,7 @@ extends EditorPlugin
 const MOST_SECONDS: float = 90.0
 
 const SCENARIOS: PackedStringArray = ["first_press_focuses", "dpad_moves", "dpad_repeats", "next_panel", "tabs",
-	"main_menu", "menu_without_keys", "context_menu", "text_field", "number_field", "row_buttons", "play_button", "empty_panel", "fly", "turn_and_undo", "carry_and_undo", "carry_put_back", "hint",
+	"main_menu", "menu_without_keys", "context_menu", "text_field", "number_field", "row_buttons", "play_button", "empty_panel", "settings_dialog", "properties_rows", "stays_in_panel", "tabs_wrap", "fly", "turn_and_undo", "carry_and_undo", "carry_put_back", "hint",
 	"touch_pointer", "touch_click", "touch_scroll", "touch_look"]
 
 ## The touchpads, as the editor's SDL driver sends them (JoyTouchpad in core/input/input_enums.h).
@@ -449,6 +449,125 @@ func empty_panel() -> void:
 	remove_dock(dock)
 	dock.queue_free()
 	await frames(3)
+
+
+## The menus' Settings: it opens on its list of pages (not typing in its search field), View goes
+## to the settings, the d-pad walks them, B closes it.
+func settings_dialog() -> void:
+	level_tree().grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_START)
+	var reached := false
+	for _i in range(6):
+		await tap(JOY_BUTTON_DPAD_RIGHT)
+		var w: Window = popups()[0] if not popups().is_empty() else null
+		if w is PopupMenu:
+			for i in range(w.item_count):
+				if w.get_item_text(i) == "Settings...":
+					reached = true
+			if reached:
+				break
+	var menu: PopupMenu = popups()[0]
+	for _i in range(10):
+		if menu.get_focused_item() >= 0 and menu.get_item_text(menu.get_focused_item()) == "Settings...":
+			break
+		await tap(JOY_BUTTON_DPAD_DOWN)
+	await tap(JOY_BUTTON_A)
+	await frames(10)
+	var dialog: Window = null
+	for w in get_tree().root.find_children("*", "EditorSettingsDialog", true, false):
+		if w.visible:
+			dialog = w
+	check("A on Settings... opens it", dialog != null)
+	if dialog == null:
+		return
+	var owner := dialog.gui_get_focus_owner()
+	check("it opens on its list of pages", owner is Tree, owner)
+	await tap(JOY_BUTTON_BACK)
+	await tap(JOY_BUTTON_DPAD_DOWN)
+	owner = dialog.gui_get_focus_owner()
+	var inspector := owner
+	while inspector and inspector.get_class() != "SectionedInspector" and inspector.get_class() != "EditorInspector":
+		inspector = inspector.get_parent()
+	check("View, then down: a setting", owner != null and inspector != null and owner.get_class() != "EditorInspector", owner)
+	await tap(JOY_BUTTON_B)
+	await frames(10)
+	check("B closes it", not dialog.visible)
+
+
+## Properties go row by row with the d-pad, section headers too, and A opens and closes a section.
+func properties_rows() -> void:
+	await pick_moby()
+	EditorInterface.edit_node(moby())
+	await frames(5)
+	var sections: Array = []
+	for c in EditorInterface.get_inspector().find_children("*", "EditorInspectorSection", true, false):
+		if c.is_visible_in_tree():
+			sections.append(c)
+	check("Properties has sections", not sections.is_empty())
+	if sections.is_empty():
+		return
+	var first: Control = sections[0]
+	first.grab_focus()
+	await frames(2)
+	var tall: float = first.size.y
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	check("A on a section opens or closes it", not is_equal_approx(first.size.y, tall), "%s to %s" % [tall, first.size.y])
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	var rows: Array = [focus()]
+	for _i in range(8):
+		await tap(JOY_BUTTON_DPAD_DOWN)
+		if focus() != rows[-1]:
+			rows.append(focus())
+	var tops: Array = rows.map(func(c: Control) -> float: return c.global_position.y if c else -1.0)
+	var ordered := true
+	for i in range(1, tops.size()):
+		ordered = ordered and tops[i] > tops[i - 1]
+	check("down goes to the next rows, in order", rows.size() >= 3 and ordered, tops)
+	var section_reached := false
+	for c in rows:
+		section_reached = section_reached or (c != first and c.get_class() == "EditorInspectorSection")
+	check("down reaches the next section's header too", section_reached or sections.size() < 2, rows)
+	EditorInterface.get_selection().clear()
+
+
+## The d-pad stays in its panel: down past the last row of the Level list's panel is not another panel.
+func stays_in_panel() -> void:
+	var tree := level_tree()
+	tree.grab_focus()
+	var last: TreeItem = tree.get_root()
+	while last.get_next_visible():
+		last = last.get_next_visible()
+	tree.set_selected(last, 0)
+	await frames(2)
+	for _i in range(3):
+		await tap(JOY_BUTTON_DPAD_DOWN)
+	check("down at the end stays in the list", focus() == tree, focus())
+
+
+## RB on the last tab goes round to the first.
+func tabs_wrap() -> void:
+	var container: TabContainer = null
+	for c in EditorInterface.get_base_control().find_children("*", "DockTabContainer", true, false):
+		if c.is_visible_in_tree() and c.get_tab_count() >= 2 and c.get_class() != "EditorBottomPanel":
+			container = c
+			break
+	if container == null:
+		check("a dock place has tabs", false)
+		return
+	container.current_tab = container.get_tab_count() - 1
+	await frames(2)
+	for c in container.get_current_tab_control().find_children("*", "Control", true, false):
+		if c.is_visible_in_tree() and c.focus_mode == Control.FOCUS_ALL:
+			c.grab_focus()
+			break
+	await frames(2)
+	await tap(JOY_BUTTON_RIGHT_SHOULDER)
+	check("RB on the last tab goes to the first", container.current_tab == 0, container.current_tab)
+	await tap(JOY_BUTTON_LEFT_SHOULDER)
+	check("LB on the first goes to the last", container.current_tab == container.get_tab_count() - 1, container.current_tab)
 
 
 func fly() -> void:

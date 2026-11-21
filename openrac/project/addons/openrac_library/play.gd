@@ -52,6 +52,9 @@ func _ready() -> void:
 ## A big gold button with the play sign: the one thing to press to see the level in the game.
 func style_button() -> void:
 	var scale: float = EditorInterface.get_editor_scale()
+	# A wrapping label asks for its height at no width: give it the dialog's width, or the dialog
+	# grows to the whole screen's height.
+	summary.custom_minimum_size.x = 520 * scale
 	var theme: Theme = EditorInterface.get_editor_theme()
 	play_button.icon = theme.get_icon("Play", "EditorIcons")
 	play_button.add_theme_font_override("font", theme.get_font("bold", "EditorFonts"))

@@ -90,12 +90,18 @@ class EditorGamepad : public Node {
 
 	// The arrow key held by the d-pad or the left stick, and when it repeats.
 	Key held_arrow = Key::NONE;
+	bool held_sent = false; // The held arrow's key went out (Properties step without one).
+	// Where an arrow (d-pad) started: it moves within that panel only; View goes to the next one.
+	ObjectID arrow_from;
+	ObjectID arrow_area;
 	double arrow_repeat_in = 0.0;
 	double scroll_left = 0.0;
 
 	bool active = false; // The pad was used last, not the mouse or keyboard.
+	ObjectID last_window; // The window the pad worked in last frame: a dialog that just opened gets a pad-friendly focus.
 	EditorGamepadBar *bar = nullptr;
 	int keyboard_check_frames = 0;
+	ObjectID typing_in; // The many-line field A started typing in.
 
 	// Objects carried with the view while X is held.
 	struct Carried {
@@ -129,12 +135,18 @@ class EditorGamepad : public Node {
 	void _click(Control *p_at, const Vector2 &p_local, MouseButton p_button);
 
 	void _update_arrows(double p_delta, bool p_use_stick);
+	Control *_area_of(Control *p_control) const;
+	void _keep_in_area();
+	bool _inspector_step(Control *p_focus, int p_dir);
 	void _scroll(Control *p_focus, double p_delta);
 	void _next_area(int p_step);
 	void _switch_tab(Control *p_focus, int p_step);
 	void _open_main_menu();
 	void _context_menu(Control *p_focus);
 	void _focus_into(Control *p_area);
+	bool _is_typing(const Control *p_control) const;
+	Control *_find_list(Node *p_area) const;
+	void _window_opened(Window *p_window);
 	bool _focus_anything(Window *p_window);
 	void _open_steam_keyboard();
 

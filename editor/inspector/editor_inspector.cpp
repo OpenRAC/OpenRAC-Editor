@@ -2407,6 +2407,16 @@ void EditorInspectorSection::_notification(int p_what) {
 				}
 				draw_style_box(section_indent_style, indent_rect);
 			}
+
+			// OpenRAC Editor: the header can take focus (keys, a gamepad): framed when it has it.
+			if (has_focus(true)) {
+				draw_style_box(get_theme_stylebox(SNAME("focus"), SNAME("Button")), Rect2(Vector2(), Vector2(get_size().width, _get_header_height())));
+			}
+		} break;
+
+		case NOTIFICATION_FOCUS_ENTER:
+		case NOTIFICATION_FOCUS_EXIT: {
+			queue_redraw(); // OpenRAC Editor: the header's focus frame.
 		} break;
 
 		case NOTIFICATION_DRAG_BEGIN: {
@@ -2835,7 +2845,7 @@ void EditorInspectorSection::_bind_methods() {
 }
 
 EditorInspectorSection::EditorInspectorSection() {
-	set_focus_mode(FOCUS_ACCESSIBILITY);
+	set_focus_mode(FOCUS_ALL); // OpenRAC Editor: keys and a gamepad open and close sections.
 
 	vbox = memnew(VBoxContainer);
 	vbox->set_theme_type_variation(SNAME("EditorPropertyContainer"));
