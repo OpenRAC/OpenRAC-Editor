@@ -6,10 +6,10 @@ server (docs/MCP.md), and to see the result in the game with OpenRAC's game serv
 
 ## The world
 
-- **A level project** is one level of the disc (Veldin is 1, Novalis 2, Aridia 3, Kerwan 4, Eudora
-  5, Rilgar 6, Blarg 7, Umbris 8, Batalia 9, Gaspar 10, Orxon 11, Pokitaru 12, Hoven 13, Gemlik 14,
-  Oltanis 15, Quartu 16, Kalebo III 17, Drek's fleet 18; 0 is the title level). `project_info`
-  says which, and lists the other levels' projects.
+- **A level project** is one level of the disc, numbered from 0 as the game does (Veldin 0,
+  Novalis 1, Aridia 2, Kerwan 3, Eudora 4, Rilgar 5, Blarg 6, Umbris 7, Batalia 8, Gaspar 9,
+  Orxon 10, Pokitaru 11, Hoven 12, Gemlik 13, Oltanis 14, Quartu 15, Kalebo III 16, Drek's fleet
+  17, Veldin again at the end 18). `project_info` says which, and lists the other levels' projects.
 - **The game's coordinates**: x and y across, z up, in game units (about a metre). Every OpenRAC
   tool (`moby_*`, `ground_at`, `cutscene_*`) speaks them. A heading (`yaw`) is degrees about z,
   0 looking along +x. The Godot tools (`node_*`, `tree`) speak the editor's own space, where the
