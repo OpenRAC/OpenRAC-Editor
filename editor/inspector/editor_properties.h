@@ -761,7 +761,6 @@ class EditorPropertyResource : public EditorProperty {
 	void _sub_inspector_object_id_selected(int p_id);
 
 	void _open_editor_pressed();
-	void _update_preferred_shader();
 	bool _should_stop_editing() const;
 
 protected:

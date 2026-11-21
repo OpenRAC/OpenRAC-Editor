@@ -39,152 +39,13 @@
 #include "scene/gui/text_edit.h"
 #include "scene/main/timer.h"
 
-class FindBar : public HBoxContainer {
-	GDCLASS(FindBar, HBoxContainer);
-
-	LineEdit *search_text = nullptr;
-	Button *find_prev = nullptr;
-	Button *find_next = nullptr;
-	Label *matches_label = nullptr;
-	Button *hide_button = nullptr;
-
-	RichTextLabel *rich_text_label = nullptr;
-
-	String prev_search;
-	int results_count = 0;
-	int results_count_to_current = 0;
-
-	virtual void input(const Ref<InputEvent> &p_event) override;
-
-	void _hide_bar();
-
-	void _search_text_changed(const String &p_text);
-	void _search_text_submitted(const String &p_text);
-
-	void _update_results_count(bool p_search_previous);
-	void _update_matches_label();
-
-protected:
-	void _notification(int p_what);
-
-	bool _search(bool p_search_previous = false);
-
-public:
-	void set_rich_text_label(RichTextLabel *p_rich_text_label);
-
-	void popup_search();
-
-	bool search_prev();
-	bool search_next();
-
-	FindBar();
-};
-
 class EditorFileSystemDirectory;
 
-class EditorHelp : public VBoxContainer {
-	GDCLASS(EditorHelp, VBoxContainer);
-
-	enum MethodType {
-		METHOD_TYPE_METHOD,
-		METHOD_TYPE_CONSTRUCTOR,
-		METHOD_TYPE_OPERATOR,
-		METHOD_TYPE_MAX
-	};
-
-	bool select_locked = false;
-	bool update_pending = false;
-
-	String prev_search;
-
-	String edited_class;
-
-	Vector<Pair<String, int>> section_line;
-	HashMap<String, int> method_line;
-	HashMap<String, int> signal_line;
-	HashMap<String, int> property_line;
-	HashMap<String, int> theme_property_line;
-	HashMap<String, int> constant_line;
-	HashMap<String, int> annotation_line;
-	HashMap<String, int> enum_line;
-	HashMap<String, HashMap<String, int>> enum_values_line;
-	int description_line = 0;
-
-	RichTextLabel *class_desc = nullptr;
+// OpenRAC Editor: the class reference page lived in the script editor, which is gone.
+// Only the shared doc data stays; tooltips (EditorHelpBit) read from it.
+class EditorHelp {
 	inline static DocTools *doc = nullptr;
 	inline static DocTools *ext_doc = nullptr;
-
-	LineEdit *search = nullptr;
-	FindBar *find_bar = nullptr;
-	HBoxContainer *status_bar = nullptr;
-	Button *toggle_files_button = nullptr;
-
-	struct ThemeCache {
-		Ref<StyleBox> background_style;
-
-		Color text_color;
-		Color title_color;
-		Color headline_color;
-		Color comment_color;
-		Color symbol_color;
-		Color value_color;
-		Color qualifier_color;
-		Color type_color;
-		Color override_color;
-		Color primary_hr_color;
-		Color secondary_hr_color;
-
-		Ref<Font> doc_font;
-		Ref<Font> doc_bold_font;
-		Ref<Font> doc_italic_font;
-		Ref<Font> doc_title_font;
-		Ref<Font> doc_code_font;
-		Ref<Font> doc_kbd_font;
-
-		int doc_font_size = 0;
-		int doc_title_font_size = 0;
-		int doc_code_font_size = 0;
-		int doc_kbd_font_size = 0;
-	} theme_cache;
-
-	int scroll_to = -1;
-
-	void _help_callback(const String &p_topic);
-
-	void _add_text(const String &p_bbcode);
-	bool scroll_locked = false;
-
-	//void _button_pressed(int p_idx);
-	void _add_type(const String &p_type, const String &p_enum = String(), bool p_is_bitfield = false);
-	void _add_type_icon(const String &p_type, int p_size = 0, const String &p_fallback = "");
-	void _add_method(const DocData::MethodDoc &p_method, bool p_overview, bool p_override = true);
-
-	void _add_bulletpoint();
-
-	void _push_normal_font();
-	void _pop_normal_font();
-	void _push_title_font();
-	void _pop_title_font();
-	void _push_code_font();
-	void _pop_code_font();
-
-	void _class_desc_finished();
-	void _class_list_select(const String &p_select);
-	void _class_desc_select(const String &p_select);
-	void _class_desc_input(const Ref<InputEvent> &p_input);
-	void _class_desc_resized(bool p_force_update_theme);
-	int display_margin = 0;
-
-	Error _goto_desc(const String &p_class);
-	//void _update_history_buttons();
-	void _update_method_list(MethodType p_method_type, const Vector<DocData::MethodDoc> &p_methods);
-	void _update_method_descriptions(const DocData::ClassDoc &p_classdoc, MethodType p_method_type, const Vector<DocData::MethodDoc> &p_methods);
-	void _update_doc();
-
-	void _request_help(const String &p_string);
-	void _search(bool p_search_previous = false);
-
-	void _toggle_files_pressed();
 
 	inline static int doc_generation_count = 0;
 	inline static String doc_version_hash;
@@ -208,22 +69,6 @@ class EditorHelp : public VBoxContainer {
 	static void _delete_script_doc_cache();
 	static void _compute_doc_version_hash();
 
-	struct PropertyCompare {
-		_FORCE_INLINE_ bool operator()(const DocData::PropertyDoc &p_l, const DocData::PropertyDoc &p_r) const {
-			// Sort overridden properties above all else.
-			if (p_l.overridden == p_r.overridden) {
-				return p_l.name.naturalcasecmp_to(p_r.name) < 0;
-			}
-			return p_l.overridden;
-		}
-	};
-
-protected:
-	virtual void _update_theme_item_cache() override;
-
-	void _notification(int p_what);
-	static void _bind_methods();
-
 public:
 	static void generate_doc(bool p_use_cache = true, bool p_use_script_cache = true);
 	static void cleanup_doc();
@@ -246,28 +91,7 @@ public:
 	static void load_xml_buffer(const uint8_t *p_buffer, int p_size);
 	static void remove_class(const String &p_class);
 
-	void go_to_help(const String &p_help);
-	void go_to_class(const String &p_class);
-	void update_doc();
-
-	Vector<Pair<String, int>> get_sections();
-	void scroll_to_section(int p_section_index);
-
-	void popup_search();
-	void search_again(bool p_search_previous = false);
-
-	String get_class();
-
-	void set_focused() { class_desc->grab_focus(); }
-
-	int get_scroll() const;
-	void set_scroll(int p_scroll);
-
-	void update_toggle_files_button();
-
 	static void init_gdext_pointers();
-
-	EditorHelp();
 };
 
 class EditorHelpBit : public VBoxContainer {
@@ -392,37 +216,3 @@ public:
 	EditorHelpBitTooltip(Control *p_target, bool p_shortcut = false);
 };
 
-class EditorSyntaxHighlighter;
-
-class EditorHelpHighlighter {
-public:
-	enum Language {
-		LANGUAGE_GDSCRIPT,
-		LANGUAGE_CSHARP,
-		LANGUAGE_MAX,
-	};
-
-private:
-	using HighlightData = Vector<Pair<int, Color>>;
-
-	static EditorHelpHighlighter *singleton;
-
-	HashMap<String, HighlightData> highlight_data_caches[LANGUAGE_MAX];
-
-	TextEdit *text_edits[LANGUAGE_MAX];
-	Ref<Script> scripts[LANGUAGE_MAX];
-	Ref<EditorSyntaxHighlighter> highlighters[LANGUAGE_MAX];
-
-	HighlightData _get_highlight_data(Language p_language, const String &p_source, bool p_use_cache);
-
-public:
-	static void create_singleton();
-	static void free_singleton();
-	static EditorHelpHighlighter *get_singleton();
-
-	void highlight(RichTextLabel *p_rich_text_label, Language p_language, const String &p_source, bool p_use_cache);
-	void reset_cache();
-
-	EditorHelpHighlighter();
-	virtual ~EditorHelpHighlighter();
-};

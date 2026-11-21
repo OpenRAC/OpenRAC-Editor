@@ -64,7 +64,6 @@
 #ifdef TOOLS_ENABLED
 #import "display_server_macos_embedded.h"
 
-#import "editor/embedded_process_macos.h"
 #endif
 
 // Rendering drivers - include after general Godot deps as they imply system includes
@@ -2908,12 +2907,6 @@ void DisplayServerMacOS::update_screen_parameters() {
 			_update_hdr_output(E.key, E.value.hdr_output);
 		}
 	}
-
-#ifdef TOOLS_ENABLED
-	for (KeyValue<ProcessID, EmbeddedProcessData> &E : embedded_processes) {
-		E.value.process->display_state_changed();
-	}
-#endif
 }
 
 void DisplayServerMacOS::cursor_update_shape() {
@@ -3104,78 +3097,7 @@ void DisplayServerMacOS::_window_update_display_id(WindowData *p_wd) {
 	}
 
 	p_wd->display_id = display_id;
-
-#ifdef TOOLS_ENABLED
-	// Notify any embedded processes of the new display ID, so that they can potentially update their vsync.
-	for (KeyValue<ProcessID, EmbeddedProcessData> &E : embedded_processes) {
-		if (E.value.wd == p_wd) {
-			E.value.process->display_state_changed();
-		}
-	}
-#endif
 }
-
-#ifdef TOOLS_ENABLED
-
-Error DisplayServerMacOS::embed_process_update(DisplayServerEnums::WindowID p_window, EmbeddedProcessMacOS *p_process) {
-	_THREAD_SAFE_METHOD_
-
-	WindowData *wd;
-	GET_OR_FAIL_V(wd, windows, p_window, FAILED);
-
-	ProcessID p_pid = p_process->get_embedded_pid();
-
-	[CATransaction begin];
-	[CATransaction setDisableActions:YES];
-
-	EmbeddedProcessData *ed = embedded_processes.getptr(p_pid);
-	CGFloat scale = screen_get_max_scale();
-	if (ed == nil) {
-		ed = &embedded_processes.insert(p_pid, EmbeddedProcessData())->value;
-
-		ed->process = p_process;
-		ed->wd = wd;
-
-		CALayerHost *host = [CALayerHost new];
-		uint32_t p_context_id = p_process->get_context_id();
-		host.contextId = static_cast<CAContextID>(p_context_id);
-		host.contentsScale = scale;
-		host.contentsGravity = kCAGravityCenter;
-		ed->layer_host = host;
-		[wd->window_view.layer addSublayer:host];
-	}
-
-	Rect2i p_rect = p_process->get_screen_embedded_window_rect();
-	CGRect rect = CGRectMake(p_rect.position.x, p_rect.position.y, p_rect.size.x, p_rect.size.y);
-	rect = CGRectApplyAffineTransform(rect, CGAffineTransformInvert(CGAffineTransformMakeScale(scale, scale)));
-
-	CGFloat height = wd->window_view.frame.size.height;
-	CGFloat x = rect.origin.x;
-	CGFloat y = (height - rect.origin.y);
-	ed->layer_host.position = CGPointMake(x, y);
-	ed->layer_host.hidden = !p_process->is_visible_in_tree();
-
-	[CATransaction commit];
-
-	return OK;
-}
-
-Error DisplayServerMacOS::request_close_embedded_process(ProcessID p_pid) {
-	return OK;
-}
-
-Error DisplayServerMacOS::remove_embedded_process(ProcessID p_pid) {
-	_THREAD_SAFE_METHOD_
-
-	EmbeddedProcessData *ed;
-	GET_OR_FAIL_V(ed, embedded_processes, p_pid, ERR_DOES_NOT_EXIST);
-	[ed->layer_host removeFromSuperlayer];
-	embedded_processes.erase(p_pid);
-
-	return OK;
-}
-
-#endif
 
 void DisplayServerMacOS::process_events() {
 	_process_events(true);

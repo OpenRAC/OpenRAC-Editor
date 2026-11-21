@@ -311,9 +311,6 @@
 		<member name="docks/scene_tree/ask_before_deleting_related_animation_tracks" type="bool" setter="" getter="">
 			If [code]true[/code], when a node is deleted with animation tracks referencing it, a confirmation dialog appears before the tracks are deleted. The dialog will appear even when using the "Delete (No Confirm)" shortcut.
 		</member>
-		<member name="docks/scene_tree/ask_before_revoking_unique_name" type="bool" setter="" getter="">
-			If [code]true[/code], displays a confirmation dialog after left-clicking the "percent" icon next to a node name in the Scene tree dock. When clicked, this icon revokes the node's scene-unique name, which can impact the behavior of scripts that rely on this scene-unique name due to identifiers not being found anymore.
-		</member>
 		<member name="docks/scene_tree/auto_expand_to_selected" type="bool" setter="" getter="">
 			If [code]true[/code], the scene tree dock will automatically unfold nodes when a node that has folded parents is selected.
 		</member>
@@ -1018,9 +1015,6 @@
 		<member name="interface/editor/behavior/save_on_focus_loss" type="bool" setter="" getter="">
 			If [code]true[/code], scenes and scripts are saved when the editor loses focus. Depending on the work flow, this behavior can be less intrusive than [member text_editor/behavior/files/autosave_interval_secs] or remembering to save manually.
 		</member>
-		<member name="interface/editor/behavior/separate_distraction_mode" type="bool" setter="" getter="">
-			If [code]true[/code], the editor's Script tab will have a separate distraction mode setting from the 2D/3D/Game/AssetLib tabs. If [code]false[/code], the distraction-free mode toggle is shared between all tabs.
-		</member>
 		<member name="interface/editor/behavior/show_internal_errors_in_toast_notifications" type="int" setter="" getter="">
 			If enabled, displays internal engine errors in toast notifications (toggleable by clicking the "bell" icon at the bottom of the editor). No matter the value of this setting, non-internal engine errors will always be visible in toast notifications.
 			The default [b]Auto[/b] value will only enable this if the editor was compiled with the [code]dev_build=yes[/code] SCons option (the default is [code]dev_build=no[/code]).
@@ -1220,9 +1214,6 @@
 		<member name="interface/scene_tabs/restore_scenes_on_load" type="bool" setter="" getter="">
 			If [code]true[/code], when a project is loaded, restores scenes that were opened on the last editor session.
 			[b]Note:[/b] With many opened scenes, the editor may take longer to become usable. If starting the editor quickly is necessary, consider setting this to [code]false[/code].
-		</member>
-		<member name="interface/scene_tabs/show_script_button" type="bool" setter="" getter="">
-			If [code]true[/code], show a button next to each scene tab that opens the scene's "dominant" script when clicked. The "dominant" script is the one that is at the highest level in the scene's hierarchy.
 		</member>
 		<member name="interface/scene_tabs/show_thumbnail_on_hover" type="bool" setter="" getter="">
 			If [code]true[/code], display an automatically-generated thumbnail when hovering scene tabs with the mouse. Scene thumbnails are generated when saving the scene.

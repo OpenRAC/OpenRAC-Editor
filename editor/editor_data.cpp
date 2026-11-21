@@ -307,12 +307,6 @@ void EditorData::copy_object_params(Object *p_object) {
 	}
 }
 
-void EditorData::get_editor_breakpoints(List<String> *p_breakpoints) {
-	for (int i = 0; i < editor_plugins.size(); i++) {
-		editor_plugins[i]->get_breakpoints(p_breakpoints);
-	}
-}
-
 Dictionary EditorData::get_editor_plugin_states() const {
 	Dictionary metadata;
 	for (int i = 0; i < editor_plugins.size(); i++) {
@@ -439,16 +433,6 @@ void EditorData::paste_object_params(Object *p_object) {
 		undo_redo_manager->add_undo_property(p_object, name, p_object->get(name));
 	}
 	undo_redo_manager->commit_action();
-}
-
-bool EditorData::call_build() {
-	bool result = true;
-
-	for (int i = 0; i < editor_plugins.size() && result; i++) {
-		result &= editor_plugins[i]->build();
-	}
-
-	return result;
 }
 
 void EditorData::set_scene_as_saved(int p_idx) {
@@ -899,22 +883,6 @@ void EditorData::move_edited_scene_to_index(int p_idx) {
 
 	move_scene_to_index(current_edited_scene, p_idx);
 	current_edited_scene = p_idx;
-}
-
-Ref<Script> EditorData::get_scene_root_script(int p_idx) const {
-	ERR_FAIL_INDEX_V(p_idx, edited_scene.size(), Ref<Script>());
-	if (!edited_scene[p_idx].root) {
-		return Ref<Script>();
-	}
-	Ref<Script> s = edited_scene[p_idx].root->get_script();
-	if (s.is_null() && edited_scene[p_idx].root->get_child_count()) {
-		Node *n = edited_scene[p_idx].root->get_child(0);
-		while (s.is_null() && n && !n->is_instance()) {
-			s = n->get_script();
-			n = n->get_parent();
-		}
-	}
-	return s;
 }
 
 String EditorData::get_scene_title(int p_idx, bool p_always_strip_extension) const {

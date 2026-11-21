@@ -48,7 +48,6 @@
 #include "editor/gui/editor_validation_panel.h"
 #include "editor/inspector/multi_node_edit.h"
 #include "editor/scene/scene_tree_editor.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/3d/mesh_instance_3d.h"
@@ -3233,11 +3232,6 @@ void AnimationTrackEdit::gui_input(const Ref<InputEvent> &p_event) {
 			}
 		}
 
-		if (mb->is_command_or_control_pressed() && _lookup_key(hovering_key_idx)) {
-			accept_event();
-			return;
-		}
-
 		if (_try_select_at_ui_pos(pos, mb->is_command_or_control_pressed() || mb->is_shift_pressed(), true)) {
 			accept_event();
 		}
@@ -3458,45 +3452,6 @@ bool AnimationTrackEdit::_try_select_at_ui_pos(const Point2 &p_pos, bool p_aggre
 	return false;
 }
 
-bool AnimationTrackEdit::_lookup_key(int p_key_idx) const {
-	if (p_key_idx < 0 || p_key_idx >= animation->track_get_key_count(track)) {
-		return false;
-	}
-
-	if (animation->track_get_type(track) == Animation::TYPE_METHOD) {
-		Node *target = root->get_node_or_null(animation->track_get_path(track));
-		if (target) {
-			StringName method = animation->method_track_get_name(track, p_key_idx);
-			// First, check every script in the inheritance chain.
-			bool found_in_script = false;
-			Ref<Script> target_script_ref = target->get_script();
-			Script *target_script = target_script_ref.ptr();
-			while (target_script) {
-				if (target_script->has_method(method)) {
-					found_in_script = true;
-					// Tell ScriptEditor to show the method's line.
-					ScriptEditor::get_singleton()->script_goto_method(target_script, animation->method_track_get_name(track, p_key_idx));
-					break;
-				}
-				target_script = target_script->get_base_script().ptr();
-			}
-
-			if (!found_in_script) {
-				// Not found in script, so it must be a native method.
-				if (ClassDB::has_method(target->get_class_name(), method)) {
-					// Show help page instead.
-					ScriptEditor::get_singleton()->goto_help(vformat("class_method:%s:%s", target->get_class_name(), method));
-				} else {
-					// Still not found, which means the target doesn't have this method. Warn the user.
-					WARN_PRINT_ED(vformat(TTR("Failed to lookup method: \"%s\""), method));
-				}
-			}
-			return true;
-		}
-	}
-	return false;
-}
-
 Variant AnimationTrackEdit::get_drag_data(const Point2 &p_point) {
 	if (!clicking_on_name || (get_editor()->is_sorting_alphabetically() && !get_editor()->is_grouping_tracks())) {
 		return Variant();
@@ -3590,13 +3545,6 @@ void AnimationTrackEdit::_popup_key_context_menu(int p_hovering_key_idx, Vector2
 	}
 
 	menu->clear();
-	if (animation->track_get_type(track) == Animation::TYPE_METHOD) {
-		if (p_hovering_key_idx != -1) {
-			lookup_key_idx = p_hovering_key_idx;
-			menu->add_icon_item(get_editor_theme_icon(SNAME("Help")), vformat("%s (%s)", TTR("Go to Definition"), animation->method_track_get_name(track, lookup_key_idx)), MENU_KEY_LOOKUP);
-			menu->add_separator();
-		}
-	}
 	menu->add_icon_item(get_editor_theme_icon(SNAME("Key")), TTR("Add Key"), MENU_KEY_INSERT);
 	if (editor->is_selection_active()) {
 		menu->add_separator();
@@ -3698,9 +3646,6 @@ void AnimationTrackEdit::_menu_selected(int p_index) {
 		} break;
 		case MENU_KEY_DELETE: {
 			emit_signal(SNAME("delete_request"));
-		} break;
-		case MENU_KEY_LOOKUP: {
-			_lookup_key(lookup_key_idx);
 		} break;
 		case MENU_USE_BLEND_ENABLED:
 		case MENU_USE_BLEND_DISABLED: {

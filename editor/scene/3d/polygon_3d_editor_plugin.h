@@ -34,7 +34,6 @@
 #include "scene/gui/box_container.h"
 
 class ArrayMesh;
-class CanvasItemEditor;
 class ImmediateMesh;
 class MenuButton;
 class MeshInstance3D;

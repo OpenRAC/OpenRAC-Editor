@@ -50,13 +50,9 @@
 #include "editor/inspector/editor_resource_picker.h"
 #include "editor/inspector/property_selector.h"
 #include "editor/scene/scene_tree_editor.h"
-#include "editor/script/syntax_highlighters.h"
 #include "editor/settings/editor_settings.h"
-#include "editor/settings/project_settings_editor.h"
 #include "editor/themes/editor_scale.h"
-#include "scene/2d/gpu_particles_2d.h"
-#include "scene/3d/fog_volume.h"
-#include "scene/3d/gpu_particles_3d.h"
+#include "scene/gui/check_box.h"
 #include "scene/gui/color_picker.h"
 #include "scene/gui/grid_container.h"
 #include "scene/gui/text_edit.h"
@@ -440,12 +436,6 @@ EditorPropertyMultilineText::EditorPropertyMultilineText(bool p_expression) :
 	hb->add_child(open_big_text);
 	big_text_dialog = nullptr;
 	big_text = nullptr;
-
-	if (expression) {
-		Ref<EditorStandardSyntaxHighlighter> highlighter;
-		highlighter.instantiate();
-		text->set_syntax_highlighter(highlighter);
-	}
 }
 
 ///////////////////// TEXT ENUM /////////////////////////
@@ -1532,8 +1522,6 @@ void EditorPropertyLayers::_button_pressed() {
 		layers->add_item(TTR("No Named Layers"));
 		layers->set_item_disabled(0, true);
 	}
-	layers->add_separator();
-	layers->add_icon_item(get_editor_theme_icon("Edit"), TTR("Edit Layer Names"), grid->layer_count);
 
 	Rect2 gp = button->get_screen_rect();
 	layers->reset_size();
@@ -1543,15 +1531,10 @@ void EditorPropertyLayers::_button_pressed() {
 }
 
 void EditorPropertyLayers::_menu_pressed(int p_menu) {
-	if (uint32_t(p_menu) == grid->layer_count) {
-		ProjectSettingsEditor::get_singleton()->popup_project_settings(true);
-		ProjectSettingsEditor::get_singleton()->set_general_page(basename);
-	} else {
-		grid->value ^= 1u << p_menu;
-		grid->queue_redraw();
-		layers->set_item_checked(layers->get_item_index(p_menu), grid->value & (1u << p_menu));
-		_grid_changed(grid->value);
-	}
+	grid->value ^= 1u << p_menu;
+	grid->queue_redraw();
+	layers->set_item_checked(layers->get_item_index(p_menu), grid->value & (1u << p_menu));
+	_grid_changed(grid->value);
 }
 
 void EditorPropertyLayers::_refresh_names() {
@@ -3533,35 +3516,6 @@ void EditorPropertyResource::_open_editor_pressed() {
 	}
 }
 
-void EditorPropertyResource::_update_preferred_shader() {
-	Node *parent = get_parent();
-	EditorProperty *parent_property = nullptr;
-
-	while (parent && !parent_property) {
-		parent_property = Object::cast_to<EditorProperty>(parent);
-		parent = parent->get_parent();
-	}
-
-	if (parent_property) {
-		EditorShaderPicker *shader_picker = Object::cast_to<EditorShaderPicker>(resource_picker);
-		Object *ed_object = parent_property->get_edited_object();
-		const StringName &ed_property = parent_property->get_edited_property();
-
-		// Set preferred shader based on edited parent type.
-		if ((Object::cast_to<GPUParticles2D>(ed_object) || Object::cast_to<GPUParticles3D>(ed_object)) && ed_property == SNAME("process_material")) {
-			shader_picker->set_preferred_mode(Shader::MODE_PARTICLES);
-		} else if (Object::cast_to<FogVolume>(ed_object)) {
-			shader_picker->set_preferred_mode(Shader::MODE_FOG);
-		} else if (Object::cast_to<CanvasItem>(ed_object)) {
-			shader_picker->set_preferred_mode(Shader::MODE_CANVAS_ITEM);
-		} else if (Object::cast_to<Node3D>(ed_object) || Object::cast_to<Mesh>(ed_object)) {
-			shader_picker->set_preferred_mode(Shader::MODE_SPATIAL);
-		} else if (Object::cast_to<Sky>(ed_object)) {
-			shader_picker->set_preferred_mode(Shader::MODE_SKY);
-		}
-	}
-}
-
 bool EditorPropertyResource::_should_stop_editing() const {
 	return !resource_picker->is_toggle_pressed();
 }
@@ -3623,16 +3577,7 @@ void EditorPropertyResource::setup(Object *p_object, const String &p_path, const
 		resource_picker = nullptr;
 	}
 
-	if (p_path == "script" && p_base_type == "Script" && Object::cast_to<Node>(p_object)) {
-		EditorScriptPicker *script_picker = memnew(EditorScriptPicker);
-		script_picker->set_script_owner(Object::cast_to<Node>(p_object));
-		resource_picker = script_picker;
-	} else if (p_path == "shader" && p_base_type == "Shader" && Object::cast_to<ShaderMaterial>(p_object)) {
-		EditorShaderPicker *shader_picker = memnew(EditorShaderPicker);
-		shader_picker->set_edited_material(Object::cast_to<ShaderMaterial>(p_object));
-		resource_picker = shader_picker;
-		connect(SceneStringName(ready), callable_mp(this, &EditorPropertyResource::_update_preferred_shader));
-	} else if (ClassDB::is_parent_class(p_base_type, "AudioStream")) {
+	if (ClassDB::is_parent_class(p_base_type, "AudioStream")) {
 		EditorAudioStreamPicker *astream_picker = memnew(EditorAudioStreamPicker);
 		resource_picker = astream_picker;
 	} else {

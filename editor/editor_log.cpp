@@ -41,7 +41,6 @@
 #include "editor/docks/inspector_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_command_palette.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
@@ -58,7 +57,7 @@ void EditorLog::_error_handler(void *p_self, const char *p_func, const char *p_f
 	if (p_errorexp && p_errorexp[0]) {
 		err_str = String::utf8(p_errorexp).replace("[", "[lb]");
 	} else {
-		err_str = vformat("[url]%s:%d[/url] - %s", String::utf8(p_file).replace("[", "[lb]"), p_line, String::utf8(p_error).replace("[", "[lb]"));
+		err_str = vformat("%s:%d - %s", String::utf8(p_file).replace("[", "[lb]"), p_line, String::utf8(p_error).replace("[", "[lb]"));
 	}
 
 	MessageType message_type = p_type == ERR_HANDLER_WARNING ? MSG_TYPE_WARNING : MSG_TYPE_ERROR;
@@ -204,50 +203,6 @@ void EditorLog::_load_state() {
 	collapse_button->set_pressed(EDITOR_DEF("_editor_log_collapse", false));
 
 	is_loading_state = false;
-}
-
-void EditorLog::_meta_clicked(const String &p_meta) {
-	if (!p_meta.contains_char(':')) {
-		return;
-	}
-	const PackedStringArray parts = p_meta.rsplit(":", true, 1);
-	String path = parts[0];
-	const int line = parts[1].to_int() - 1;
-
-	if (path.begins_with("res://")) {
-		if (ResourceLoader::exists(path)) {
-			const Ref<Resource> res = ResourceLoader::load(path);
-			ScriptEditor::get_singleton()->edit(res, line, 0);
-			InspectorDock::get_singleton()->edit_resource(res);
-		}
-	} else if (path.has_extension("cpp") || path.has_extension("h") || path.has_extension("mm") || path.has_extension("hpp")) {
-		// Godot source file. Try to open it in external editor.
-		if (path.begins_with("./") || path.begins_with(".\\")) {
-			// Relative path. Convert to absolute, using executable path as reference.
-			path = path.trim_prefix("./").trim_prefix(".\\");
-			const String absolute_path = OS::get_singleton()->get_executable_path().get_base_dir().get_base_dir().path_join(path);
-			if (FileAccess::exists(absolute_path)) {
-				path = absolute_path;
-			}
-		}
-
-		if (!FileAccess::exists(path)) {
-			// The file does not exist. Try on GitHub instead.
-			String branch = "master";
-			if (str_compare(GODOT_VERSION_BUILD, "official") == 0) {
-				// In official builds it's safe to use specific commit hash, so the line number is more accurate.
-				branch = GODOT_VERSION_HASH;
-			}
-			OS::get_singleton()->shell_open(vformat("https://github.com/godotengine/godot/blob/%s/%s#L%d", branch, path, line + 1));
-			return;
-		}
-
-		if (!ScriptEditorPlugin::open_in_external_editor(path, line, -1, true)) {
-			OS::get_singleton()->shell_open(path);
-		}
-	} else {
-		OS::get_singleton()->shell_open(p_meta);
-	}
 }
 
 void EditorLog::_clear_request() {
@@ -523,7 +478,6 @@ EditorLog::EditorLog() {
 	log->set_v_size_flags(SIZE_EXPAND_FILL);
 	log->set_h_size_flags(SIZE_EXPAND_FILL);
 	log->set_deselect_on_focus_loss_enabled(false);
-	log->connect("meta_clicked", callable_mp(this, &EditorLog::_meta_clicked));
 	vb_left->add_child(log);
 
 	HFlowContainer *bottom_hf = memnew(HFlowContainer);

@@ -46,9 +46,7 @@
 #include "editor/editor_node.h"
 #include "editor/file_system/editor_paths.h"
 #include "editor/inspector/editor_resource_preview.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
-#include "editor/settings/project_settings_editor.h"
 #include "scene/main/scene_tree.h"
 #include "scene/resources/packed_scene.h"
 #include "servers/display/display_server.h"
@@ -315,7 +313,7 @@ void EditorFileSystem::_scan_for_uid_directory(const ScannedDirectory *p_scan_di
 }
 
 void EditorFileSystem::_first_scan_filesystem() {
-	EditorProgress ep = EditorProgress("first_scan_filesystem", TTR("Starting up"), 5);
+	EditorProgress ep = EditorProgress("first_scan_filesystem", TTR("Starting up"), 4);
 	HashSet<String> existing_class_names;
 	HashSet<String> extensions;
 
@@ -350,16 +348,12 @@ void EditorFileSystem::_first_scan_filesystem() {
 	ep.step(TTR("Verifying GDExtensions..."), 2, true);
 	GDExtensionManager::get_singleton()->ensure_extensions_loaded(extensions);
 
-	// Now that all the global class names should be loaded, create autoloads and plugins.
-	// This is done after loading the global class names because autoloads and plugins can use
-	// global class names.
-	ep.step(TTR("Creating autoload scripts..."), 3, true);
-	ProjectSettingsEditor::get_singleton()->init_autoloads();
-
-	ep.step(TTR("Initializing plugins..."), 4, true);
+	// Now that all the global class names should be loaded, create plugins.
+	// OpenRAC Editor: no autoloads (the project settings editor is gone).
+	ep.step(TTR("Initializing plugins..."), 3, true);
 	EditorNode::get_singleton()->init_plugins();
 
-	ep.step(TTR("Looking at files"), 5, true);
+	ep.step(TTR("Looking at files"), 4, true);
 }
 
 void EditorFileSystem::_first_scan_process_scripts(const ScannedDirectory *p_scan_dir, List<String> &p_gdextension_extensions, HashSet<String> &p_existing_class_names, HashSet<String> &p_extensions) {
@@ -2244,10 +2238,6 @@ void EditorFileSystem::_update_script_documentation() {
 						if (scr.is_valid()) {
 							for (const DocData::ClassDoc &cd : scr->get_documentation()) {
 								EditorHelp::add_doc(cd);
-								if (!first_scan) {
-									// Update the documentation in the Script Editor if it is open.
-									ScriptEditor::get_singleton()->update_doc(cd.name);
-								}
 							}
 						}
 					}
@@ -2271,10 +2261,6 @@ void EditorFileSystem::_update_script_documentation() {
 				}
 				for (const DocData::ClassDoc &cd : scr->get_documentation()) {
 					EditorHelp::add_doc(cd);
-					if (!first_scan) {
-						// Update the documentation in the Script Editor if it is open.
-						ScriptEditor::get_singleton()->update_doc(cd.name);
-					}
 				}
 			}
 		}
@@ -2297,11 +2283,6 @@ bool EditorFileSystem::_should_reload_script(const String &p_path) {
 	Ref<Script> scr = ResourceCache::get_ref(p_path);
 	if (scr.is_null()) {
 		// Not a script or not already loaded.
-		return false;
-	}
-
-	// Scripts are reloaded via the script editor if they are currently opened.
-	if (ScriptEditor::get_singleton()->get_open_scripts().has(scr)) {
 		return false;
 	}
 

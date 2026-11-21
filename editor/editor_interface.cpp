@@ -36,11 +36,11 @@
 #include "core/io/resource_loader.h"
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
-#include "editor/docks/filesystem_dock.h"
 #include "editor/docks/inspector_dock.h"
 #include "editor/editor_main_screen.h"
 #include "editor/editor_node.h"
 #include "editor/editor_undo_redo_manager.h"
+#include "editor/file_system/editor_file_system.h"
 #include "editor/file_system/editor_paths.h"
 #include "editor/gui/create_dialog.h"
 #include "editor/gui/editor_quick_open_dialog.h"
@@ -48,7 +48,6 @@
 #include "editor/inspector/editor_preview_plugins.h"
 #include "editor/inspector/editor_resource_preview.h"
 #include "editor/inspector/property_selector.h"
-#include "editor/run/editor_run_bar.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h"
 #include "editor/scene/editor_scene_tabs.h"
 #include "editor/scene/scene_tree_editor.h"
@@ -415,10 +414,6 @@ VBoxContainer *EditorInterface::get_editor_main_screen() const {
 	return EditorNode::get_singleton()->get_editor_main_screen()->get_control();
 }
 
-ScriptEditor *EditorInterface::get_script_editor() const {
-	return ScriptEditor::get_singleton();
-}
-
 SubViewport *EditorInterface::get_editor_viewport_2d() const {
 	return EditorNode::get_singleton()->get_scene_root();
 }
@@ -654,26 +649,6 @@ void EditorInterface::_call_dialog_callback(const Callable &p_callback, const Va
 
 // Editor docks.
 
-FileSystemDock *EditorInterface::get_file_system_dock() const {
-	return FileSystemDock::get_singleton();
-}
-
-void EditorInterface::select_file(const String &p_file) {
-	FileSystemDock::get_singleton()->select_file(p_file);
-}
-
-Vector<String> EditorInterface::get_selected_paths() const {
-	return FileSystemDock::get_singleton()->get_selected_paths();
-}
-
-String EditorInterface::get_current_path() const {
-	return FileSystemDock::get_singleton()->get_current_path();
-}
-
-String EditorInterface::get_current_directory() const {
-	return FileSystemDock::get_singleton()->get_current_directory();
-}
-
 EditorInspector *EditorInterface::get_inspector() const {
 	return InspectorDock::get_inspector_singleton();
 }
@@ -690,10 +665,6 @@ void EditorInterface::edit_resource(const Ref<Resource> &p_resource) {
 
 void EditorInterface::edit_node(Node *p_node) {
 	EditorNode::get_singleton()->edit_node(p_node);
-}
-
-void EditorInterface::edit_script(const Ref<Script> &p_script, int p_line, int p_col, bool p_grab_focus) {
-	ScriptEditor::get_singleton()->edit(p_script, p_line - 1, p_col - 1, p_grab_focus);
 }
 
 void EditorInterface::open_scene_from_path(const String &scene_path, bool p_set_inherited) {
@@ -789,45 +760,11 @@ Error EditorInterface::close_scene() {
 	return EditorNode::get_singleton()->close_scene() ? OK : ERR_DOES_NOT_EXIST;
 }
 
-// Scene playback.
-
-void EditorInterface::play_main_scene() {
-	EditorRunBar::get_singleton()->play_main_scene();
-}
-
-void EditorInterface::play_current_scene() {
-	EditorRunBar::get_singleton()->play_current_scene();
-}
-
-void EditorInterface::play_custom_scene(const String &scene_path) {
-	EditorRunBar::get_singleton()->play_custom_scene(scene_path);
-}
-
-void EditorInterface::stop_playing_scene() {
-	EditorRunBar::get_singleton()->stop_playing();
-}
-
-bool EditorInterface::is_playing_scene() const {
-	return EditorRunBar::get_singleton()->is_playing();
-}
-
-String EditorInterface::get_playing_scene() const {
-	return EditorRunBar::get_singleton()->get_playing_scene();
-}
-
-void EditorInterface::set_movie_maker_enabled(bool p_enabled) {
-	EditorRunBar::get_singleton()->set_movie_maker_enabled(p_enabled);
-}
-
-bool EditorInterface::is_movie_maker_enabled() const {
-	return EditorRunBar::get_singleton()->is_movie_maker_enabled();
-}
-
 void EditorInterface::get_argument_options(const StringName &p_function, int p_idx, List<String> *r_options) const {
 	const String pf = p_function;
 	if (p_idx == 0) {
 		if (pf == "set_main_screen_editor") {
-			for (String E : { "\"2D\"", "\"3D\"", "\"Script\"", "\"Game\"", "\"AssetLib\"" }) {
+			for (String E : { "\"3D\"" }) {
 				r_options->push_back(E);
 			}
 		} else if (pf == "get_editor_viewport_3d") {
@@ -865,7 +802,6 @@ void EditorInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_editor_theme"), &EditorInterface::get_editor_theme);
 	ClassDB::bind_method(D_METHOD("get_base_control"), &EditorInterface::get_base_control);
 	ClassDB::bind_method(D_METHOD("get_editor_main_screen"), &EditorInterface::get_editor_main_screen);
-	ClassDB::bind_method(D_METHOD("get_script_editor"), &EditorInterface::get_script_editor);
 	ClassDB::bind_method(D_METHOD("get_editor_viewport_2d"), &EditorInterface::get_editor_viewport_2d);
 	ClassDB::bind_method(D_METHOD("get_editor_viewport_3d", "idx"), &EditorInterface::get_editor_viewport_3d, DEFVAL(0));
 
@@ -902,12 +838,6 @@ void EditorInterface::_bind_methods() {
 
 	// Editor docks.
 
-	ClassDB::bind_method(D_METHOD("get_file_system_dock"), &EditorInterface::get_file_system_dock);
-	ClassDB::bind_method(D_METHOD("select_file", "file"), &EditorInterface::select_file);
-	ClassDB::bind_method(D_METHOD("get_selected_paths"), &EditorInterface::get_selected_paths);
-	ClassDB::bind_method(D_METHOD("get_current_path"), &EditorInterface::get_current_path);
-	ClassDB::bind_method(D_METHOD("get_current_directory"), &EditorInterface::get_current_directory);
-
 	ClassDB::bind_method(D_METHOD("get_inspector"), &EditorInterface::get_inspector);
 
 	// Object/Resource/Node editing.
@@ -916,7 +846,6 @@ void EditorInterface::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("edit_resource", "resource"), &EditorInterface::edit_resource);
 	ClassDB::bind_method(D_METHOD("edit_node", "node"), &EditorInterface::edit_node);
-	ClassDB::bind_method(D_METHOD("edit_script", "script", "line", "column", "grab_focus"), &EditorInterface::edit_script, DEFVAL(-1), DEFVAL(0), DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("open_scene_from_path", "scene_filepath", "set_inherited"), &EditorInterface::open_scene_from_path, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("reload_scene_from_path", "scene_filepath"), &EditorInterface::reload_scene_from_path);
 
@@ -936,20 +865,6 @@ void EditorInterface::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("close_scene"), &EditorInterface::close_scene);
 
 	ClassDB::bind_method(D_METHOD("mark_scene_as_unsaved"), &EditorInterface::mark_scene_as_unsaved);
-
-	// Scene playback.
-
-	ClassDB::bind_method(D_METHOD("play_main_scene"), &EditorInterface::play_main_scene);
-	ClassDB::bind_method(D_METHOD("play_current_scene"), &EditorInterface::play_current_scene);
-	ClassDB::bind_method(D_METHOD("play_custom_scene", "scene_filepath"), &EditorInterface::play_custom_scene);
-	ClassDB::bind_method(D_METHOD("stop_playing_scene"), &EditorInterface::stop_playing_scene);
-	ClassDB::bind_method(D_METHOD("is_playing_scene"), &EditorInterface::is_playing_scene);
-	ClassDB::bind_method(D_METHOD("get_playing_scene"), &EditorInterface::get_playing_scene);
-
-	ClassDB::bind_method(D_METHOD("set_movie_maker_enabled", "enabled"), &EditorInterface::set_movie_maker_enabled);
-	ClassDB::bind_method(D_METHOD("is_movie_maker_enabled"), &EditorInterface::is_movie_maker_enabled);
-
-	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "movie_maker_enabled"), "set_movie_maker_enabled", "is_movie_maker_enabled");
 }
 
 void EditorInterface::create() {

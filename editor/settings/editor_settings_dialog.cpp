@@ -36,7 +36,6 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/keyboard.h"
-#include "editor/debugger/editor_debugger_node.h"
 #include "editor/editor_log.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
@@ -270,8 +269,6 @@ void EditorSettingsDialog::_notification(int p_what) {
 				return;
 			}
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
-			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_method_notify_callback(EditorDebuggerNode::_methods_changed, nullptr);
-			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_property_notify_callback(EditorDebuggerNode::_properties_changed, nullptr);
 			undo_redo->get_or_create_history(EditorUndoRedoManager::GLOBAL_HISTORY).undo_redo->set_commit_notify_callback(_undo_redo_callback, this);
 		} break;
 
@@ -1103,13 +1100,6 @@ void EditorSettingsPropertyWrapper::_setup_override_info() {
 	override_editor_property->set_h_size_flags(SIZE_EXPAND_FILL);
 	override_container->add_child(override_editor_property);
 
-	goto_button = memnew(Button);
-	goto_button->set_tooltip_text(TTRC("Go to the override in the Project Settings."));
-	override_container->add_child(goto_button);
-	if (EditorNode::get_singleton()) {
-		goto_button->connect(SceneStringName(pressed), callable_mp(EditorNode::get_singleton(), &EditorNode::open_setting_override).bind(property), CONNECT_DEFERRED);
-	}
-
 	remove_button = memnew(Button);
 	remove_button->set_tooltip_text(TTRC("Remove this override."));
 	override_container->add_child(remove_button);
@@ -1167,7 +1157,6 @@ void EditorSettingsPropertyWrapper::_remove_override() {
 void EditorSettingsPropertyWrapper::_notification(int p_what) {
 	if (override_container && p_what == NOTIFICATION_THEME_CHANGED) {
 		override_icon->set_texture(get_editor_theme_icon(SNAME("Hierarchy")));
-		goto_button->set_button_icon(get_editor_theme_icon(SNAME("MethodOverride")));
 		remove_button->set_button_icon(get_editor_theme_icon(SNAME("Close")));
 	}
 }

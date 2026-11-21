@@ -16,9 +16,16 @@ These are deleted from the source:
   xatlas_unwrap. GDScript has no language server.
 - **Drivers:** OpenGL, Direct3D 12, EGL, SDL input, AccessKit, XAudio2, MIDI. Linux has no
   text-to-speech.
-- **Editor:** the project list, Asset Store, version control, the 2D node editors, the TileMap,
-  GridMap MeshLibrary, baked lighting (LightmapGI, VoxelGI), SDF collision, physical bone, sprite
-  frames, virtual joystick and UI theme editors.
+- **Editor:** the project list, Asset Store, version control, the 2D screen and the 2D node
+  editors, the TileMap, GridMap MeshLibrary, baked lighting (LightmapGI, VoxelGI), SDF collision,
+  physical bone, sprite frames, virtual joystick and UI theme editors.
+- **Editor parts a level maker never uses:** the Script screen and script editor, the shader
+  editors, the class reference page, the run bar and Game screen, the debugger and profilers,
+  export (presets, templates, the `--export-*` options, Android build template), project settings
+  and autoloads, the Godot 3 project converter, the Files, Import, Signals, Groups and Audio docks,
+  the Find in Files and orphan resource windows, the move/copy folder windows, new script and
+  shader pickers, the FileSystem tooltips, and the editor plugin calls that only served them
+  (tool menu items, autoloads, export and debugger plugins, 2D canvas hooks).
 - **Libraries** in `thirdparty/` that only those used, the built-in TLS certificates and the
   fallback fonts for other scripts. `COPYRIGHT.txt` lists only what is left.
 - **Translations:** all editor and class reference translations. The editor is in English.
@@ -29,12 +36,8 @@ These are deleted from the source:
 ## Hidden in the editor
 
 - Started without a level, the editor says to open one from the OpenRAC launcher and quits.
-- No update check, export or export templates, build profiles or feature profiles.
-- No 2D and Game screens: levels are 3D and the game runs in OpenRAC.
+- No update check, build profiles or feature profiles.
 - The Help menu links to OpenRAC's level editor guide and bug tracker.
-- Only the 3D screen. The Script and Asset Library screens, the run bar and the profiler are hidden.
-- Docks a level maker does not need are hidden: Files, Import, Signals, Groups, Debugger, Audio,
-  Search Results, Shader Editor, Animation Tree and Preloader (`_is_openrac_hidden_dock`).
 - The 3D toolbar has no sun and sky preview, group, list select, trackball or keep-parts buttons.
 - The Keys panel (Godot's Animation panel) has no play backwards, autoplay, onion skin, pin,
   libraries, transitions or properties items.
@@ -42,7 +45,6 @@ These are deleted from the source:
   visibility, a camera's zoom, a path's curve, the game values, OpenRAC's own sections and the
   cutscene types. Godot's node settings (process, physics, script) are hidden, and so are the game's
   bookkeeping values (indexes, ids, raw bits).
-- The Level list has no script, signal, group or unique-name buttons.
 - Settings shows a short list: editor size and look, saving, and how the 3D view moves.
 
 ## Changed

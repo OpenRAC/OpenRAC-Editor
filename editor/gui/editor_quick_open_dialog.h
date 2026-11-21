@@ -87,7 +87,6 @@ class QuickOpenResultContainer : public VBoxContainer {
 	GDCLASS(QuickOpenResultContainer, VBoxContainer)
 
 	enum {
-		FILE_SHOW_IN_FILESYSTEM,
 		FILE_SHOW_IN_FILE_MANAGER
 	};
 

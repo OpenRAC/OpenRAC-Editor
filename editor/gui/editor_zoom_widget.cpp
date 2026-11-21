@@ -213,7 +213,9 @@ EditorZoomWidget::EditorZoomWidget() {
 	zoom_reset->add_theme_color_override("font_outline_color", Color(0, 0, 0));
 	zoom_reset->add_theme_color_override(SceneStringName(font_color), Color(1, 1, 1));
 
-	zoom_reset->set_shortcut(ED_GET_SHORTCUT("canvas_item_editor/zoom_100_percent"));
+	// OpenRAC Editor: this shortcut came from the removed 2D editor.
+	zoom_reset->set_shortcut(ED_SHORTCUT_ARRAY("canvas_item_editor/zoom_100_percent", TTRC("Zoom to 100%"),
+			{ int32_t(Key::KEY_1), int32_t(KeyModifierMask::CMD_OR_CTRL | Key::KEY_0), int32_t(Key::KP_1), int32_t(KeyModifierMask::CMD_OR_CTRL | Key::KP_0) }));
 	zoom_reset->set_shortcut_context(this);
 	zoom_reset->set_focus_mode(FOCUS_ACCESSIBILITY);
 	zoom_reset->set_text_alignment(HORIZONTAL_ALIGNMENT_CENTER);

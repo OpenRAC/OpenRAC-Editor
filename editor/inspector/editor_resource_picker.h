@@ -79,7 +79,6 @@ class EditorResourcePicker : public HBoxContainer {
 		OBJ_MENU_COPY,
 		OBJ_MENU_PASTE,
 		OBJ_MENU_PASTE_AS_UNIQUE,
-		OBJ_MENU_SHOW_IN_FILE_SYSTEM,
 
 		TYPE_BASE_ID = 100,
 		CONVERT_BASE_ID = 1000,
@@ -162,46 +161,6 @@ public:
 	virtual bool handle_menu_selected(int p_which);
 
 	EditorResourcePicker(bool p_hide_assign_button_controls = false);
-};
-
-class EditorScriptPicker : public EditorResourcePicker {
-	GDCLASS(EditorScriptPicker, EditorResourcePicker);
-
-	enum ExtraMenuOption {
-		OBJ_MENU_NEW_SCRIPT = 50,
-		OBJ_MENU_EXTEND_SCRIPT = 51
-	};
-
-	Node *script_owner = nullptr;
-
-protected:
-	static void _bind_methods();
-
-public:
-	virtual void set_create_options(Object *p_menu_node) override;
-	virtual bool handle_menu_selected(int p_which) override;
-
-	void set_script_owner(Node *p_owner);
-	Node *get_script_owner() const;
-};
-
-class EditorShaderPicker : public EditorResourcePicker {
-	GDCLASS(EditorShaderPicker, EditorResourcePicker);
-
-	enum ExtraMenuOption {
-		OBJ_MENU_NEW_SHADER = 50,
-	};
-
-	ShaderMaterial *edited_material = nullptr;
-	int preferred_mode = -1;
-
-public:
-	virtual void set_create_options(Object *p_menu_node) override;
-	virtual bool handle_menu_selected(int p_which) override;
-
-	void set_edited_material(ShaderMaterial *p_material);
-	ShaderMaterial *get_edited_material() const;
-	void set_preferred_mode(int p_preferred_mode);
 };
 
 class EditorAudioStreamPicker : public EditorResourcePicker {

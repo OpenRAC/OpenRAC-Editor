@@ -36,8 +36,6 @@
 #include "core/object/callable_mp.h"
 #include "core/object/class_db.h"
 #include "core/os/keyboard.h"
-#include "editor/debugger/editor_debugger_inspector.h"
-#include "editor/debugger/editor_debugger_node.h"
 #include "editor/doc/doc_tools.h"
 #include "editor/docks/inspector_dock.h"
 #include "editor/editor_interface.h"
@@ -51,7 +49,6 @@
 #include "editor/inspector/editor_property_name_processor.h"
 #include "editor/inspector/editor_resource_picker.h"
 #include "editor/inspector/multi_node_edit.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_feature_profile.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
@@ -1568,10 +1565,6 @@ void EditorProperty::menu_option(int p_option) {
 			emit_changed(_get_revert_property(), revert_value);
 			update_property();
 		} break;
-		case MENU_OPEN_DOCUMENTATION: {
-			ScriptEditor::get_singleton()->goto_help(doc_path);
-			EditorNode::get_singleton()->get_editor_main_screen()->select(EditorMainScreen::EDITOR_SCRIPT);
-		} break;
 		default: {
 			if (p_option >= EditorContextMenuPlugin::BASE_ID) {
 				EditorContextMenuPluginManager::get_singleton()->activate_custom_option(EditorContextMenuPlugin::CONTEXT_SLOT_INSPECTOR_PROPERTY, p_option, this);
@@ -1738,10 +1731,6 @@ void EditorProperty::_update_popup() {
 		if (can_revert) {
 			menu->add_icon_item(theme_cache.revert_icon, TTR("Reset Value"), MENU_REVERT_VALUE);
 		}
-	}
-	if (!doc_path.is_empty() && ScriptEditor::get_singleton() && EditorNode::get_singleton()) {
-		menu->add_separator();
-		menu->add_icon_item(theme_cache.help_icon, TTR("Open Documentation"), MENU_OPEN_DOCUMENTATION);
 	}
 
 	if (EditorContextMenuPluginManager::get_singleton()) {
@@ -2024,10 +2013,6 @@ void EditorInspectorCategory::_handle_menu_option(int p_option) {
 			ur->commit_action();
 		} break;
 
-		case MENU_OPEN_DOCS: {
-			ScriptEditor::get_singleton()->goto_help("class:" + doc_class_name);
-			EditorNode::get_singleton()->get_editor_main_screen()->select(EditorMainScreen::EDITOR_SCRIPT);
-		} break;
 
 		case MENU_UNFAVORITE_ALL: {
 			emit_signal(SNAME("unfavorite_all"));
@@ -2044,11 +2029,6 @@ void EditorInspectorCategory::_popup_context_menu(const Point2i &p_position) {
 		} else {
 			menu->add_icon_item(theme_cache.icon_copy, TTRC("Copy Category Values"), MENU_COPY_VALUE);
 			menu->add_icon_item(theme_cache.icon_paste, TTRC("Paste Category Values"), MENU_PASTE_VALUE);
-
-			if (!doc_class_name.is_empty()) {
-				menu->add_item(TTRC("Open Documentation"), MENU_OPEN_DOCS);
-				menu->set_item_disabled(-1, !EditorHelp::get_doc_data()->class_list.has(doc_class_name));
-			}
 		}
 
 		menu->connect(SceneStringName(id_pressed), callable_mp(this, &EditorInspectorCategory::_handle_menu_option));
@@ -2062,8 +2042,6 @@ void EditorInspectorCategory::_popup_context_menu(const Point2i &p_position) {
 	if (menu_icon_dirty) {
 		if (is_favorite) {
 			menu->set_item_icon(menu->get_item_index(MENU_UNFAVORITE_ALL), theme_cache.icon_unfavorite);
-		} else if (!doc_class_name.is_empty()) {
-			menu->set_item_icon(menu->get_item_index(MENU_OPEN_DOCS), theme_cache.icon_help);
 		}
 		menu_icon_dirty = false;
 	}
@@ -3926,7 +3904,6 @@ void EditorInspector::initialize_category_theme(EditorInspectorCategory::ThemeCa
 
 	p_cache.icon_favorites = p_control->get_editor_theme_icon(SNAME("Favorites"));
 	p_cache.icon_unfavorite = p_control->get_editor_theme_icon(SNAME("Unfavorite"));
-	p_cache.icon_help = p_control->get_editor_theme_icon(SNAME("Help"));
 
 	p_cache.background = p_control->get_theme_stylebox(SNAME("bg"), SNAME("EditorInspectorCategory"));
 }
@@ -3959,7 +3936,6 @@ void EditorInspector::initialize_property_theme(EditorProperty::ThemeCache &p_ca
 	p_cache.favorite_icon = p_control->get_editor_theme_icon(SNAME("Favorites"));
 	p_cache.override_icon = p_control->get_editor_theme_icon(SNAME("Override"));
 	p_cache.remove_icon = p_control->get_editor_theme_icon(SNAME("Remove"));
-	p_cache.help_icon = p_control->get_editor_theme_icon(SNAME("Help"));
 
 	p_cache.font_size = p_control->get_theme_font_size(SceneStringName(font_size), SNAME("Tree"));
 	p_cache.font_offset = p_control->get_theme_constant(SNAME("font_offset"), SNAME("EditorProperty"));
@@ -5577,10 +5553,6 @@ void EditorInspector::_edit_set(const String &p_name, const Variant &p_value, bo
 		emit_signal(_prop_edited, p_name);
 	} else if (Object::cast_to<MultiNodeEdit>(object)) {
 		Object::cast_to<MultiNodeEdit>(object)->set_property_field(p_name, p_value, p_changed_field);
-		_edit_request_change(object, p_name);
-		emit_signal(_prop_edited, p_name);
-	} else if (Object::cast_to<EditorDebuggerRemoteObjects>(object)) {
-		Object::cast_to<EditorDebuggerRemoteObjects>(object)->set_property_field(p_name, p_value, p_changed_field);
 		_edit_request_change(object, p_name);
 		emit_signal(_prop_edited, p_name);
 	} else {

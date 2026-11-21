@@ -37,7 +37,6 @@
 #include "core/os/os.h"
 #include "editor/audio/audio_stream_preview.h"
 #include "editor/doc/editor_help.h"
-#include "editor/docks/filesystem_dock.h"
 #include "editor/docks/scene_tree_dock.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
@@ -46,7 +45,6 @@
 #include "editor/inspector/editor_inspector.h"
 #include "editor/inspector/editor_resource_preview.h"
 #include "editor/plugins/editor_resource_conversion_plugin.h"
-#include "editor/script/script_editor_plugin.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/gui/button.h"
@@ -369,10 +367,6 @@ void EditorResourcePicker::_update_menu_items() {
 			edit_menu->set_item_disabled(-1, force_allow_unique);
 		}
 
-		if (edited_resource->get_path().is_resource_file()) {
-			edit_menu->add_separator();
-			edit_menu->add_icon_item(get_editor_theme_icon(SNAME("ShowInFileSystem")), TTR("Show in FileSystem"), OBJ_MENU_SHOW_IN_FILE_SYSTEM);
-		}
 	}
 
 	// Add options to copy/paste resource.
@@ -590,10 +584,6 @@ void EditorResourcePicker::_edit_menu_cbk(int p_which) {
 			} else {
 				_edit_menu_cbk(OBJ_MENU_MAKE_UNIQUE);
 			}
-		} break;
-
-		case OBJ_MENU_SHOW_IN_FILE_SYSTEM: {
-			FileSystemDock::get_singleton()->navigate_to_path(edited_resource->get_path());
 		} break;
 
 		default: {
@@ -942,14 +932,7 @@ Ref<Resource> EditorResourcePicker::_get_dropped_resource(const Variant &p_data)
 	}
 
 	Ref<Resource> res;
-	if (type == "script_list_element") {
-		ScriptEditorBase *se = Object::cast_to<ScriptEditorBase>(drag_data["script_list_element"]);
-		if (se) {
-			return se->get_edited_resource();
-		}
-	} else if (type == "shader_list_element") {
-		return ResourceCache::get_ref(drag_data["file_path"]);
-	} else if (type == "resource") {
+	if (type == "resource") {
 		return drag_data["resource"];
 	} else if (type == "files") {
 		Vector<String> files = drag_data["files"];
@@ -1519,102 +1502,6 @@ EditorResourcePicker::EditorResourcePicker(bool p_hide_assign_button_controls) {
 	edit_button->connect(SceneStringName(gui_input), callable_mp(this, &EditorResourcePicker::_button_input));
 
 	add_theme_constant_override("separation", 0);
-}
-
-// EditorScriptPicker
-
-void EditorScriptPicker::set_create_options(Object *p_menu_node) {
-	PopupMenu *menu_node = Object::cast_to<PopupMenu>(p_menu_node);
-	if (!menu_node) {
-		return;
-	}
-
-	if (!(script_owner && script_owner->has_meta(SceneStringName(_custom_type_script)))) {
-		menu_node->add_icon_item(get_editor_theme_icon(SNAME("ScriptCreate")), TTR("New Script..."), OBJ_MENU_NEW_SCRIPT);
-	}
-
-	if (script_owner) {
-		Ref<Script> scr = script_owner->get_script();
-		if (scr.is_valid()) {
-			menu_node->add_icon_item(get_editor_theme_icon(SNAME("ScriptExtend")), TTR("Extend Script..."), OBJ_MENU_EXTEND_SCRIPT);
-		}
-	}
-	menu_node->add_separator();
-}
-
-bool EditorScriptPicker::handle_menu_selected(int p_which) {
-	switch (p_which) {
-		case OBJ_MENU_NEW_SCRIPT: {
-			if (script_owner) {
-				SceneTreeDock::get_singleton()->open_script_dialog(script_owner, false);
-			}
-			return true;
-		}
-
-		case OBJ_MENU_EXTEND_SCRIPT: {
-			if (script_owner) {
-				SceneTreeDock::get_singleton()->open_script_dialog(script_owner, true);
-			}
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void EditorScriptPicker::set_script_owner(Node *p_owner) {
-	script_owner = p_owner;
-}
-
-Node *EditorScriptPicker::get_script_owner() const {
-	return script_owner;
-}
-
-void EditorScriptPicker::_bind_methods() {
-	ClassDB::bind_method(D_METHOD("set_script_owner", "owner_node"), &EditorScriptPicker::set_script_owner);
-	ClassDB::bind_method(D_METHOD("get_script_owner"), &EditorScriptPicker::get_script_owner);
-
-	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "script_owner", PROPERTY_HINT_RESOURCE_TYPE, Node::get_class_static(), PROPERTY_USAGE_NONE), "set_script_owner", "get_script_owner");
-}
-
-// EditorShaderPicker
-
-void EditorShaderPicker::set_create_options(Object *p_menu_node) {
-	PopupMenu *menu_node = Object::cast_to<PopupMenu>(p_menu_node);
-	if (!menu_node) {
-		return;
-	}
-
-	menu_node->add_icon_item(get_editor_theme_icon(SNAME("Shader")), TTR("New Shader..."), OBJ_MENU_NEW_SHADER);
-	menu_node->add_separator();
-}
-
-bool EditorShaderPicker::handle_menu_selected(int p_which) {
-	Ref<ShaderMaterial> ed_material = Ref<ShaderMaterial>(get_edited_material());
-
-	switch (p_which) {
-		case OBJ_MENU_NEW_SHADER: {
-			if (ed_material.is_valid()) {
-				SceneTreeDock::get_singleton()->open_shader_dialog(ed_material, preferred_mode);
-				return true;
-			}
-		} break;
-		default:
-			break;
-	}
-	return false;
-}
-
-void EditorShaderPicker::set_edited_material(ShaderMaterial *p_material) {
-	edited_material = p_material;
-}
-
-ShaderMaterial *EditorShaderPicker::get_edited_material() const {
-	return edited_material;
-}
-
-void EditorShaderPicker::set_preferred_mode(int p_mode) {
-	preferred_mode = p_mode;
 }
 
 //////////////

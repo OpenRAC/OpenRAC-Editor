@@ -36,7 +36,6 @@
 #include "core/object/class_db.h"
 #include "core/os/keyboard.h"
 #include "core/os/os.h"
-#include "editor/animation/animation_tree_editor_plugin.h"
 #include "editor/docks/editor_dock_manager.h"
 #include "editor/docks/inspector_dock.h"
 #include "editor/docks/scene_tree_dock.h"
@@ -45,12 +44,12 @@
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/gui/editor_validation_panel.h"
 #include "editor/scene/3d/node_3d_editor_plugin.h" // For onion skinning.
-#include "editor/scene/canvas_item_editor_plugin.h" // For onion skinning.
 #include "editor/settings/editor_command_palette.h"
 #include "editor/settings/editor_settings.h"
 #include "editor/themes/editor_scale.h"
 #include "editor/themes/editor_theme_manager.h"
 #include "scene/animation/animation_tree.h"
+#include "scene/gui/option_button.h"
 #include "scene/gui/separator.h"
 #include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
@@ -1789,8 +1788,8 @@ void AnimationPlayerEditor::_prepare_onion_layers_2_prolog() {
 	}
 
 	// Hide superfluous elements that would make the overlay unnecessary cluttered.
-	if (Node3DEditor::get_singleton()->is_visible()) {
-		// 3D
+	// OpenRAC Editor: 3D only.
+	{
 		onion.temp.spatial_edit_state = Node3DEditor::get_singleton()->get_state();
 		Dictionary new_state = onion.temp.spatial_edit_state.duplicate();
 		new_state["show_grid"] = false;
@@ -1810,21 +1809,6 @@ void AnimationPlayerEditor::_prepare_onion_layers_2_prolog() {
 		new_state["viewports"] = vp;
 		// TODO: Save/restore only affected entries.
 		Node3DEditor::get_singleton()->set_state(new_state);
-	} else {
-		// CanvasItemEditor.
-		onion.temp.canvas_edit_state = CanvasItemEditor::get_singleton()->get_state();
-		Dictionary new_state = onion.temp.canvas_edit_state.duplicate();
-		new_state["show_origin"] = false;
-		new_state["show_grid"] = false;
-		new_state["show_rulers"] = false;
-		new_state["show_guides"] = false;
-		new_state["show_helpers"] = false;
-		new_state["show_zoom_control"] = false;
-		new_state["show_edit_locks"] = false;
-		new_state["grid_visibility"] = 2; // TODO: Expose CanvasItemEditor::GRID_VISIBILITY_HIDE somehow and use it.
-		new_state["show_transformation_gizmos"] = onion.include_gizmos ? new_state["gizmos"] : Variant(false);
-		// TODO: Save/restore only affected entries.
-		CanvasItemEditor::get_singleton()->set_state(new_state);
 	}
 
 	// Tweak the root viewport to ensure it's rendered before our target.
@@ -1936,13 +1920,7 @@ void AnimationPlayerEditor::_prepare_onion_layers_2_epilog() {
 	player->restore(onion.temp.anim_values_backup);
 
 	// Restore state of main editors.
-	if (Node3DEditor::get_singleton()->is_visible()) {
-		// 3D
-		Node3DEditor::get_singleton()->set_state(onion.temp.spatial_edit_state);
-	} else { // CanvasItemEditor
-		// 2D
-		CanvasItemEditor::get_singleton()->set_state(onion.temp.canvas_edit_state);
-	}
+	Node3DEditor::get_singleton()->set_state(onion.temp.spatial_edit_state);
 
 	// Update viewports with skin layers overlaid for the actual engine loop render.
 	onion.can_overlay = true;

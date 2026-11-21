@@ -96,7 +96,6 @@ protected:
 		Ref<Texture2D> favorite_icon;
 		Ref<Texture2D> override_icon;
 		Ref<Texture2D> remove_icon;
-		Ref<Texture2D> help_icon;
 
 		int font_size = 0;
 		int font_offset = 0;
@@ -126,7 +125,6 @@ public:
 		MENU_PIN_VALUE,
 		MENU_DELETE,
 		MENU_REVERT_VALUE,
-		MENU_OPEN_DOCUMENTATION,
 	};
 
 	enum ColorationMode {
@@ -386,7 +384,6 @@ class EditorInspectorCategory : public Control {
 	enum ClassMenuOption {
 		MENU_COPY_VALUE,
 		MENU_PASTE_VALUE,
-		MENU_OPEN_DOCS,
 		MENU_UNFAVORITE_ALL,
 	};
 
@@ -404,7 +401,6 @@ class EditorInspectorCategory : public Control {
 		Ref<Texture2D> icon_paste;
 		Ref<Texture2D> icon_favorites;
 		Ref<Texture2D> icon_unfavorite;
-		Ref<Texture2D> icon_help;
 
 		Ref<StyleBox> background;
 	} theme_cache;

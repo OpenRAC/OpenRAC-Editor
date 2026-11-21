@@ -164,7 +164,6 @@ public:
 	Dictionary get_scene_editor_states(int p_idx) const;
 	Dictionary get_scene_editor_states_with_selection(int p_idx) const;
 	void set_editor_plugin_states(const Dictionary &p_states);
-	void get_editor_breakpoints(List<String> *p_breakpoints);
 	void clear_editor_states();
 	void save_editor_external_data();
 	void apply_changes_in_editors();
@@ -213,7 +212,6 @@ public:
 	String get_scene_path(int p_idx) const;
 	String get_scene_type(int p_idx) const;
 	void set_scene_path(int p_idx, const String &p_path);
-	Ref<Script> get_scene_root_script(int p_idx) const;
 	uint64_t get_scene_time_opened(int p_idx) const;
 	void set_scene_modified_time(int p_idx, uint64_t p_time);
 	uint64_t get_scene_modified_time(int p_idx) const;
@@ -225,7 +223,6 @@ public:
 	void move_scene_to_index(int p_idx, int p_to_idx);
 	void move_edited_scene_to_index(int p_idx);
 
-	bool call_build();
 
 	void set_scene_as_saved(int p_idx);
 	bool is_scene_changed(int p_idx);

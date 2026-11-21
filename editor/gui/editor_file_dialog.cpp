@@ -31,10 +31,12 @@
 #include "editor_file_dialog.h"
 
 #include "core/config/project_settings.h"
+#include "core/io/dir_access.h"
 #include "core/os/os.h"
-#include "editor/docks/filesystem_dock.h"
 #include "editor/file_system/dependency_editor.h"
+#include "editor/file_system/editor_file_system.h"
 #include "editor/settings/editor_settings.h"
+#include "scene/gui/item_list.h"
 
 #ifndef DISABLE_DEPRECATED
 #include "core/object/class_db.h"
@@ -81,10 +83,6 @@ bool EditorFileDialog::_should_hide_file(const String &p_file) const {
 	}
 	const String full_path = dir_access->get_current_dir().path_join(p_file);
 	return EditorFileSystem::_should_skip_directory(full_path);
-}
-
-Color EditorFileDialog::_get_folder_color(const String &p_path) const {
-	return FileSystemDock::get_dir_icon_color(p_path, FileDialog::_get_folder_color(p_path));
 }
 
 Vector2i EditorFileDialog::_get_list_mode_icon_size() const {

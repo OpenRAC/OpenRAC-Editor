@@ -71,7 +71,6 @@ platform_list = []  # list of platforms
 platform_opts = {}  # options for each platform
 platform_flags = {}  # flags for each platform
 platform_doc_class_path = {}
-platform_exporters = []
 platform_apis = []
 
 for x in sorted(glob.glob("platform/*")):
@@ -516,7 +515,6 @@ for tool in custom_tools:
 env.Prepend(CPPPATH=["#"])
 
 # configure ENV for platform
-env.platform_exporters = platform_exporters
 env.platform_apis = platform_apis
 
 # Configuration of build targets:

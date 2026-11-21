@@ -378,12 +378,6 @@ class DisplayServerX11 : public DisplayServer {
 	static Bool _predicate_clipboard_incr(Display *display, XEvent *event, XPointer arg);
 	static Bool _predicate_clipboard_save_targets(Display *display, XEvent *event, XPointer arg);
 
-	struct EmbeddedProcessData {
-		Window process_window = 0;
-		bool visible = true;
-	};
-	HashMap<ProcessID, EmbeddedProcessData *> embedded_processes;
-
 	Point2i _get_window_position(Window p_window) const;
 	Rect2i _get_window_rect(Window p_window) const;
 	void _set_external_window_settings(Window p_window, Window p_parent_transient, DisplayServerEnums::WindowMode p_mode, uint32_t p_flags, const Rect2i &p_rect);
@@ -542,10 +536,6 @@ public:
 	virtual void window_start_drag(DisplayServerEnums::WindowID p_window = DisplayServerEnums::MAIN_WINDOW_ID) override;
 	virtual void window_start_resize(DisplayServerEnums::WindowResizeEdge p_edge, DisplayServerEnums::WindowID p_window) override;
 
-	virtual Error embed_process(DisplayServerEnums::WindowID p_window, ProcessID p_pid, const Rect2i &p_rect, bool p_visible, bool p_grab_focus) override;
-	virtual Error request_close_embedded_process(ProcessID p_pid) override;
-	virtual Error remove_embedded_process(ProcessID p_pid) override;
-	virtual ProcessID get_focused_process_id() override;
 
 	virtual void cursor_set_shape(DisplayServerEnums::CursorShape p_shape) override;
 	virtual DisplayServerEnums::CursorShape cursor_get_shape() const override;

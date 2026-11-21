@@ -41,7 +41,6 @@
 #include "core/object/class_db.h"
 #include "core/object/script_language.h"
 #include "core/string/translation_server.h"
-#include "editor/export/editor_export_platform.h"
 #include "editor/settings/editor_settings.h"
 #include "scene/property_list_helper.h"
 #include "scene/resources/theme.h"
@@ -506,17 +505,6 @@ void DocTools::generate(BitField<GenerateFlags> p_flags) {
 				}
 				own_properties = properties;
 				memdelete(resimp);
-			} else if (name.begins_with("EditorExportPlatform") && ClassDB::can_instantiate(name)) {
-				properties_from_instance = false;
-				Ref<EditorExportPlatform> platform = Object::cast_to<EditorExportPlatform>(ClassDB::instantiate(name));
-				if (platform.is_valid()) {
-					List<EditorExportPlatform::ExportOption> options;
-					platform->get_export_options(&options);
-					for (const EditorExportPlatform::ExportOption &E : options) {
-						properties.push_back(E.option);
-					}
-					own_properties = properties;
-				}
 			} else {
 				properties_from_instance = false;
 				ClassDB::get_property_list(name, &properties);
