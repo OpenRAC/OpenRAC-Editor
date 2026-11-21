@@ -25,6 +25,7 @@ var disc_assets: Array = []
 ## The level collision for ground_at, by the scene it was read from.
 var faces: LevelFaces
 var faces_scene: String = ""
+var faces_fingerprint: int = 0
 
 
 func register(on: Object, owner: EditorPlugin) -> void:
@@ -631,7 +632,9 @@ func ground_at(args: Dictionary) -> Dictionary:
 	if at == null or root() == null:
 		return fail("Give position [x, y, z] in an open level.")
 
-	if faces == null or faces_scene != root().scene_file_path:
+	# Read again after a collision edit too (the fingerprint changes), not only for another scene.
+	if faces == null or faces_scene != root().scene_file_path or not is_instance_valid(faces.game) \
+			or not is_instance_valid(faces.layer) or faces.game != game() or faces.fingerprint() != faces_fingerprint:
 		faces = LevelFaces.new()
 
 		if not faces.load_level(root()):
@@ -640,6 +643,7 @@ func ground_at(args: Dictionary) -> Dictionary:
 
 		faces.make_buckets()
 		faces_scene = root().scene_file_path
+		faces_fingerprint = faces.fingerprint()
 
 	# From just above the point (so a floor above it is not taken), or from the height asked.
 	var from := Vector3(at.x, at.y, float(args.get("from_height", at.z + 2.0)))
