@@ -436,6 +436,7 @@ private:
 
 	bool previewing_camera = false;
 	bool previewing_cinema = false;
+	bool gamepad_aim = false; // OpenRAC Editor: draw the gamepad's aiming cross.
 	int times_focused_consecutively = 0;
 	bool pilot_preview_enabled = false;
 
@@ -538,6 +539,11 @@ public:
 	Camera3D *get_camera_3d() { return camera; } // return the default camera object.
 	Control *get_surface() { return surface; }
 	Camera3D *get_previewing_camera() const { return previewing; } // OpenRAC Editor: the camera looked through, if any.
+
+	// OpenRAC Editor: the gamepad flies the view and aims with a cross in its middle.
+	void gamepad_fly(const Vector3 &p_move, const Vector2 &p_look_degrees, real_t p_delta);
+	Transform3D get_view_transform() const { return view_3d_controller->to_camera_transform(); }
+	void set_gamepad_aim(bool p_show);
 
 	Node3DEditorViewport(Node3DEditor *p_spatial_editor, int p_index);
 	~Node3DEditorViewport();

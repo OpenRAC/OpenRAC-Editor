@@ -4072,6 +4072,37 @@ static void draw_indicator_bar(Control &p_surface, real_t p_fill, const Ref<Text
 	p_surface.draw_string(p_font, Vector2(icon_pos.x, icon_pos.y + icon_size.y + 16 * EDSCALE), p_text, HORIZONTAL_ALIGNMENT_LEFT, -1.f, p_font_size, p_color);
 }
 
+// OpenRAC Editor: the gamepad flies the view. p_move is (right, up, forward), each -1..1: forward
+// stays level, so the view flies like a drone, and up is always up.
+void Node3DEditorViewport::gamepad_fly(const Vector3 &p_move, const Vector2 &p_look_degrees, real_t p_delta) {
+	if (previewing) {
+		return; // Looking through a camera: that camera is not ours to move.
+	}
+	if (!p_look_degrees.is_zero_approx()) {
+		view_3d_controller->cursor_look_degrees(p_look_degrees);
+	}
+	if (!p_move.is_zero_approx()) {
+		const Basis basis = view_3d_controller->to_camera_transform().basis;
+		Vector3 forward = basis.xform(Vector3(0, 0, -1));
+		forward.y = 0;
+		forward = forward.length_squared() > CMP_EPSILON ? forward.normalized() : basis.xform(Vector3(0, 1, 0));
+		Vector3 right = basis.xform(Vector3(1, 0, 0));
+		right.y = 0;
+		right = right.length_squared() > CMP_EPSILON ? right.normalized() : Vector3(1, 0, 0);
+		const Vector3 motion = (right * p_move.x + Vector3(0, 1, 0) * p_move.y + forward * p_move.z) * view_3d_controller->get_freelook_speed() * p_delta;
+		view_3d_controller->cursor.pos += motion;
+		view_3d_controller->cursor.eye_pos += motion;
+	}
+	_disable_follow_mode();
+}
+
+void Node3DEditorViewport::set_gamepad_aim(bool p_show) {
+	if (gamepad_aim != p_show) {
+		gamepad_aim = p_show;
+		surface->queue_redraw();
+	}
+}
+
 void Node3DEditorViewport::_draw() {
 	EditorNode::get_singleton()->get_editor_plugins_over()->forward_3d_draw_over_viewport(surface);
 	EditorNode::get_singleton()->get_editor_plugins_force_over()->forward_3d_force_draw_over_viewport(surface);
@@ -4099,6 +4130,21 @@ void Node3DEditorViewport::_draw() {
 	}
 
 	RID ci = surface->get_canvas_item();
+
+	if (gamepad_aim) {
+		// OpenRAC Editor: the gamepad picks what is under this cross.
+		const Point2 c = (surface->get_size() / 2).round();
+		const real_t gap = 4 * EDSCALE;
+		const real_t len = 10 * EDSCALE;
+		for (int pass = 0; pass < 2; pass++) {
+			const Color col = pass == 0 ? Color(0, 0, 0, 0.7) : Color(1, 1, 1, 0.95);
+			const real_t w = (pass == 0 ? 4 : 2) * EDSCALE;
+			for (const Vector2 dir : { Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1) }) {
+				surface->draw_line(c + dir * gap, c + dir * (gap + len), col, w, true);
+			}
+			surface->draw_circle(c, (pass == 0 ? 2.5 : 1.5) * EDSCALE, col, true, -1, true);
+		}
+	}
 
 	if (message_time > 0) {
 		Ref<Font> font = get_theme_font(SceneStringName(font), SNAME("Label"));

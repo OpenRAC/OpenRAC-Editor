@@ -92,6 +92,16 @@ These are deleted from the source:
   and the behaviours set in a moby's Inspector, spin, bob, patrol, orbit, face or follow the hero
   ([BEHAVIOUR_FORMAT.md](BEHAVIOUR_FORMAT.md)).
 
+- **Gamepad** (`editor/gui/editor_gamepad.cpp`): every panel, list, menu and field works with a pad
+  (Steam Deck, Steam Controller, any pad). The pad acts as the arrow keys, Enter and Escape; LB/RB
+  switch tabs, View goes to the next panel, Start opens the menus, Y is the right-click menu, X is
+  undo, the right stick scrolls. In the 3D view the sticks fly and look, A picks under a cross,
+  holding X carries the picked objects, LB/RB turn them. A bar at the bottom shows each button.
+  The Steam Deck's two touchpads (SDL's Steam Deck driver now sends them, `thirdparty/sdl/patches`):
+  the right one is the mouse, the left one scrolls (looks in 3D); pressing them clicks. On the Deck
+  the editor opens in one window and text fields bring up the Steam keyboard.
+  Tests: `openrac/tools/test_editor_gamepad.py`.
+
 ## Build options
 
 [build/custom.py](../build/custom.py) holds the rest: size-optimized production build, no

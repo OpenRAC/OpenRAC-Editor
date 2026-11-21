@@ -71,6 +71,7 @@
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/gui/editor_quick_open_dialog.h"
 #include "editor/gui/editor_title_bar.h"
+#include "editor/gui/editor_gamepad.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/gui/progress_dialog.h"
 #include "editor/gui/window_wrapper.h"
@@ -7167,6 +7168,22 @@ void EditorNode::_update_main_menu_type() {
 	}
 }
 
+// OpenRAC Editor: the gamepad's Start button opens the first menu; left and right go along the menus.
+void EditorNode::open_main_menu() {
+	if (main_menu_bar && !main_menu_bar->is_native_menu()) {
+		Ref<InputEventAction> open;
+		open.instantiate();
+		open->set_action(SNAME("ui_accept"));
+		open->set_pressed(true);
+		main_menu_bar->gui_input(open);
+	} else if (main_menu_button) {
+		main_menu_button->show_popup();
+		if (main_menu_button->get_popup()->get_item_count() > 0) {
+			main_menu_button->get_popup()->set_focused_item(0);
+		}
+	}
+}
+
 void EditorNode::_bottom_panel_resized() {
 	bottom_panel->set_bottom_panel_offset(center_split->get_split_offset());
 }
@@ -8123,6 +8140,14 @@ EditorNode::EditorNode() {
 	saving_resource = Ref<Resource>();
 
 	set_process(true);
+
+	// OpenRAC Editor: every part of the editor works with a gamepad.
+	EditorGamepad *gamepad = memnew(EditorGamepad);
+	EditorGamepadBar *gamepad_bar = memnew(EditorGamepadBar);
+	gamepad_bar->hide();
+	main_vbox->add_child(gamepad_bar);
+	gamepad->set_bar(gamepad_bar);
+	add_child(gamepad);
 
 	open_imported = memnew(ConfirmationDialog);
 	open_imported->set_ok_button_text(TTR("Open Anyway"));

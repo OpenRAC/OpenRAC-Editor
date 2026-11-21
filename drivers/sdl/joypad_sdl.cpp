@@ -272,6 +272,29 @@ void JoypadSDL::process_events() {
 							axis_value);
 				} break;
 
+				// OpenRAC Editor: the touchpads, first finger only, as JoyTouchpad's axes and buttons.
+				case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
+				case SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
+				case SDL_EVENT_GAMEPAD_TOUCHPAD_UP: {
+					if (sdl_event.gtouchpad.finger != 0 || sdl_event.gtouchpad.touchpad > 1) {
+						break;
+					}
+					// A pad with one touchpad (PlayStation): it is the right one, the pointer.
+					SDL_Gamepad *gamepad = SDL_GetGamepadFromID(sdl_event.gtouchpad.which);
+					const bool right = sdl_event.gtouchpad.touchpad == 1 || (gamepad && SDL_GetNumGamepadTouchpads(gamepad) < 2);
+					const bool down = sdl_event.type != SDL_EVENT_GAMEPAD_TOUCHPAD_UP;
+					Input *input = Input::get_singleton();
+					if (down) {
+						input->joy_axis(joy_id, right ? JoyTouchpad::RIGHT_X : JoyTouchpad::LEFT_X, sdl_event.gtouchpad.x * 2.0f - 1.0f);
+						input->joy_axis(joy_id, right ? JoyTouchpad::RIGHT_Y : JoyTouchpad::LEFT_Y, sdl_event.gtouchpad.y * 2.0f - 1.0f);
+					}
+					input->joy_button(joy_id, right ? JoyTouchpad::RIGHT_TOUCH : JoyTouchpad::LEFT_TOUCH, down);
+					if (gamepad && SDL_GetNumGamepadTouchpads(gamepad) >= 2) {
+						// The Steam Deck says a press as full pressure.
+						input->joy_button(joy_id, right ? JoyTouchpad::RIGHT_PRESS : JoyTouchpad::LEFT_PRESS, down && sdl_event.gtouchpad.pressure >= 1.0f);
+					}
+				} break;
+
 				// Do note SDL gamepads do not have separate events for the dpad
 				case SDL_EVENT_GAMEPAD_BUTTON_UP:
 				case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -279,6 +302,10 @@ void JoypadSDL::process_events() {
 							joy_id,
 							static_cast<JoyButton>(sdl_event.gbutton.button), // Godot button constants are intentionally the same as SDL's, so we can just straight up use them
 							sdl_event.gbutton.down);
+					// OpenRAC Editor: a PlayStation pad's touchpad click is the right touchpad's press.
+					if (sdl_event.gbutton.button == SDL_GAMEPAD_BUTTON_TOUCHPAD) {
+						Input::get_singleton()->joy_button(joy_id, JoyTouchpad::RIGHT_PRESS, sdl_event.gbutton.down);
+					}
 					break;
 			}
 		}
