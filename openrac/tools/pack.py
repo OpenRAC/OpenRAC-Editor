@@ -250,6 +250,14 @@ def placement(t: tuple) -> tuple[tuple, tuple, float]:
     return tuple(t[9:12]), (rx, ry, rz), scale
 
 
+def needs_expanded_ram(core: bytes, original: bytes) -> bool:
+    """Whether a level's edited decoded CORE needs the game's expanded RAM. The level's memory after
+    the core moves up by as much as the core grew, and the disc's levels leave no known room at the
+    top of the 32 MiB: any growth may run past it (a crash while the level loads), not only a core
+    that is itself over 32 MiB. Packed in virtual sectors, the level gets the 256 MiB arena."""
+    return len(core) > VANILLA_RAM_BYTES or len(core) > len(original)
+
+
 def set_expanded_range(disc, info: dict, headers: dict[int, bytearray], slot: int,
                        first: int, count: int) -> None:
     """Set one range in a level header, preserving other expanded ranges."""
@@ -731,7 +739,7 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
                           "the 256 MiB expanded guest RAM arena", code="level-too-big")
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
-                                                   force=force_expanded_ram or len(core) > VANILLA_RAM_BYTES)
+                                                   force=force_expanded_ram or needs_expanded_ram(core, level.core))
     core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
     changes.append(
         f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
