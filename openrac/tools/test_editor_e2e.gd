@@ -1192,6 +1192,33 @@ static func measure(control: Control) -> Dictionary:
 
 	return entry
 
+	# The editor has no Project Settings window: the level's Properties name the planet.
+	EditorInterface.edit_node(EditorInterface.get_edited_scene_root())
+	await frames(3)
+	var field: LineEdit = null
+
+	for node in EditorInterface.get_inspector().find_children("*", "LineEdit", true, false):
+		if node.placeholder_text.begins_with("Letters, digits"):
+			field = node
+
+	check("the level's Properties show Planet Name", field != null)
+
+	if field == null:
+		return
+
+	field.text = "Open Museum"
+	field.text_submitted.emit(field.text)
+	check("typing a name saves it", String(ProjectSettings.get_setting("openrac/planet/name")) == "Open Museum")
+	field.text = "Łódź"
+	field.text_submitted.emit(field.text)
+	check("a name the game's font can't draw is refused", String(ProjectSettings.get_setting("openrac/planet/name")) == "Open Museum")
+	var said: bool = field.get_parent().find_children("*", "Label", true, false).any(
+		func(label: Label) -> bool: return label.visible and label.text.contains("plain letters"))
+	check("and the section says why", said)
+	ProjectSettings.set_setting("openrac/planet/name", "")
+	ProjectSettings.save()
+	EditorInterface.edit_node(null)
+
 
 func looks() -> void:
 	if DisplayServer.get_name() == "headless":

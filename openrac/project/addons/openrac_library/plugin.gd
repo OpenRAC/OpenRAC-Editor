@@ -18,6 +18,7 @@ const Dock = preload("dock.gd")
 const Library = preload("library.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
 const ForeignInspector = preload("foreign_inspector.gd")
+const PlanetInspector = preload("planet_inspector.gd")
 const Play = preload("play.gd")
 const VoicesDock = preload("voices_dock.gd")
 const DrawDistance = preload("draw_distance.gd")
@@ -34,6 +35,8 @@ const ADD_DISTANCE: float = 12.0
 var dock: Dock
 var behaviour_inspector: BehaviourInspector
 var foreign_inspector: ForeignInspector
+## The Planet Name section of the level (planet_inspector.gd).
+var planet_inspector: PlanetInspector
 ## Check level and Play level, on the toolbar (play.gd).
 var play: Play
 ## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
@@ -76,6 +79,8 @@ func _enter_tree() -> void:
 	foreign_inspector.level_name = level_name
 	foreign_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(foreign_inspector)
+	planet_inspector = PlanetInspector.new()
+	add_inspector_plugin(planet_inspector)
 	scene_changed.connect(handle_scene_changed)
 	get_tree().node_added.connect(handle_node_added)
 	handle_scene_changed(EditorInterface.get_edited_scene_root())
@@ -104,7 +109,7 @@ func register_mcp() -> void:
 
 ## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
 ## name in the ship's menu, and its id, which the first add sets so later ones update the same
-## planet. In Project Settings, OpenRAC > Planet.
+## planet. The level's Properties show the name (planet_inspector.gd).
 static func add_planet_settings() -> void:
 	for entry in [["openrac/planet/name", "Name in the ship's menu (letters, digits, spaces; 40 at most)"],
 			["openrac/planet/id", "Set when the planet is first added."]]:
@@ -134,6 +139,8 @@ func _exit_tree() -> void:
 	behaviour_inspector = null
 	remove_inspector_plugin(foreign_inspector)
 	foreign_inspector = null
+	remove_inspector_plugin(planet_inspector)
+	planet_inspector = null
 	remove_dock(dock)
 	dock.queue_free()
 	dock = null

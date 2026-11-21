@@ -10,6 +10,7 @@ extends RefCounted
 const Library = preload("library.gd")
 const Play = preload("play.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
+const PlanetInspector = preload("planet_inspector.gd")
 const LevelFaces = preload("../openrac_collision/level_faces.gd")
 
 ## At most this many mobys in one answer of moby_list.
@@ -224,21 +225,10 @@ func planet_get(_args: Dictionary) -> Dictionary:
 
 
 func planet_set(args: Dictionary) -> Variant:
-	var name: String = String(args.get("name", "")).strip_edges()
+	var problem: String = PlanetInspector.save_name(String(args.get("name", "")))
 
-	if name.is_empty() or name.length() > 40:
-		return fail("A planet's name is 1 to 40 characters.")
-
-	for i in name.length():
-		var c: int = name.unicode_at(i)
-
-		if c < 32 or c > 126:
-			return fail("The game's font has plain letters A-Z, digits, spaces and punctuation only: \"%s\" is not one." % name[i])
-
-	ProjectSettings.set_setting("openrac/planet/name", name)
-
-	if ProjectSettings.save() != OK:
-		return fail("project.godot could not be saved.")
+	if not problem.is_empty():
+		return fail(problem)
 
 	return planet_get({})
 
