@@ -49,8 +49,24 @@ static func save_name(name: String) -> String:
 	if not problem.is_empty():
 		return problem
 
+	sync_id()
 	ProjectSettings.set_setting(NAME_SETTING, name)
 	return "" if ProjectSettings.save() == OK else "project.godot could not be saved."
+
+
+## Takes the planet's id from project.godot on disk: planet.py writes it there when the planet is
+## first added, while the editor is open. Without this, the editor's next save of its settings would
+## write the old empty id back, and the next add would make a second planet.
+static func sync_id() -> void:
+	var file := ConfigFile.new()
+
+	if file.load("res://project.godot") != OK:
+		return
+
+	var id: String = String(file.get_value("openrac", "planet/id", ""))
+
+	if id != String(ProjectSettings.get_setting(ID_SETTING, "")):
+		ProjectSettings.set_setting(ID_SETTING, id)
 
 
 func section() -> Control:

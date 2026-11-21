@@ -221,6 +221,7 @@ func level_play(_args: Dictionary) -> Variant:
 
 
 func planet_get(_args: Dictionary) -> Dictionary:
+	PlanetInspector.sync_id()
 	return {"name": String(ProjectSettings.get_setting("openrac/planet/name", "")),
 		"id": String(ProjectSettings.get_setting("openrac/planet/id", ""))}
 
@@ -248,7 +249,11 @@ func planet_add(_args: Dictionary) -> Variant:
 	EditorInterface.save_all_scenes()
 	var args: PackedStringArray = ["-u", tools.path_join("openrac_editor.py"), "planet", "remembered",
 		ProjectSettings.globalize_path("res://").trim_suffix("/"), overrides, "--anywhere"]
-	var job: String = server.job_run_process("Add as a new planet", python, args, parsed.bind("planet"))
+	# The first add writes the planet's id into project.godot: the editor takes it at once.
+	var done := func(code: int, lines: PackedStringArray) -> Dictionary:
+		PlanetInspector.sync_id()
+		return parsed(code, lines, "planet")
+	var job: String = server.job_run_process("Add as a new planet", python, args, done)
 	return {"job": job, "state": "running", "next": "job_wait with this id"}
 
 

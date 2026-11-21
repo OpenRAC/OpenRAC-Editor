@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import planet
 from test_editor_e2e import LEVEL
 from test_library_dock import level_project
 
