@@ -14,7 +14,7 @@ These are deleted from the source:
   multiplayer, navigation_2d, navigation_3d, noise, objectdb_profiler, ogg, openxr, raycast, tga,
   theora, tinyexr, upnp, vhacd, visual_shader, vorbis, webp, webrtc, websocket, webxr,
   xatlas_unwrap. GDScript has no language server.
-- **Drivers:** OpenGL, Direct3D 12, EGL, SDL input, AccessKit, XAudio2, MIDI. Linux has no
+- **Drivers:** OpenGL, Direct3D 12, EGL, AccessKit, XAudio2, MIDI. Linux has no
   text-to-speech.
 - **Editor:** the project list, Asset Store, version control, the 2D screen and the 2D node
   editors, the TileMap, GridMap MeshLibrary, baked lighting (LightmapGI, VoxelGI), SDF collision,
