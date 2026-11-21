@@ -676,7 +676,7 @@ func hint() -> void:
 	click = click.duplicate()
 	click.pressed = false
 	Input.parse_input_event(click)
-	await frames(3)
+	await get_tree().create_timer(0.6).timeout # It slides away.
 	check("a mouse click hides it", not bar().is_visible_in_tree())
 
 

@@ -101,6 +101,11 @@ public:
 	bool task_step(const String &p_task, const String &p_state, int p_step = -1, bool p_force_redraw = true);
 	void end_task(const String &p_task);
 
+	// OpenRAC Editor: while the intro is up, the box stays out of sight (it still blocks input)
+	// and the intro shows what is loading.
+	void set_quiet(bool p_quiet);
+	String get_state_text() const;
+
 	void add_host_window(ObjectID p_window);
 	void remove_host_window(ObjectID p_window);
 

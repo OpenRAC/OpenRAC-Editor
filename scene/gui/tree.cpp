@@ -3798,10 +3798,7 @@ void Tree::_go_down() {
 bool Tree::_scroll(bool p_horizontal, float p_pages) {
 	ScrollBar *scroll = p_horizontal ? (ScrollBar *)h_scroll : (ScrollBar *)v_scroll;
 
-	double prev_value = scroll->get_value();
-	scroll->set_value(scroll->get_value() + scroll->get_page() * p_pages);
-
-	bool scroll_happened = scroll->get_value() != prev_value;
+	const bool scroll_happened = scroll->wheel(scroll->get_page() * p_pages); // OpenRAC Editor: glides when on.
 	if (scroll_happened) {
 		_determine_hovered_item();
 	}

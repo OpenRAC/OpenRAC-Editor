@@ -20,6 +20,8 @@ class Window;
 
 // OpenRAC Editor: the bar at the bottom of the editor that says, while the pad is used, what each
 // button does where the focus is: each button drawn as on the pad, then its word.
+class EditorFocusGlide;
+
 class EditorGamepadBar : public Control {
 	GDCLASS(EditorGamepadBar, Control);
 
@@ -29,6 +31,8 @@ class EditorGamepadBar : public Control {
 	};
 	Vector<Item> items;
 	String key;
+	float shown = 0.0; // 0: away, 1: all the way up.
+	bool want = false;
 
 	Color _button_colour(const String &p_button) const;
 
@@ -38,6 +42,8 @@ protected:
 public:
 	// Pairs of a button (A, B, X, Y, LB, View, ...; LB+RB for two) and what it does.
 	void set_items(const Vector<String> &p_pairs);
+	// Slides up into view (or away down), or just shows (hides) when animations are off.
+	void slide(bool p_in);
 	virtual Size2 get_minimum_size() const override;
 };
 
@@ -100,6 +106,7 @@ class EditorGamepad : public Node {
 	bool active = false; // The pad was used last, not the mouse or keyboard.
 	ObjectID last_window; // The window the pad worked in last frame: a dialog that just opened gets a pad-friendly focus.
 	EditorGamepadBar *bar = nullptr;
+	EditorFocusGlide *glide = nullptr;
 	int keyboard_check_frames = 0;
 	ObjectID typing_in; // The many-line field A started typing in.
 
@@ -175,6 +182,7 @@ protected:
 
 public:
 	void set_bar(EditorGamepadBar *p_bar) { bar = p_bar; }
+	void set_glide(EditorFocusGlide *p_glide) { glide = p_glide; }
 
 	EditorGamepad();
 };

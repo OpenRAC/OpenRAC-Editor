@@ -525,6 +525,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	_initial_set("interface/editor/behavior/automatically_open_screenshots", true, true);
 	// OpenRAC Editor: one window on the Steam Deck: its game mode shows one window at a time.
 	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/single_window_mode", OS::get_singleton()->get_environment("SteamDeck") == "1", "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED | PROPERTY_USAGE_EDITOR_BASIC_SETTING)
+	// OpenRAC Editor: the intro, fading pages and windows, smooth scrolling and the gliding focus frame.
+	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/animations", true, "")
+	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/intro", true, "")
 	_initial_set("interface/editor/input/mouse_extra_buttons_navigate_history", true);
 	_initial_set("interface/editor/behavior/save_each_scene_on_quit", true, true); // Regression
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/behavior/save_on_focus_loss", false, "")

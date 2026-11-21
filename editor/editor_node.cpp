@@ -72,6 +72,7 @@
 #include "editor/gui/editor_quick_open_dialog.h"
 #include "editor/gui/editor_title_bar.h"
 #include "editor/gui/editor_gamepad.h"
+#include "editor/gui/editor_motion.h"
 #include "editor/gui/editor_toaster.h"
 #include "editor/gui/progress_dialog.h"
 #include "editor/gui/window_wrapper.h"
@@ -8146,6 +8147,18 @@ EditorNode::EditorNode() {
 	main_vbox->add_child(gamepad_bar);
 	gamepad->set_bar(gamepad_bar);
 	add_child(gamepad);
+
+	// OpenRAC Editor: smooth motion, a gold frame that glides after the pad's focus, and the intro.
+	add_child(memnew(EditorMotion));
+	EditorFocusGlide *focus_glide = memnew(EditorFocusGlide);
+	focus_glide->set_z_index(90);
+	gui_base->add_child(focus_glide);
+	gamepad->set_glide(focus_glide);
+	if (!DisplayServer::get_singleton()->get_name().contains("headless") && EDITOR_GET("interface/editor/display/animations") && EDITOR_GET("interface/editor/display/intro") && OS::get_singleton()->get_environment("OPENRAC_EDITOR_NO_INTRO").is_empty()) {
+		EditorIntro *intro = memnew(EditorIntro);
+		intro->set_z_index(100);
+		gui_base->add_child(intro);
+	}
 
 	open_imported = memnew(ConfirmationDialog);
 	open_imported->set_ok_button_text(TTR("Open Anyway"));

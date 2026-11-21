@@ -10,6 +10,7 @@
 #include "editor/editor_node.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_bottom_panel.h"
+#include "editor/gui/editor_motion.h"
 #include "editor/gui/editor_spin_slider.h"
 #include "editor/inspector/editor_inspector.h"
 #include "scene/gui/dialogs.h"
@@ -1025,7 +1026,7 @@ void EditorGamepad::_set_active(bool p_active) {
 	}
 	active = p_active;
 	if (bar) {
-		bar->set_visible(active);
+		bar->slide(active);
 	}
 	// Menus without "Ctrl+A" and the like, and the eye (and other buttons) in list rows in reach.
 	PopupMenu::set_keys_hidden(active);
@@ -1256,6 +1257,11 @@ void EditorGamepad::_notification(int p_what) {
 			if (active) {
 				_update_hint(_focus_owner(), view);
 			}
+			if (glide) {
+				// The gold frame follows the focus in the main window (not in the 3D view, which flies).
+				Control *at = active && !view && window == get_tree()->get_root() ? window->gui_get_focus_owner() : nullptr;
+				glide->glide_to(at && at->is_visible_in_tree() ? at : nullptr);
+			}
 		} break;
 	}
 }
@@ -1295,11 +1301,40 @@ Color EditorGamepadBar::_button_colour(const String &p_button) const {
 	return Color(0.42, 0.42, 0.44);
 }
 
+void EditorGamepadBar::slide(bool p_in) {
+	want = p_in;
+	if (!EditorMotion::is_enabled()) {
+		shown = p_in ? 1.0 : 0.0;
+		set_visible(p_in);
+		update_minimum_size();
+		return;
+	}
+	if (p_in) {
+		show();
+	}
+	set_process(true);
+}
+
 Size2 EditorGamepadBar::get_minimum_size() const {
-	return Size2(0, Math::round(30 * EDSCALE));
+	// Eased, so it slides in quick and settles softly.
+	const float eased = 1.0 - Math::pow(1.0f - shown, 3.0f);
+	return Size2(0, Math::round(30 * EDSCALE * eased));
 }
 
 void EditorGamepadBar::_notification(int p_what) {
+	if (p_what == NOTIFICATION_READY) {
+		set_clip_contents(true);
+	}
+	if (p_what == NOTIFICATION_PROCESS) {
+		shown = Math::move_toward(shown, want ? 1.0f : 0.0f, (float)get_process_delta_time() / 0.22f);
+		set_modulate(Color(1, 1, 1, shown));
+		update_minimum_size();
+		if (shown == (want ? 1.0f : 0.0f)) {
+			set_process(false);
+			set_visible(want);
+		}
+		return;
+	}
 	if (p_what != NOTIFICATION_DRAW) {
 		return;
 	}
@@ -1307,10 +1342,10 @@ void EditorGamepadBar::_notification(int p_what) {
 	const Ref<Font> main = get_theme_font(SNAME("main"), EditorStringName(EditorFonts));
 	const int size = get_theme_font_size(SNAME("main_size"), EditorStringName(EditorFonts));
 	const Color text = get_theme_color(SNAME("font_color"), EditorStringName(Editor));
-	draw_rect(Rect2(Vector2(), get_size()), get_theme_color(SNAME("dark_color_2"), EditorStringName(Editor)));
+	const real_t h = Math::round(30 * EDSCALE); // Drawn at its full height, even while it slides.
+	draw_rect(Rect2(0, 0, get_size().x, h), get_theme_color(SNAME("dark_color_2"), EditorStringName(Editor)));
 	draw_rect(Rect2(0, 0, get_size().x, Math::round(EDSCALE)), get_theme_color(SNAME("accent_color"), EditorStringName(Editor)) * Color(1, 1, 1, 0.6));
 
-	const real_t h = get_size().y;
 	const real_t glyph_h = Math::round(20 * EDSCALE);
 	const real_t pad = Math::round(6 * EDSCALE);
 	real_t x = Math::round(12 * EDSCALE);
