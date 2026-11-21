@@ -121,7 +121,9 @@ func test_level(scene: Node, info: Dictionary) -> Dictionary:
 		var normal: Vector3 = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
 		var hit: Array = []
 		var picked: int = faces.pick(middle + normal * 0.05, -normal, hit)
-		check(picked == face, "the ray onto face %d picks it (got %d)" % [face, picked])
+		# Some levels have faces that cross another's middle (Novalis): a hit that close is right too.
+		var same_point: bool = not hit.is_empty() and (hit[0] as Vector3).distance_to(middle) < 0.01
+		check(picked == face or same_point, "the ray onto face %d picks it (got %d)" % [face, picked])
 		check(not hit.is_empty() and (hit[0] as Vector3).distance_to(middle) < 0.1, "the hit point is on the face")
 		keys.append(faces.keys[face])
 
