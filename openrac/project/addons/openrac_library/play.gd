@@ -87,7 +87,7 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 
 	if kind == "play":
 		var states: String = user_arg("--openrac-states")
-		var game: String = states.replace("-states", "")
+		var game: String = game_beside(states)
 
 		if user_arg("--openrac-packed") == "" or user_arg("--openrac-data") == "" or game == "":
 			return "Open the level from the launcher (Mods, Level editor, Open) to play it."
@@ -96,6 +96,16 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 			"--data", user_arg("--openrac-data"), "--levels", user_arg("--openrac-levels")])
 
 	return {"program": python, "args": args}
+
+
+## The game program beside the states program STATES (openrac-rac1-pal-states -> openrac-rac1-pal), or
+## "". Only the program's own name changes: a folder with "-states" in it stays as it is.
+static func game_beside(states: String) -> String:
+	if states.is_empty():
+		return ""
+
+	var name: String = states.get_file()
+	return states.left(states.length() - name.length()) + name.replace("-states", "")
 
 
 ## Saves the scenes and runs KIND in the background; the result shows in the dialog.

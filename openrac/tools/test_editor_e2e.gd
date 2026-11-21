@@ -1141,6 +1141,9 @@ func check_and_play() -> void:
 	var level: Dictionary = play.this_level()
 	check("this level is found", String(level.get("project", "")) != "" and level.get("version") == "ntsc", level)
 	check("without the launcher it says how", String(play.command_for("check", level)).begins_with("Open the level from the launcher"))
+	check("the game sits beside the states program", play.game_beside("/home/my-states/openrac-rac1-pal-states")
+		== "/home/my-states/openrac-rac1-pal" and play.game_beside("C:\\my-states\\openrac-rac1-pal-states.exe")
+		== "C:\\my-states\\openrac-rac1-pal.exe" and play.game_beside("") == "")
 	check("not a level: nothing to pack", String(play.command_for("play", {})).begins_with("This isn't a Ratchet & Clank level"))
 	play.show_result("check", 1, PackedStringArray(["openrac-progress: pack 1/1", "openrac-problem: Vendor_0000: a mirrored object (a negative scale) cannot be packed",
 		"Some edits cannot be packed yet: fix them and check again."]))
