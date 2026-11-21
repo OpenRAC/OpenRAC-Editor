@@ -641,7 +641,10 @@ void Node3DEditorViewport::cancel_transform() {
 
 void Node3DEditorViewport::_update_shrink() {
 	const float scaling_3d_scale = GLOBAL_GET("rendering/scaling_3d/scale");
-	const float shrink_factor = view_display_menu->get_popup()->is_item_checked(view_display_menu->get_popup()->get_item_index(VIEW_HALF_RESOLUTION)) ? 0.5 : 1.0;
+	// OpenRAC Editor: the light mode draws 3D views at half resolution on HiDPI screens, where it
+	// still looks sharp and saves three quarters of the pixels.
+	const bool half = view_display_menu->get_popup()->is_item_checked(view_display_menu->get_popup()->get_item_index(VIEW_HALF_RESOLUTION));
+	const float shrink_factor = half || (EditorSettings::is_light_mode() && EDSCALE >= 1.5) ? 0.5 : 1.0;
 	viewport->set_scaling_3d_scale(MAX(0.25, scaling_3d_scale * shrink_factor));
 }
 
@@ -3977,6 +3980,11 @@ void Node3DEditorViewport::_notification(int p_what) {
 
 			if (EditorSettings::get_singleton()->check_changed_settings_in_group("editors/3d")) {
 				_update_navigation_controls_visibility();
+			}
+
+			// OpenRAC Editor: the light mode changes the resolution (_update_shrink).
+			if (EditorSettings::get_singleton()->check_changed_settings_in_group("interface/editor/display/light_mode")) {
+				_update_shrink();
 			}
 		} break;
 	}

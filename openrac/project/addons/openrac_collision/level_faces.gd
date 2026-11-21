@@ -147,6 +147,33 @@ func reload() -> void:
 	read_edits()
 
 
+## A cheap fingerprint of what reload() reads: every node of the layers (its name, place, file,
+## mesh and surface type) and the stored edits. Reading a big level's faces takes long, so the
+## plugin reads them again only when this changes (an edit elsewhere in the scene leaves it).
+func fingerprint() -> int:
+	var parts: Array = [stored_edits_of(layer)]
+
+	for top in [layer, hero_layer]:
+		if top == null:
+			continue
+
+		for node in top.find_children("*", "", true, false):
+			parts.append(node.get_instance_id())
+			parts.append(node.name)
+			parts.append(node.scene_file_path)
+			parts.append(node.get_meta("rc1_surface", -1))
+
+			if node is Node3D:
+				parts.append((node as Node3D).transform)
+
+			if node is MeshInstance3D and (node as MeshInstance3D).mesh != null:
+				var mesh: Mesh = (node as MeshInstance3D).mesh
+				parts.append(mesh.get_rid())
+				parts.append(mesh.get_aabb())
+
+	return hash(parts)
+
+
 # --- Reading the nodes ---
 
 ## The hero wall a node under Game/HeroWalls is (HeroWall_NNN), else a wall the modder added.

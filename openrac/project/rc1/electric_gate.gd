@@ -16,16 +16,18 @@ const Nanotech: Script = preload("res://rc1/nanotech.gd")
 ## The beams, from 1 to 5 above the gate.
 const BEAMS: int = 5
 
-## Frames between searches for a cutscene.
-const SEARCH_EVERY: int = 30
-
 ## The gate it belongs to.
 var gate: Node3D
 
 var material: ShaderMaterial
 var own_seconds: float = 0.0
+
+## The cutscene whose preview time the beams follow.
 var cutscene: Node
-var search_in: int = 0
+
+## The time and the gate's transform last sent (rc1/nanotech.gd): unchanged ones are not sent.
+var shown_seconds: float = -1.0
+var shown_transform: Transform3D = Transform3D(Basis(), Vector3.INF)
 
 ## The tables of every level read so far, by their file.
 static var tables_of: Dictionary = {}
@@ -44,6 +46,7 @@ static func attach(to: Node3D, effects_dir: String) -> Node3D:
 	effect.top_level = true
 	to.add_child(effect)
 	effect.build(tables, effects_dir)
+	Nanotech.watch_screen(effect, (effect.get_node("Beams") as MeshInstance3D).get_aabb().grow(1.0))
 	return effect
 
 
@@ -60,28 +63,19 @@ static func read_tables(effects_dir: String) -> Dictionary:
 
 func _process(delta: float) -> void:
 	follow()
-	own_seconds += delta
-	var seconds: float = own_seconds
+	var seconds: float = Nanotech.effect_seconds(self, delta)
 
-	if cutscene == null or not is_instance_valid(cutscene):
-		cutscene = null
-		search_in -= 1
-
-		if search_in <= 0 and is_instance_valid(gate) and gate.has_method("find_cutscene"):
-			search_in = SEARCH_EVERY
-			cutscene = gate.find_cutscene()
-
-	if cutscene != null:
-		seconds = cutscene.get_timeline_position()
-
-	material.set_shader_parameter("seconds", seconds)
+	if seconds != shown_seconds:
+		shown_seconds = seconds
+		material.set_shader_parameter("seconds", seconds)
 
 
 ## The gate's place and turn, without its scale (the game draws the beams with the rows of its
 ## rotation, at its position).
 func follow() -> void:
-	if gate != null and is_instance_valid(gate):
-		global_transform = gate.global_transform.orthonormalized()
+	if gate != null and is_instance_valid(gate) and gate.global_transform != shown_transform:
+		shown_transform = gate.global_transform
+		global_transform = shown_transform.orthonormalized()
 
 
 func build(tables: Dictionary, effects_dir: String) -> void:

@@ -39,8 +39,18 @@ var cutscene: Node
 ## The last time the pose was set for, so an unmoved timeline costs nothing.
 var shown: float = -1.0
 
-## Frames until the next search for a cutscene.
-var search_in: int = 0
+## The last preview time the cutscene's events were followed for.
+var followed: float = -1.0
+
+## The edited scene's cutscene, found for every moby at once (find_cutscene): its instance id,
+## the edited scene it was looked for in, and the frame it was looked for on.
+static var found_id: int = 0
+static var found_root_id: int = 0
+static var found_frame: int = -SEARCH_EVERY
+
+## Mobys that found no cutscene to follow and stopped processing, by instance id: a cutscene
+## added to the scene wakes them (wake_followers), so hundreds of mobys cost nothing until then.
+static var sleepers: PackedInt64Array = []
 
 # =============================================================================
 # CONSTANTS
@@ -152,17 +162,11 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	# The editor only: follow the cutscene preview's time.
 	if cutscene == null or not is_instance_valid(cutscene):
-		search_in -= 1
-
-		# Searching every frame would cost too much with hundreds of mobys.
-		if search_in > 0:
-			return
-
-		search_in = SEARCH_EVERY
 		cutscene = find_cutscene()
 
-		# No cutscene in the scene: the first frame stays.
+		# No cutscene in the scene: the first frame stays, and the moby sleeps until one is added.
 		if cutscene == null:
+			sleep_until_cutscene()
 			return
 
 	var seconds: float = cutscene.get_timeline_position()
@@ -170,7 +174,36 @@ func _process(_delta: float) -> void:
 	if clip != &"":
 		show_at(seconds)
 
-	follow_events(seconds)
+	# An unmoved timeline: the events say what they said, unless they were read again since.
+	if seconds != followed or Engine.get_process_frames() - events_frame >= SEARCH_EVERY:
+		followed = seconds
+		follow_events(seconds)
+
+
+## Stops processing until a cutscene is added to the scene (wake_followers).
+func sleep_until_cutscene() -> void:
+	set_process(false)
+	sleepers.append(get_instance_id())
+	var wake := Callable(get_script(), "wake_followers")
+
+	if not get_tree().node_added.is_connected(wake):
+		get_tree().node_added.connect(wake)
+
+
+## A node was added to the editor's tree: a cutscene wakes every sleeping moby, so it follows it.
+static func wake_followers(node: Node) -> void:
+	if sleepers.is_empty() or not node.is_class("Cutscene"):
+		return
+
+	found_frame = -SEARCH_EVERY
+
+	for id in sleepers:
+		var moby: Node = instance_from_id(id) as Node
+
+		if moby != null:
+			moby.set_process(true)
+
+	sleepers.clear()
 
 
 ## Hides or shows the moby as the cutscene's events for its spawn id say at SECONDS.
@@ -250,16 +283,28 @@ func find_clip() -> void:
 			return
 
 
-## The first cutscene in the edited scene, or null.
-func find_cutscene() -> Node:
+## The first cutscene in the edited scene, or null. Looked for once every SEARCH_EVERY frames
+## for every moby (and effect) together, since a search walks the whole scene; FRESH looks now.
+func find_cutscene(fresh: bool = false) -> Node:
 	var root: Node = get_tree().edited_scene_root if is_inside_tree() else null
 
 	# Outside an edited scene there is no preview to follow.
 	if root == null:
 		return null
 
-	var found: Array[Node] = root.find_children("*", "Cutscene", true, false)
-	return null if found.is_empty() else found[0]
+	var frame: int = Engine.get_process_frames()
+	var cached: Node = instance_from_id(found_id) as Node if found_id != 0 else null
+	var stale: bool = fresh or frame - found_frame >= SEARCH_EVERY or frame < found_frame
+	stale = stale or found_root_id != root.get_instance_id() or (found_id != 0 and cached == null)
+
+	if stale:
+		var found: Array[Node] = root.find_children("*", "Cutscene", true, false)
+		cached = null if found.is_empty() else found[0]
+		found_id = 0 if cached == null else cached.get_instance_id()
+		found_root_id = root.get_instance_id()
+		found_frame = frame
+
+	return cached
 
 
 ## Poses the model at seconds into its clip, looping.
@@ -369,7 +414,7 @@ static func class_rules() -> Dictionary:
 ## Adds a CutsceneEvent to the edited scene's cutscene that hides (ACTION 0) or shows (1) this
 ## moby from the preview's time on, so the game does the same whatever the player did before.
 func add_scene_event(action: int) -> void:
-	var scene: Node = find_cutscene()
+	var scene: Node = find_cutscene(true)
 
 	if scene == null:
 		push_warning("This scene has no cutscene.")

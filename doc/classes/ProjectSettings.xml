@@ -3143,7 +3143,7 @@
 		<member name="rendering/lights_and_shadows/directional_shadow/16_bits" type="bool" setter="" getter="" default="true">
 			Use 16 bits for the directional shadow depth map. Enabling this results in shadows having less precision and may result in shadow acne, but can lead to performance improvements on some devices.
 		</member>
-		<member name="rendering/lights_and_shadows/directional_shadow/size" type="int" setter="" getter="" default="4096">
+		<member name="rendering/lights_and_shadows/directional_shadow/size" type="int" setter="" getter="" default="2048">
 			The directional shadow's size in pixels. Higher values will result in sharper shadows, at the cost of performance. The value is rounded up to the nearest power of 2.
 		</member>
 		<member name="rendering/lights_and_shadows/directional_shadow/size.mobile" type="int" setter="" getter="" default="2048">
@@ -3266,7 +3266,7 @@
 		<member name="rendering/reflections/sky_reflections/roughness_layers" type="int" setter="" getter="" default="8">
 			Limits the number of layers to use in radiance maps when using importance sampling. A lower number will be slightly faster and take up less VRAM.
 		</member>
-		<member name="rendering/reflections/sky_reflections/texture_array_reflections" type="bool" setter="" getter="" default="true">
+		<member name="rendering/reflections/sky_reflections/texture_array_reflections" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], uses texture arrays instead of mipmaps for reflection probes and panorama backgrounds (sky). This reduces jitter noise and upscaling artifacts on reflections, but is significantly slower to compute and uses [member rendering/reflections/sky_reflections/roughness_layers] times more memory.
 			[b]Note:[/b] Texture array reflections are always disabled on macOS on Intel GPUs due to driver bugs.
 		</member>
@@ -3276,7 +3276,7 @@
 		<member name="rendering/reflections/specular_occlusion/enabled" type="bool" setter="" getter="" default="true">
 			If [code]true[/code], reduces reflections based on ambient light.
 		</member>
-		<member name="rendering/renderer/rendering_method" type="String" setter="" getter="" default="&quot;forward_plus&quot;">
+		<member name="rendering/renderer/rendering_method" type="String" setter="" getter="" default="&quot;mobile&quot;">
 			Sets the renderer that will be used by the project. Options are:
 			[b]forward_plus[/b] (Forward+): High-end renderer designed for desktop devices. Has a higher base overhead, but scales well with complex scenes. Not suitable for older devices or mobile.
 			[b]mobile[/b] (Mobile): Modern renderer designed for mobile devices. Has a lower base overhead than Forward+, but does not scale as well to large scenes with many elements.
