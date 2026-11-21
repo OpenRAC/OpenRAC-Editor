@@ -582,7 +582,7 @@ func check_limits() -> void:
 
 	# Nothing over a limit, as far as the estimate goes.
 	if lines.is_empty():
-		dock.show_report("Within the limits. Check Level checks for sure.")
+		dock.show_report("Within the limits. Play Level checks for sure.")
 		return
 
 	var shown: PackedStringArray = lines.slice(0, REPORT_LINES)

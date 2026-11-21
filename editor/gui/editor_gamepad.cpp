@@ -10,6 +10,8 @@
 #include "editor/editor_node.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/gui/editor_bottom_panel.h"
+#include "editor/gui/editor_spin_slider.h"
+#include "editor/settings/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/themes/editor_scale.h"
 #include "scene/resources/style_box_flat.h"
@@ -37,6 +39,10 @@ constexpr double SCROLLS_PER_SECOND = 14.0;
 constexpr float LOOK_DEGREES_PER_SECOND = 140.0;
 constexpr float FAST_FLY = 4.0;
 constexpr float TURN_DEGREES = 15.0;
+// A number field the pad changes: steps repeat like keys, and go ten times bigger once held long.
+constexpr double ADJUST_FIRST_REPEAT = 0.35;
+constexpr double ADJUST_REPEAT = 0.06;
+constexpr double ADJUST_SPEED_UP = 1.2;
 // The right touchpad moves the pointer this part of the window's width from one edge to the other,
 // more for a fast swipe; the left one scrolls this many notches, or turns the 3D view this much.
 constexpr float POINTER_SPEED = 0.35;
@@ -310,6 +316,85 @@ void EditorGamepad::_scroll(Control *p_focus, double p_delta) {
 	_send_mouse_button(p_focus, p_focus->get_size() / 2, button, false, factor);
 }
 
+void EditorGamepad::_release_arrow() {
+	if (held_arrow != Key::NONE) {
+		_send_key(held_arrow, false);
+		held_arrow = Key::NONE;
+	}
+}
+
+EditorSpinSlider *EditorGamepad::_adjusting() const {
+	return adjusting.is_valid() ? ObjectDB::get_instance<EditorSpinSlider>(adjusting) : nullptr;
+}
+
+// A on a number field: the d-pad changes it, as dragging it with the mouse would.
+void EditorGamepad::_start_adjust(EditorSpinSlider *p_slider) {
+	_release_arrow();
+	adjusting = p_slider->get_instance_id();
+	adjust_original = p_slider->get_value();
+	adjust_dir = 0;
+	adjust_held = 0.0;
+	p_slider->set_pad_adjusting(true);
+}
+
+void EditorGamepad::_end_adjust(bool p_keep) {
+	EditorSpinSlider *slider = _adjusting();
+	adjusting = ObjectID();
+	if (!slider) {
+		return;
+	}
+	slider->set_pad_adjusting(false);
+	if (!p_keep && slider->get_value() != adjust_original) {
+		slider->set_value(adjust_original); // The inspector merges this into the same undo step.
+	}
+}
+
+void EditorGamepad::_update_adjust(EditorSpinSlider *p_slider, double p_delta) {
+	int dir = 0;
+	if (down[PAD_LEFT] || left_stick.x < -0.5) {
+		dir = -1;
+	} else if (down[PAD_RIGHT] || left_stick.x > 0.5) {
+		dir = 1;
+	}
+	if (dir != adjust_dir) {
+		adjust_dir = dir;
+		adjust_held = 0.0;
+		adjust_repeat_in = ADJUST_FIRST_REPEAT;
+		if (dir == 0) {
+			return;
+		}
+	} else if (dir == 0) {
+		return;
+	} else {
+		adjust_held += p_delta;
+		adjust_repeat_in -= p_delta;
+		if (adjust_repeat_in > 0) {
+			return;
+		}
+		adjust_repeat_in += ADJUST_REPEAT;
+	}
+
+	// The same step as the up and down keys in the typed field: whole numbers for a fine float.
+	double step = p_slider->get_step();
+	if (step <= 0) {
+		step = EDITOR_GET("interface/inspector/default_float_step");
+	}
+	if (step < 1 && Math::is_equal_approx(1.0 / step, Math::round(1.0 / step))) {
+		step = 1.0;
+	}
+	// A short range (0 to 1, say) goes in a hundred steps instead.
+	const double range = p_slider->get_max() - p_slider->get_min();
+	if (range > 0 && step > range / 20) {
+		step = MAX(p_slider->get_step(), range / 100);
+	}
+	if (down[PAD_LT]) {
+		step *= 0.1;
+	} else if (down[PAD_RT] || adjust_held > ADJUST_SPEED_UP) {
+		step *= 10.0;
+	}
+	p_slider->set_value(p_slider->get_value() + dir * step);
+}
+
 // Puts focus on the first thing in p_area a pad can use: a list first, then anything but a text
 // field (focusing a text field starts typing), then anything.
 void EditorGamepad::_focus_into(Control *p_area) {
@@ -383,6 +468,13 @@ void EditorGamepad::_next_area(int p_step) {
 			}
 		}
 	}
+	// Buttons that ask for it, such as Play Level on the toolbar.
+	for (Node *n : get_tree()->get_nodes_in_group(SNAME("editor_gamepad_area"))) {
+		Control *c = Object::cast_to<Control>(n);
+		if (c && c->is_visible_in_tree() && c->get_window() == get_tree()->get_root()) {
+			areas.push_back(c);
+		}
+	}
 	areas.sort_custom<AreaOrder>();
 	if (bottom) {
 		areas.push_back(bottom);
@@ -400,8 +492,15 @@ void EditorGamepad::_next_area(int p_step) {
 		}
 	}
 	const int n = areas.size();
-	const int next = current < 0 ? (p_step > 0 ? 0 : n - 1) : (current + p_step + n) % n;
-	_focus_into(areas[next]);
+	int next = current < 0 ? (p_step > 0 ? 0 : n - 1) : (current + p_step + n) % n;
+	// A panel with nothing to focus (only a message) is passed over.
+	for (int tries = 0; tries < n; tries++, next = (next + p_step + n) % n) {
+		_focus_into(areas[next]);
+		Control *now = get_tree()->get_root()->gui_get_focus_owner();
+		if (now && (areas[next] == now || areas[next]->is_ancestor_of(now))) {
+			return;
+		}
+	}
 }
 
 // LB/RB switch the tabs around what has focus (docks, Settings pages, and so on).
@@ -727,7 +826,11 @@ void EditorGamepad::_set_active(bool p_active) {
 	if (bar) {
 		bar->set_visible(active);
 	}
+	// Menus without "Ctrl+A" and the like, and the eye (and other buttons) in list rows in reach.
+	PopupMenu::set_keys_hidden(active);
+	Tree::set_keys_reach_buttons(active);
 	if (!active) {
+		_end_adjust(true);
 		if (Node3DEditor *editor = Node3DEditor::get_singleton()) {
 			for (uint32_t i = 0; i < Node3DEditor::VIEWPORTS_COUNT; i++) {
 				if (Node3DEditorViewport *view = editor->get_editor_viewport(i)) {
@@ -744,12 +847,16 @@ void EditorGamepad::_update_hint(Control *p_focus, Node3DEditorViewport *p_view)
 		return;
 	}
 	Vector<String> items;
-	if (touched_last) {
+	if (_adjusting()) {
+		items = { "D-pad", TTR("Change"), "LT", TTR("Hold: fine"), "RT", TTR("Hold: fast"), "A", TTR("Done"), "B", TTR("Cancel"), "X", TTR("Type") };
+	} else if (touched_last) {
 		items = { TTR("Right pad"), TTR("Point, press to click, hold to drag"), TTR("Left pad"), p_view ? TTR("Look, press for more") : TTR("Scroll, press for more") };
 	} else if (p_view) {
 		items = { "L", TTR("Fly"), "R", TTR("Look"), "LT+RT", TTR("Down, up"), "A", TTR("Pick"), "X", TTR("Hold: carry"), "LB+RB", TTR("Turn"), "Y", TTR("Look at it"), "B", TTR("Drop pick"), "View", TTR("Next panel") };
 	} else if (is_text_field(p_focus)) {
 		items = { "A", TTR("Done"), "B", TTR("Cancel"), "X", TTR("Keyboard"), "View", TTR("Next field") };
+	} else if (Object::cast_to<EditorSpinSlider>(p_focus)) {
+		items = { "A", TTR("Change"), "B", TTR("Back"), "Y", TTR("More"), "X", TTR("Undo"), "LT+X", TTR("Redo"), "View", TTR("Next panel"), "Start", TTR("Menu") };
 	} else {
 		items = { "A", TTR("Choose"), "B", TTR("Back"), "Y", TTR("More"), "X", TTR("Undo"), "LT+X", TTR("Redo"), "LB+RB", TTR("Tabs"), "R", TTR("Scroll"), "View", TTR("Next panel"), "Start", TTR("Menu") };
 	}
@@ -810,6 +917,7 @@ void EditorGamepad::_notification(int p_what) {
 				// The editor is in the background: let go of everything.
 				_update_arrows(delta, false);
 				_end_carry(true);
+				_end_adjust(true);
 				return;
 			}
 			if (any) {
@@ -845,12 +953,35 @@ void EditorGamepad::_notification(int p_what) {
 				}
 			}
 
-			_update_arrows(delta, view == nullptr);
+			EditorSpinSlider *slider = _adjusting();
+			if (slider && (slider != focus || view)) {
+				_end_adjust(true);
+				slider = nullptr;
+			}
+			if (slider) {
+				_release_arrow();
+				_update_adjust(slider, delta);
+			} else {
+				_update_arrows(delta, view == nullptr);
+			}
 			if (view) {
 				_update_3d(view, delta);
+			} else if (slider) {
+				if (_pressed(PAD_A)) {
+					_end_adjust(true);
+				} else if (_pressed(PAD_B)) {
+					_end_adjust(false);
+				} else if (_pressed(PAD_X)) {
+					_end_adjust(true);
+					slider->setup_and_show(); // Type the number.
+					keyboard_check_frames = 3;
+				}
 			} else {
 				_scroll(focus, delta);
-				if (_pressed(PAD_A)) {
+				EditorSpinSlider *number = Object::cast_to<EditorSpinSlider>(focus);
+				if (_pressed(PAD_A) && number && !number->is_read_only()) {
+					_start_adjust(number);
+				} else if (_pressed(PAD_A)) {
 					_tap_key(Key::ENTER);
 					keyboard_check_frames = 3;
 				}

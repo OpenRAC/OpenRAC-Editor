@@ -14,6 +14,7 @@
 
 class Label;
 class Node3D;
+class EditorSpinSlider;
 class Node3DEditorViewport;
 class Window;
 
@@ -105,6 +106,13 @@ class EditorGamepad : public Node {
 	Node3DEditorViewport *carry_view = nullptr;
 	Transform3D carry_start_view;
 
+	// A number field the pad is changing (A on it): d-pad left and right, LT fine, RT fast.
+	ObjectID adjusting;
+	double adjust_original = 0.0;
+	int adjust_dir = 0;
+	double adjust_repeat_in = 0.0;
+	double adjust_held = 0.0;
+
 	void _read_pad();
 	bool _pressed(Button p_button) const { return down[p_button] && !was_down[p_button]; }
 	bool _released(Button p_button) const { return !down[p_button] && was_down[p_button]; }
@@ -133,6 +141,12 @@ class EditorGamepad : public Node {
 	void _update_touchpads(Window *p_window);
 	void _pointer_event(Window *p_native, const Vector2 &p_relative, MouseButton p_button, bool p_pressed);
 	void _pointer_wheel(Window *p_native, MouseButton p_button, float p_factor);
+
+	EditorSpinSlider *_adjusting() const;
+	void _start_adjust(EditorSpinSlider *p_slider);
+	void _end_adjust(bool p_keep);
+	void _update_adjust(EditorSpinSlider *p_slider, double p_delta);
+	void _release_arrow();
 
 	void _update_3d(Node3DEditorViewport *p_view, double p_delta);
 	void _start_carry(Node3DEditorViewport *p_view);

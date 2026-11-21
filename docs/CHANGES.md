@@ -99,8 +99,12 @@ These are deleted from the source:
   holding X carries the picked objects, LB/RB turn them. A bar at the bottom shows each button.
   The Steam Deck's two touchpads (SDL's Steam Deck driver now sends them, `thirdparty/sdl/patches`):
   the right one is the mouse, the left one scrolls (looks in 3D); pressing them clicks. On the Deck
-  the editor opens in one window and text fields bring up the Steam keyboard.
+  the editor opens in one window and text fields bring up the Steam keyboard. A on a number lets
+  the d-pad change it (LT fine, RT big steps, B puts it back); right on a list row steps onto its
+  buttons (the eye); menus leave out their keyboard shortcuts while the pad is used.
   Tests: `openrac/tools/test_editor_gamepad.py`.
+- **Play Level** is one big gold button on the toolbar; Check Level is gone (Play checks the same
+  edits first and lists the ones the game can't take).
 
 ## Build options
 

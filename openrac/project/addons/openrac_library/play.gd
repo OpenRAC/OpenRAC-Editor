@@ -1,15 +1,17 @@
 @tool
 extends HBoxContainer
-## Check level and Play level, on the editor's toolbar (plugin.gd adds them). Both save the scenes
-## and run openrac/tools/openrac_editor.py on this level's project, off the editor's thread:
-## - Check packs every level of the projects folder into a folder that is thrown away and lists each
-##   edit the packer refuses; a click on one selects its node.
-## - Play packs into the launcher's packed levels folder and starts the game on this level.
+## Play level, the big button on the editor's toolbar (plugin.gd adds it). It saves the scenes and
+## runs openrac/tools/openrac_editor.py play on this level's project, off the editor's thread: that
+## packs into the launcher's packed levels folder and starts the game on this level, or lists each
+## edit the packer refuses (a click on one selects its node). The MCP tools also run "check", which
+## packs into a folder that is thrown away.
 ## The launcher names what they need on the editor's command line, after -- (editor.json's
-## editor-open): --openrac-python, --openrac-tools, --openrac-packed, and for Play --openrac-data,
+## editor-open): --openrac-python, --openrac-tools, --openrac-packed, and for play --openrac-data,
 ## --openrac-levels and --openrac-states (the game program sits beside the states program).
 
-var check_button: Button
+## The button's gold, as the game's bolts.
+const GOLD := Color("f5c040")
+
 var play_button: Button
 var dialog: AcceptDialog
 var problems: ItemList
@@ -19,20 +21,16 @@ var worker: Thread
 
 func _init() -> void:
 	name = "OpenRACPlay"
-	check_button = Button.new()
-	check_button.text = "Check Level"
-	check_button.flat = true
-	check_button.tooltip_text = "Saves and lists each edit the game can't take. Click one to pick it."
-	check_button.pressed.connect(start.bind("check"))
-	add_child(check_button)
 	play_button = Button.new()
 	play_button.text = "Play Level"
-	play_button.flat = true
 	play_button.tooltip_text = "Saves, builds your edits and starts the game here."
-	play_button.pressed.connect(start.bind("play"))
+	play_button.focus_mode = Control.FOCUS_ALL
+	play_button.pressed.connect(start)
+	# A gamepad's View button stops here too, as at each panel.
+	play_button.add_to_group("editor_gamepad_area")
 	add_child(play_button)
 	dialog = AcceptDialog.new()
-	dialog.title = "Check Level"
+	dialog.title = "Play Level"
 	var box := VBoxContainer.new()
 	summary = Label.new()
 	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -45,6 +43,49 @@ func _init() -> void:
 	box.add_child(problems)
 	dialog.add_child(box)
 	add_child(dialog)
+
+
+func _ready() -> void:
+	style_button()
+
+
+## A big gold button with the play sign: the one thing to press to see the level in the game.
+func style_button() -> void:
+	var scale: float = EditorInterface.get_editor_scale()
+	var theme: Theme = EditorInterface.get_editor_theme()
+	play_button.icon = theme.get_icon("Play", "EditorIcons")
+	play_button.add_theme_font_override("font", theme.get_font("bold", "EditorFonts"))
+	play_button.add_theme_font_size_override("font_size", roundi(theme.get_font_size("main_size", "EditorFonts") * 1.1))
+	play_button.custom_minimum_size = Vector2(150, 0) * scale
+	var dark := Color("1d1608")
+	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color",
+			"icon_normal_color", "icon_hover_color", "icon_pressed_color", "icon_focus_color", "icon_hover_pressed_color"]:
+		play_button.add_theme_color_override(state, dark)
+	play_button.add_theme_color_override("font_disabled_color", dark * Color(1, 1, 1, 0.6))
+	play_button.add_theme_color_override("icon_disabled_color", dark * Color(1, 1, 1, 0.6))
+	var looks := {"normal": GOLD, "hover": GOLD.lightened(0.18), "pressed": GOLD.darkened(0.15),
+		"hover_pressed": GOLD.darkened(0.1), "disabled": GOLD.darkened(0.35)}
+	for state in looks:
+		play_button.add_theme_stylebox_override(state, box_for(looks[state], scale))
+	var focus := StyleBoxFlat.new()
+	focus.draw_center = false
+	focus.set_corner_radius_all(roundi(7 * scale))
+	focus.set_border_width_all(maxi(2, roundi(2 * scale)))
+	focus.border_color = Color.WHITE
+	focus.set_expand_margin_all(2 * scale)
+	play_button.add_theme_stylebox_override("focus", focus)
+
+
+static func box_for(colour: Color, scale: float) -> StyleBoxFlat:
+	var box := StyleBoxFlat.new()
+	box.bg_color = colour
+	box.set_corner_radius_all(roundi(6 * scale))
+	box.content_margin_left = 16 * scale
+	box.content_margin_right = 18 * scale
+	box.content_margin_top = 4 * scale
+	box.content_margin_bottom = 4 * scale
+	box.anti_aliasing = true
+	return box
 
 
 func _exit_tree() -> void:
@@ -98,28 +139,26 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 	return {"program": python, "args": args}
 
 
-## Saves the scenes and runs KIND in the background; the result shows in the dialog.
-func start(kind: String) -> void:
+## Saves the scenes and builds and plays in the background; problems show in the dialog.
+func start() -> void:
 	if worker != null and worker.is_started():
 		return
 
-	var command: Variant = command_for(kind, this_level())
+	var command: Variant = command_for("play", this_level())
 
 	if command is String:
-		show_result(kind, 1, PackedStringArray([command]))
+		show_result(1, PackedStringArray([command]))
 		return
 
 	EditorInterface.save_all_scenes()
-	check_button.disabled = true
 	play_button.disabled = true
-	check_button.text = "Checking" if kind == "check" else "Check Level"
-	play_button.text = "Building" if kind == "play" else "Play Level"
+	play_button.text = "Building"
 	worker = Thread.new()
-	worker.start(run.bind(kind, command))
+	worker.start(run.bind(command))
 
 
 ## On the worker's thread: runs the command and hands its lines back to the editor's thread.
-func run(kind: String, command: Dictionary) -> void:
+func run(command: Dictionary) -> void:
 	var output: Array = []
 	var code: int = OS.execute(command["program"], command["args"], output, true)
 	var lines := PackedStringArray()
@@ -127,21 +166,20 @@ func run(kind: String, command: Dictionary) -> void:
 	for chunk in output:
 		lines.append_array(String(chunk).split("\n", false))
 
-	finish.call_deferred(kind, code, lines)
+	finish.call_deferred(code, lines)
 
 
-func finish(kind: String, code: int, lines: PackedStringArray) -> void:
+func finish(code: int, lines: PackedStringArray) -> void:
 	worker.wait_to_finish()
 	worker = null
-	check_button.disabled = false
 	play_button.disabled = false
-	check_button.text = "Check Level"
 	play_button.text = "Play Level"
-	show_result(kind, code, lines)
+	show_result(code, lines)
 
 
-## The result: each refused edit as a row to click, else what was done.
-func show_result(kind: String, code: int, lines: PackedStringArray) -> void:
+## The result: each refused edit as a row to click, else what was said. Nothing when the game
+## simply started.
+func show_result(code: int, lines: PackedStringArray) -> void:
 	problems.clear()
 	var said := PackedStringArray()
 
@@ -153,14 +191,12 @@ func show_result(kind: String, code: int, lines: PackedStringArray) -> void:
 		elif not line.begins_with("openrac-"):
 			said.append(line)
 
-	dialog.title = "Check Level" if kind == "check" else "Play Level"
-
 	if problems.item_count > 0:
-		summary.text = "%d edits can't be built. Click one, fix it, then check again." % problems.item_count
+		summary.text = "%d edits can't be built. Click one, fix it, then play again." % problems.item_count
 	elif code == 0:
 		summary.text = "\n".join(said) if not said.is_empty() else "Done."
 	else:
-		summary.text = "\n".join(said) if not said.is_empty() else "Couldn't check the level. Try again."
+		summary.text = "\n".join(said) if not said.is_empty() else "Couldn't build the level. Try again."
 
 	problems.visible = problems.item_count > 0
 	# Sized for the editor's display scale, never past most of its window.

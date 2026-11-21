@@ -7278,8 +7278,6 @@ EditorNode::EditorNode() {
 	ED_SHORTCUT("canvas_item_editor/pan_view", TTRC("Pan View"), Key::SPACE); // Used by the animation editors.
 	ED_SHORTCUT("editor/lock_selected_nodes", TTRC("Lock Selected Objects"), KeyModifierMask::CMD_OR_CTRL | Key::L);
 	ED_SHORTCUT("editor/unlock_selected_nodes", TTRC("Unlock Selected Objects"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::L);
-	ED_SHORTCUT("editor/group_selected_nodes", TTRC("Group Selected Objects"), KeyModifierMask::CMD_OR_CTRL | Key::G);
-	ED_SHORTCUT("editor/ungroup_selected_nodes", TTRC("Ungroup Selected Objects"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::G);
 	ED_SHORTCUT("editor/toggle_selected_nodes_visibility", TTRC("Show or Hide Selected Objects"), Key::H);
 
 	FileAccess::set_backup_save(EDITOR_GET("filesystem/on_save/safe_save_on_backup_then_rename"));

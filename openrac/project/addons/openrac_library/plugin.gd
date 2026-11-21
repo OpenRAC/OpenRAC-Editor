@@ -10,7 +10,7 @@ extends EditorPlugin
 ## it is moved to its group right after, keeping where it was dropped.
 ## behaviour_inspector.gd adds the Behaviour section to a moby's Inspector, foreign_inspector.gd the
 ## Imported class section to a moby that came with its own logic from another level. play.gd puts
-## Check level and Play level on the toolbar.
+## Play level on the toolbar.
 ## voices_dock.gd is the Voices dock: the characters' lines spoken again by AI voice models.
 ## draw_distance.gd draws ties and shrubs only as far as the game does in the editor's light mode.
 
@@ -34,7 +34,7 @@ const ADD_DISTANCE: float = 12.0
 var dock: Dock
 var behaviour_inspector: BehaviourInspector
 var foreign_inspector: ForeignInspector
-## Check level and Play level, on the toolbar (play.gd).
+## Play level, on the toolbar (play.gd).
 var play: Play
 ## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
 var voices: VoicesDock

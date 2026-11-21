@@ -111,6 +111,9 @@ var pack_label: Label
 var player: AudioStreamPlayer
 ## Buttons that start work, off while the tools are busy.
 var actions: Array[Button] = []
+## Set when the voice tools can't run here (another game, or not opened from the launcher): then
+## the dock shows only why, not empty tabs and buttons that do nothing.
+var unavailable: bool = false
 
 
 func _init() -> void:
@@ -472,6 +475,8 @@ func begin() -> void:
 	started = true
 
 	if game not in ["rac1", "rac2"]:
+		unavailable = true
+		update_buttons()
 		say("AI voices work in Ratchet & Clank and Going Commando levels.", WARN_COLOUR)
 		return
 
@@ -481,6 +486,9 @@ func begin() -> void:
 		problem = "Open the level from the launcher (Mods, Level editor, Open) first."
 	else:
 		problem = lab.start(python, Lab.arguments(tools, data, overrides, game, version))
+
+	unavailable = problem != ""
+	update_buttons()
 
 	if problem != "":
 		say(problem, WARN_COLOUR)
@@ -561,6 +569,8 @@ func stop_work() -> void:
 func update_buttons() -> void:
 	var busy: bool = lab.busy()
 	stop_button.visible = busy
+	tabs.visible = not unavailable
+	pack_button.visible = not unavailable
 
 	for button in actions:
 		button.disabled = busy

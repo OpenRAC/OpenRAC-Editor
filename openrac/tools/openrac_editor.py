@@ -426,7 +426,7 @@ def check_or_play(args) -> int:
                 raise
             for line in str(exc).splitlines()[1:]:
                 print(f"openrac-problem: {line.strip()}", flush=True)
-            print("Some edits cannot be packed yet: fix them and check again.")
+            print("Some edits cannot be packed yet: fix them and try again.")
             return 1
     print(f"openrac-check: {result['levels']} level(s), {result['mobys']} edit(s), nothing refused", flush=True)
     if args.command == "check":

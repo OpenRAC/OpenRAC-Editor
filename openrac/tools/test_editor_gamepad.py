@@ -23,7 +23,7 @@ GODOT = os.environ.get("OPENRAC_GODOT")
 HERE = Path(__file__).parent
 
 # How many scenarios test_editor_gamepad.gd runs.
-SCENARIOS = 17
+SCENARIOS = 22
 
 EXPECTED_ERRORS: list[str] = ["were leaked at exit"]
 

@@ -7,7 +7,7 @@ extends EditorPlugin
 const MOST_SECONDS: float = 90.0
 
 const SCENARIOS: PackedStringArray = ["first_press_focuses", "dpad_moves", "dpad_repeats", "next_panel", "tabs",
-	"main_menu", "context_menu", "text_field", "fly", "turn_and_undo", "carry_and_undo", "carry_put_back", "hint",
+	"main_menu", "menu_without_keys", "context_menu", "text_field", "number_field", "row_buttons", "play_button", "empty_panel", "fly", "turn_and_undo", "carry_and_undo", "carry_put_back", "hint",
 	"touch_pointer", "touch_click", "touch_scroll", "touch_look"]
 
 ## The touchpads, as the editor's SDL driver sends them (JoyTouchpad in core/input/input_enums.h).
@@ -307,6 +307,148 @@ func text_field() -> void:
 	check("A starts typing", field.is_editing())
 	await tap(JOY_BUTTON_B)
 	check("B stops", not field.is_editing())
+
+
+func menu_without_keys() -> void:
+	level_tree().grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_START)
+	await frames(3)
+	var open := popups()
+	check("Start opens the menu", open.size() == 1 and open[0] is PopupMenu, open)
+	if open.is_empty():
+		return
+	var menu: PopupMenu = open[0]
+	var with_pad: float = menu.size.x
+	await tap(JOY_BUTTON_B)
+	await frames(3)
+	# The keyboard takes over: the same menu shows its keys (Ctrl+N, ...) again, so it is wider.
+	var key := InputEventKey.new()
+	key.keycode = KEY_SHIFT
+	key.pressed = true
+	Input.parse_input_event(key)
+	key = key.duplicate()
+	key.pressed = false
+	Input.parse_input_event(key)
+	await frames(3)
+	menu.popup()
+	await frames(3)
+	check("with the pad a menu leaves out its keys", menu.size.x < with_pad * 0.97 or with_pad < menu.size.x - 20,
+		"%s with the pad, %s with keys" % [with_pad, menu.size.x])
+	menu.hide()
+	await frames(2)
+
+
+## A number in Properties: A starts changing it, the d-pad changes it, B puts it back, A keeps it,
+## and X (Undo) after takes it back.
+func number_field() -> void:
+	await pick_moby()
+	EditorInterface.edit_node(moby())
+	await frames(5)
+	var slider: Range = null
+	for c in EditorInterface.get_inspector().find_children("*", "EditorSpinSlider", true, false):
+		if c.is_visible_in_tree() and not c.read_only and c.focus_mode == Control.FOCUS_ALL and (c.value < c.max_value or c.allow_greater):
+			slider = c
+			break
+	if slider == null:
+		check("a number is in Properties", false)
+		return
+	slider.grab_focus()
+	await frames(2)
+	var start: float = slider.value
+	await tap(JOY_BUTTON_A)
+	await tap(JOY_BUTTON_DPAD_RIGHT)
+	check("right makes it bigger", slider.value > start, "%s to %s" % [start, slider.value])
+	check("and focus stays on it", focus() == slider, focus())
+	await tap(JOY_BUTTON_B)
+	check("B puts it back", is_equal_approx(slider.value, start), slider.value)
+	await tap(JOY_BUTTON_A)
+	button(JOY_BUTTON_DPAD_RIGHT, true)
+	await get_tree().create_timer(0.7).timeout
+	button(JOY_BUTTON_DPAD_RIGHT, false)
+	await frames(3)
+	var held: float = slider.value
+	check("holding right goes on", held > start + slider.step * 2, "%s to %s" % [start, held])
+	await tap(JOY_BUTTON_A)
+	check("A keeps it", is_equal_approx(slider.value, held), slider.value)
+	await tap(JOY_BUTTON_X)
+	await frames(5)
+	check("X takes it back", is_equal_approx(slider.value, start), "%s, was %s" % [slider.value, start])
+	EditorInterface.get_selection().clear()
+
+
+## The buttons in a Level list row (the eye, ...): right steps onto them and A presses one.
+func row_buttons() -> void:
+	var tree := level_tree()
+	var item: TreeItem = tree.get_root()
+	while item and item.get_text(0) != "Vendor_0000":
+		item = item.get_next_in_tree()
+	if item == null:
+		check("the moby is in the Level list", false)
+		return
+	var eye := -1
+	for i in range(item.get_button_count(0)):
+		if item.get_button_tooltip_text(0, i) == "Show or Hide":
+			eye = i
+	check("its row has the eye", eye >= 0, item.get_button_count(0))
+	if eye < 0:
+		return
+	tree.grab_focus()
+	tree.set_selected(item, 0)
+	await frames(2)
+	var was: bool = moby().visible
+	for _i in range(eye + 1):
+		await tap(JOY_BUTTON_DPAD_RIGHT)
+	check("right stays on the row", tree.get_selected() == item, tree.get_selected())
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	check("A on the eye hides the moby", moby().visible != was, moby().visible)
+	moby().visible = was
+	await frames(2)
+
+
+## View also stops at Play Level, the big button on the toolbar.
+func play_button() -> void:
+	var play: Node = EditorInterface.get_base_control().find_child("OpenRACPlay", true, false)
+	if play == null:
+		check("Play Level is on the toolbar", false)
+		return
+	var target: Button = play.play_button
+	check("it is big", target.size.x >= 120 * EditorInterface.get_editor_scale(), target.size)
+	level_tree().grab_focus()
+	await frames(2)
+	for _i in range(10):
+		await tap(JOY_BUTTON_BACK)
+		if focus() == target:
+			break
+	check("View reaches it", focus() == target, focus())
+	level_tree().grab_focus()
+	await frames(2)
+
+
+## A panel with only a message in it (Voices away from the launcher) does not stop View.
+func empty_panel() -> void:
+	var dock := EditorDock.new()
+	dock.title = "Only words"
+	dock.default_slot = EditorDock.DOCK_SLOT_LEFT_BR
+	var words := Label.new()
+	words.text = "Nothing to press here."
+	dock.add_child(words)
+	add_dock(dock)
+	dock.make_visible()
+	await frames(5)
+	level_tree().grab_focus()
+	await frames(2)
+	var stuck := false
+	var last: Control = focus()
+	for _i in range(8):
+		await tap(JOY_BUTTON_BACK)
+		stuck = stuck or focus() == last
+		last = focus()
+	check("View never stays put", not stuck and dock.is_visible_in_tree(), "%s, shown %s" % [last, dock.is_visible_in_tree()])
+	remove_dock(dock)
+	dock.queue_free()
+	await frames(3)
 
 
 func fly() -> void:
