@@ -1034,6 +1034,9 @@
 			[b]Note:[/b] To query whether the editor can use multiple windows in an editor plugin, use [method EditorInterface.is_multi_window_enabled] instead of querying the value of this editor setting.
 			[b]Note:[/b] If [code]true[/code], game embedding is disabled.
 		</member>
+		<member name="interface/editor/display/light_mode" type="int" setter="" getter="">
+			Lighter drawing for slow machines. On: the editor updates at most 60 times a second, 3D views on HiDPI screens draw at half resolution, the level's effects stand still unless a cutscene moves them, and ties and shrubs are drawn only as far as the game draws them. Auto turns it on with 8 GB of memory or less, or with an integrated GPU and 16 GB or less.
+		</member>
 		<member name="interface/editor/display/update_continuously" type="bool" setter="" getter="">
 			If [code]true[/code], redraws the editor every frame even if nothing has changed on screen. When this setting is enabled, the update spinner displays in red (see [member interface/editor/appearance/show_update_spinner]).
 			[b]Warning:[/b] This greatly increases CPU and GPU utilization, leading to increased power usage. This should only be enabled for troubleshooting purposes.

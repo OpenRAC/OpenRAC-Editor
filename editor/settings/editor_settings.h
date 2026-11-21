@@ -142,6 +142,8 @@ public:
 	};
 
 	static EditorSettings *get_singleton();
+	// OpenRAC Editor: the light mode for slow machines (interface/editor/display/light_mode).
+	static bool is_light_mode();
 	static String get_existing_settings_path();
 	static String get_newest_settings_path();
 

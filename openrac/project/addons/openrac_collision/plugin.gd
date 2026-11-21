@@ -63,6 +63,9 @@ var is_committing: bool = false
 ## Waits a moment after other edits before reading the collision again.
 var reload_timer: Timer
 
+## The fingerprint of the collision faces were last read for (LevelFaces.fingerprint()).
+var read_fingerprint: int = 0
+
 ## The project-local static model picker.
 var static_model_dialog: EditorFileDialog
 
@@ -135,6 +138,8 @@ func open_scene(root: Node) -> void:
 	# Only a level scene of this layout has the level's collision.
 	if root == null or not faces.load_level(root):
 		faces = null
+	else:
+		read_fingerprint = faces.fingerprint()
 
 	place = null
 	dock.show_level(faces)
@@ -867,8 +872,10 @@ func handle_version_changed() -> void:
 
 ## Reads the collision again after other edits.
 func handle_reload_timeout() -> void:
-	# The scene may have closed meanwhile.
-	if faces != null and is_instance_valid(faces.layer):
+	# The scene may have closed meanwhile. An edit that left the collision alone (a moby moved)
+	# needs no new read, which takes long in a big level.
+	if faces != null and is_instance_valid(faces.layer) and faces.fingerprint() != read_fingerprint:
+		read_fingerprint = faces.fingerprint()
 		faces.reload()
 		dock.show_level(faces)
 		refresh_selection()

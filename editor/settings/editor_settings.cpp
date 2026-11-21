@@ -54,6 +54,7 @@
 #include "editor/themes/editor_theme_manager.h"
 #include "editor/translations/editor_translation.h"
 #include "main/main.h"
+#include "servers/rendering/rendering_device.h"
 #include "scene/gui/color_picker.h"
 #include "scene/gui/file_dialog.h"
 #include "scene/main/node.h"
@@ -551,6 +552,9 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 
 	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/display/vsync_mode", 1, "Disabled,Enabled,Adaptive,Mailbox")
 	EDITOR_SETTING(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/update_continuously", false, "")
+	// OpenRAC Editor: lighter drawing for slow machines. Auto turns it on with 8 GB of memory or less,
+	// or an integrated GPU with 16 GB or less (is_light_mode()).
+	EDITOR_SETTING_BASIC(Variant::INT, PROPERTY_HINT_ENUM, "interface/editor/display/light_mode", 0, "Auto,On,Off")
 
 	bool is_android_editor = false;
 #ifdef ANDROID_ENABLED
@@ -1339,6 +1343,31 @@ void EditorSettings::_rename_setting(const String &p_old_name, const String &p_n
 
 EditorSettings *EditorSettings::get_singleton() {
 	return singleton.ptr();
+}
+
+// OpenRAC Editor: the light mode. On: the editor loop runs at most 60 times a second, 3D views on
+// HiDPI screens draw at half resolution, and the level's effects stand still unless a cutscene
+// moves them. Auto picks it on a machine with 8 GB of memory or less, or an integrated GPU with
+// 16 GB or less (Apple Silicon reports an integrated GPU).
+bool EditorSettings::is_light_mode() {
+	if (singleton.is_null() || !singleton->has_setting("interface/editor/display/light_mode")) {
+		return false;
+	}
+
+	const int mode = singleton->get_setting("interface/editor/display/light_mode");
+	if (mode != 0) {
+		return mode == 1;
+	}
+
+	static int detected = -1;
+	if (detected < 0) {
+		const int64_t gib = 1024 * 1024 * 1024;
+		const int64_t physical = OS::get_singleton()->get_memory_info().get("physical", -1);
+		const RenderingDevice *rd = RenderingDevice::get_singleton();
+		const bool integrated = rd != nullptr && rd->get_device_type() == RenderingDeviceEnums::DEVICE_TYPE_INTEGRATED_GPU;
+		detected = physical > 0 && (physical <= 8 * gib + gib / 2 || (integrated && physical <= 16 * gib + gib / 2)) ? 1 : 0;
+	}
+	return detected == 1;
 }
 
 String EditorSettings::get_existing_settings_path() {

@@ -12,6 +12,7 @@ extends EditorPlugin
 ## Imported class section to a moby that came with its own logic from another level. play.gd puts
 ## Check level and Play level on the toolbar.
 ## voices_dock.gd is the Voices dock: the characters' lines spoken again by AI voice models.
+## draw_distance.gd draws ties and shrubs only as far as the game does in the editor's light mode.
 
 const Dock = preload("dock.gd")
 const Library = preload("library.gd")
@@ -19,6 +20,7 @@ const BehaviourInspector = preload("behaviour_inspector.gd")
 const ForeignInspector = preload("foreign_inspector.gd")
 const Play = preload("play.gd")
 const VoicesDock = preload("voices_dock.gd")
+const DrawDistance = preload("draw_distance.gd")
 
 ## The groups under Game, by kind, for an asset the level has.
 const GROUPS: Dictionary = {"mobys": "Mobys", "ties": "Ties", "shrubs": "Shrubs"}
@@ -77,6 +79,7 @@ func _enter_tree() -> void:
 	scene_changed.connect(handle_scene_changed)
 	get_tree().node_added.connect(handle_node_added)
 	handle_scene_changed(EditorInterface.get_edited_scene_root())
+	EditorInterface.get_editor_settings().settings_changed.connect(handle_settings_changed)
 	add_planet_settings()
 	play = Play.new()
 	add_control_to_container(CONTAINER_TOOLBAR, play)
@@ -123,6 +126,7 @@ func _exit_tree() -> void:
 		get_tree().node_added.disconnect(handle_node_added)
 
 	scene_changed.disconnect(handle_scene_changed)
+	EditorInterface.get_editor_settings().settings_changed.disconnect(handle_settings_changed)
 	remove_control_from_container(CONTAINER_TOOLBAR, play)
 	play.queue_free()
 	play = null
@@ -251,6 +255,13 @@ func handle_scene_changed(root: Node) -> void:
 	if root != null:
 		show_skins(root)
 		stand_up_lying.call_deferred()
+		Callable(DrawDistance, "apply_edited").call_deferred()
+
+
+## The light mode may have changed: the edited level's draw distances follow it (draw_distance.gd).
+## Deferred, so the editor has set its light mode first.
+func handle_settings_changed() -> void:
+	Callable(DrawDistance, "apply_edited").call_deferred()
 
 
 ## Set on a scene whose lying assets were stood up (stand_up_lying()), so it is done once.

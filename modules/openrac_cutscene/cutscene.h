@@ -73,6 +73,9 @@ private:
 	Node3D *hero_preview = nullptr;
 	ObjectID hero_marker;
 	uint64_t hero_marker_looked = 0;
+	// OpenRAC Editor: what the marker's visuals last were when they were hidden or shown (a hash of
+	// their visibility), so the rendering server is written only on a change: each write redraws.
+	uint32_t hero_marker_shown = 0;
 	void _update_hero_preview();
 	void _show_hero_marker(bool p_show);
 
@@ -260,6 +263,7 @@ private:
 	int pose_joints = 0;
 	PackedByteArray pose_bytes;
 	String pose_loaded;
+	double pose_shown_at = -1.0;  // the pose file's time last set on the preview's skeleton
 	// Bake Pose: a skeleton's animation (a scene or .glb), how its bones map to the joints, and
 	// where it starts on the timeline.
 	String pose_source;

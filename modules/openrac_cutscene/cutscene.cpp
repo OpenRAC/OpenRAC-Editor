@@ -2416,10 +2416,20 @@ static void preview_pose(AnimationPlayer *p_player, int p_seq, double p_at) {
 		} else {
 			at = MIN(at, double(clip->get_length()));
 		}
+		// The same clip at the same time: posed already. A seek writes the skeleton, which makes the
+		// editor draw the level again, so an unmoved timeline costs nothing.
+		const Array posed = p_player->get_meta(SNAME("_openrac_posed"), Array());
+		if (posed.size() == 2 && StringName(posed[0]) == name && double(posed[1]) == at && p_player->get_assigned_animation() == name) {
+			return;
+		}
 		if (p_player->get_assigned_animation() != name) {
 			p_player->set_assigned_animation(name);
 		}
 		p_player->seek(at, true);
+		Array now_posed;
+		now_posed.push_back(name);
+		now_posed.push_back(at);
+		p_player->set_meta(SNAME("_openrac_posed"), now_posed);
 		return;
 	}
 }
@@ -2447,10 +2457,23 @@ static bool in_edited_scene(const Node *p_node) {
 void Cutscene::_show_hero_marker(bool p_show) {
 	Node3D *marker = Object::cast_to<Node3D>(ObjectDB::get_instance(hero_marker));
 	if (marker == nullptr) {
+		hero_marker_shown = 0;
 		return;
 	}
+	const TypedArray<Node> visuals = marker->find_children("*", "VisualInstance3D", true, false);
+	// What is asked and what the visuals are now: the same as last time, nothing to write.
+	uint32_t state = hash_murmur3_one_32(p_show ? 2 : 1);
+	for (const Variant &item : visuals) {
+		const VisualInstance3D *shown = Object::cast_to<VisualInstance3D>(item);
+		state = hash_murmur3_one_64(shown->get_instance_id(), state);
+		state = hash_murmur3_one_32(shown->is_visible_in_tree() ? 1 : 0, state);
+	}
+	if (state == hero_marker_shown) {
+		return;
+	}
+	hero_marker_shown = state;
 	// Straight on the rendering server, so nothing of the level's own scene changes.
-	for (const Variant &item : marker->find_children("*", "VisualInstance3D", true, false)) {
+	for (const Variant &item : visuals) {
 		const VisualInstance3D *shown = Object::cast_to<VisualInstance3D>(item);
 		RS::get_singleton()->instance_set_visible(shown->get_instance(), p_show && shown->is_visible_in_tree());
 	}
@@ -2491,7 +2514,10 @@ void Cutscene::_update_hero_preview() {
 	}
 	_show_hero_marker(!marker->is_visible_in_tree());
 	hero_preview->set_visible(marker->is_visible_in_tree());
-	hero_preview->set_global_transform(marker->get_global_transform());
+	// Unmoved: no write (each one makes the editor draw the level again).
+	if (hero_preview->get_global_transform() != marker->get_global_transform()) {
+		hero_preview->set_global_transform(marker->get_global_transform());
+	}
 	if (AnimationPlayer *player = preview_player(hero_preview)) {
 		preview_pose(player, hero_sequence, get_timeline_position());
 	}
@@ -2527,6 +2553,7 @@ bool CutsceneActor::_pose_preview(double p_seconds) {
 	}
 	if (pose_loaded != pose_file) {
 		pose_loaded = pose_file;
+		pose_shown_at = -1.0;
 		pose_bytes = FileAccess::exists(pose_file) ? FileAccess::get_file_as_bytes(pose_file) : PackedByteArray();
 	}
 	constexpr int RECORD = 20;  // 4 x s16 turn, 3 x s16 place (x 1024), 3 x u16 scale (/ 4096)
@@ -2538,6 +2565,11 @@ bool CutsceneActor::_pose_preview(double p_seconds) {
 		return false;
 	}
 	const double at = CLAMP(p_seconds * 30.0, 0.0, double(frames - 1));
+	// Posed at this time already: setting the bones again would only make the editor redraw.
+	if (at == pose_shown_at && pose_loaded == pose_file) {
+		return true;
+	}
+	pose_shown_at = at;
 	const int f0 = int(Math::floor(at));
 	const int f1 = MIN(f0 + 1, frames - 1);
 	const real_t w = real_t(at - f0);
@@ -2580,6 +2612,7 @@ void CutsceneActor::_update_preview() {
 	const String from = _preview_scene();
 	if (from != preview_from) {
 		preview_from = from;
+		pose_shown_at = -1.0;
 		if (preview != nullptr) {
 			preview->queue_free();
 			preview = nullptr;
@@ -2660,9 +2693,12 @@ void CutsceneActor::_update_preview() {
 		placed = Transform3D(Basis(Vector3(0, 1, 0), turn) * now_basis, at);
 		break;
 	}
+	// Unmoved: no write (each one makes the editor draw the level again).
 	if (placed == Transform3D()) {
-		preview->set_transform(Transform3D());
-	} else {
+		if (preview->get_transform() != Transform3D()) {
+			preview->set_transform(Transform3D());
+		}
+	} else if (preview->get_global_transform() != placed) {
 		preview->set_global_transform(placed);
 	}
 	const Array gaits = rig.get("gaits", Array());

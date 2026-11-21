@@ -40,6 +40,14 @@ These are deleted from the source:
 - **Look:** OpenRAC's icon, logo, splash and the launcher's colours: warm coal (#24221e) and gold
   (#f5c040). Themes: OpenRAC and Black (OLED). Fonts: Inter and JetBrains Mono.
 - **Rendering:** Vulkan on Windows and Linux, Metal on macOS. One renderer, so no renderer switch.
+  The default rendering method is Mobile, not Forward+: the levels draw unshaded, and Mobile draws
+  them faster with less video memory. The directional shadow atlas is 2048, not 4096, and sky
+  reflections use no texture arrays (as on mobile), which saves about 100 MB of video memory.
+- **Light mode** (Editor Settings > Interface > Editor > Display > Light Mode): for slow machines.
+  The editor updates at most 60 times a second, 3D views on HiDPI screens draw at half resolution,
+  the level's effects stand still unless a cutscene moves them, and ties and shrubs are drawn only
+  as far as the game draws them. Auto turns it on with 8 GB of memory or less, or with an
+  integrated GPU and 16 GB or less (Apple Silicon counts as integrated).
 - **About window:** says what the editor is; Godot's authors and licenses stay.
 - **Its own name in texts:** menus, window titles, the system's app names (X11 class, Wayland app id,
   Windows app id), messages and the tools' output say OpenRAC Editor or "the engine" instead of

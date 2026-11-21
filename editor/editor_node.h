@@ -724,6 +724,7 @@ protected:
 	friend class FileSystemDock;
 
 	static void _bind_methods();
+	void _apply_light_mode();
 	void _notification(int p_what);
 
 public:

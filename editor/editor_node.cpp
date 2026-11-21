@@ -838,6 +838,20 @@ bool EditorNode::_is_project_data_missing() {
 	return false;
 }
 
+// OpenRAC Editor: the light mode (EditorSettings::is_light_mode()): the editor loop runs at most
+// 60 times a second, and EditorInterface's "openrac_light" meta tells the level scripts (rc1/).
+void EditorNode::_apply_light_mode() {
+	const bool light = EditorSettings::is_light_mode();
+	int sleep_usec = EDITOR_GET("interface/editor/timers/low_processor_mode_sleep_usec");
+	if (light) {
+		sleep_usec = MAX(sleep_usec, 16666);
+	}
+	OS::get_singleton()->set_low_processor_usage_mode_sleep_usec(sleep_usec);
+	if (EditorInterface::get_singleton()) {
+		EditorInterface::get_singleton()->set_meta("openrac_light", light);
+	}
+}
+
 void EditorNode::_notification(int p_what) {
 	switch (p_what) {
 		case NOTIFICATION_TRANSLATION_CHANGED: {
@@ -920,7 +934,7 @@ void EditorNode::_notification(int p_what) {
 			// Theme has already been created in the constructor, so we can skip that step.
 			_update_theme(true);
 
-			OS::get_singleton()->set_low_processor_usage_mode_sleep_usec(int(EDITOR_GET("interface/editor/timers/low_processor_mode_sleep_usec")));
+			_apply_light_mode();
 			get_tree()->get_root()->set_as_audio_listener_3d(false);
 			get_tree()->get_root()->set_as_audio_listener_2d(false);
 			get_tree()->get_root()->set_snap_2d_transforms_to_pixel(false);
@@ -1031,7 +1045,7 @@ void EditorNode::_notification(int p_what) {
 
 		case NOTIFICATION_APPLICATION_FOCUS_IN: {
 			// Restore the original FPS cap after focusing back on the editor.
-			OS::get_singleton()->set_low_processor_usage_mode_sleep_usec(int(EDITOR_GET("interface/editor/timers/low_processor_mode_sleep_usec")));
+			_apply_light_mode();
 
 			if (_is_project_data_missing()) {
 				project_data_missing->popup_centered();
@@ -1065,6 +1079,10 @@ void EditorNode::_notification(int p_what) {
 		} break;
 
 		case EditorSettings::NOTIFICATION_EDITOR_SETTINGS_CHANGED: {
+			if (EditorSettings::get_singleton()->check_changed_settings_in_group("interface/editor/display/light_mode")) {
+				_apply_light_mode();
+			}
+
 			if (EditorSettings::get_singleton()->check_changed_settings_in_group("filesystem/file_dialog")) {
 				FileDialog::set_default_show_hidden_files(EDITOR_GET("filesystem/file_dialog/show_hidden_files"));
 				FileDialog::set_default_display_mode(EDITOR_GET("filesystem/file_dialog/display_mode"));

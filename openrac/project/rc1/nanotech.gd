@@ -34,8 +34,9 @@ const SPARKS_SHADER: Shader = preload("res://rc1/nanotech_sparks.gdshader")
 const TRAIL: int = 40
 const SPARK_RADIUS: float = 0.25
 
-## Frames between searches for a cutscene.
-const SEARCH_EVERY: int = 30
+## How often the effect moves on its own time (no cutscene), per second: each step redraws the
+## level, so it stays well below the screen's rate.
+const OWN_RATE: float = 30.0
 
 # =============================================================================
 # VARIABLES
@@ -53,9 +54,13 @@ var materials: Array[ShaderMaterial] = []
 ## The time when there is no cutscene to follow.
 var own_seconds: float = 0.0
 
-## The cutscene whose preview time the effect follows, and the frames until the next search.
+## The cutscene whose preview time the effect follows.
 var cutscene: Node
-var search_in: int = 0
+
+## The time and the crate's transform last given to the materials: unchanged ones are not set
+## again, since any change makes the editor draw the level again.
+var shown_seconds: float = -1.0
+var shown_transform: Transform3D = Transform3D(Basis(), Vector3.INF)
 
 ## The tables of every level read so far, by their file.
 static var tables_of: Dictionary = {}
@@ -78,6 +83,7 @@ static func attach(to: Node3D, effects_dir: String, shown: String) -> Node3D:
 	effect.top_level = true
 	to.add_child(effect)
 	effect.build(tables, effects_dir)
+	watch_screen(effect, AABB(Vector3(-2, -2, -2), Vector3(4, 4, 4)))
 	return effect
 
 
@@ -102,24 +108,59 @@ static func read_tables(effects_dir: String) -> Dictionary:
 
 func _process(delta: float) -> void:
 	follow()
-	own_seconds += delta
-	var seconds: float = own_seconds
+	var seconds: float = effect_seconds(self, delta)
 
-	# The level's cutscene preview: its time, when it has one. A crate without sequence 0 does
-	# not look for it itself, so the effect does (rc1/moby.gd's search, now and then).
-	if cutscene == null or not is_instance_valid(cutscene):
-		cutscene = null
-		search_in -= 1
+	# A still effect: nothing to send, so the editor need not draw the level again.
+	if seconds == shown_seconds:
+		return
 
-		if search_in <= 0 and is_instance_valid(crate) and crate.has_method("find_cutscene"):
-			search_in = SEARCH_EVERY
-			cutscene = crate.find_cutscene()
-
-	if cutscene != null:
-		seconds = cutscene.get_timeline_position()
+	shown_seconds = seconds
 
 	for material in materials:
 		material.set_shader_parameter("seconds", seconds)
+
+
+## The time EFFECT (a nanotech or electric gate effect, with crate or gate, cutscene and
+## own_seconds) is shown at: the level's cutscene preview's time when there is a cutscene (found
+## by rc1/moby.gd for every moby at once), else its own, in steps of OWN_RATE, while a view shows
+## it. In the editor's light mode (slow machines) an effect without a cutscene stands still, so
+## the editor draws only when something changes.
+static func effect_seconds(effect: Node, delta: float) -> float:
+	var owner_moby: Node = effect.get("crate") if effect.get("crate") != null else effect.get("gate")
+
+	if effect.cutscene == null or not is_instance_valid(effect.cutscene):
+		effect.cutscene = null
+
+		if is_instance_valid(owner_moby) and owner_moby.has_method("find_cutscene"):
+			effect.cutscene = owner_moby.find_cutscene()
+
+	if effect.cutscene != null:
+		return effect.cutscene.get_timeline_position()
+
+	# Off every view, or the light mode: it stands still, so the level is not drawn for it.
+	var on_screen := effect.get_node_or_null("OnScreen") as VisibleOnScreenNotifier3D
+
+	if not light_mode() and (on_screen == null or on_screen.is_on_screen()):
+		effect.own_seconds += delta
+
+	return floorf(effect.own_seconds * OWN_RATE) / OWN_RATE
+
+
+## Gives EFFECT a notifier of whether a view shows BOX (the effect's own space), named OnScreen.
+static func watch_screen(effect: Node3D, box: AABB) -> void:
+	var notifier := VisibleOnScreenNotifier3D.new()
+	notifier.name = "OnScreen"
+	notifier.aabb = box
+	effect.add_child(notifier)
+
+
+## Whether the editor runs in its light mode (Editor Settings > Interface > Editor > Display >
+## Light Mode): the editor says so in its EditorInterface's meta. False when the level runs.
+static func light_mode() -> bool:
+	if not Engine.is_editor_hint() or not Engine.has_singleton("EditorInterface"):
+		return false
+
+	return bool(Engine.get_singleton("EditorInterface").get_meta("openrac_light", false))
 
 
 ## Puts the effect on the crate: its place and turn, without its scale (the game draws it at
@@ -128,7 +169,14 @@ func follow() -> void:
 	if crate == null or not is_instance_valid(crate):
 		return
 
-	global_transform = crate.global_transform.orthonormalized()
+	var placed: Transform3D = crate.global_transform
+
+	# Unmoved: nothing to send again.
+	if placed == shown_transform:
+		return
+
+	shown_transform = placed
+	global_transform = placed.orthonormalized()
 
 	# The game's up is the crate's z.
 	var up: Vector3 = (crate.global_basis * Vector3(0, 0, 1)).normalized()
