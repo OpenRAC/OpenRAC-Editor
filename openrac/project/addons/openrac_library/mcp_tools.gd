@@ -560,7 +560,8 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No node %s." % path)
 
-		found.append(node)
+		if not found.has(node):
+			found.append(node)
 
 	for id in Array(args.get("spawn_ids", [])):
 		var node: Node = find_moby({"spawn_id": int(id)})
@@ -568,11 +569,16 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No moby with spawn number %d." % int(id))
 
-		found.append(node)
+		# Named twice (or by path and spawn number): deleted once.
+		if not found.has(node):
+			found.append(node)
 
 	if found.is_empty():
 		return fail("Name the mobys: nodes or spawn_ids.")
 
+	# The undo puts them back first to last, each at its own place: in their order, so a later
+	# place is never past the end.
+	found.sort_custom(func(a: Node, b: Node) -> bool: return a.get_index() < b.get_index())
 	var undo_redo: EditorUndoRedoManager = plugin.get_undo_redo()
 	undo_redo.create_action("Delete %d objects (AI)" % found.size(), UndoRedo.MERGE_DISABLE, root())
 

@@ -171,6 +171,32 @@ class EditorMCP(unittest.TestCase):
         self.assertEqual([round(v, 3) for v in moby["position"]], [10, 20, 3])
         self.assertIn("40 characters", self.editor.error("planet_set", {"name": "x" * 41}))
 
+    def test_3b_removes_each_moby_once_and_puts_them_back_in_place(self):
+        added = []
+        for x in (30, 31):
+            answer = self.editor.call("moby_add", {"class": 11, "position": [x, 0, 0]})
+            if "job" in answer:
+                answer = self.editor.call("job_wait", {"id": answer["job"], "seconds": 60})["result"]
+            added.append(answer["node"])
+        before = [m["path"] for m in self.editor.call("moby_list", {"limit": 512})["mobys"]]
+        # Named twice, and the later one first.
+        gone = self.editor.call("moby_remove", {"nodes": [added[1], added[0], added[1]]})
+        self.assertEqual(len(gone["deleted"]), 2, gone)
+        self.editor.call("undo")
+        self.assertEqual([m["path"] for m in self.editor.call("moby_list", {"limit": 512})["mobys"]], before)
+        self.assertNotIn("already has a parent", self.editor.text())
+        self.assertNotIn("Invalid new child index", self.editor.text())
+        self.editor.call("moby_remove", {"nodes": added})
+
+    def test_3c_takes_the_planet_id_the_first_add_wrote(self):
+        # planet.py writes the id into project.godot while the editor is open.
+        self.editor.call("planet_set", {"name": "Museum"})
+        planet.set_setting(self.editor.project, planet.ID, "museum.1234abcd")
+        self.assertEqual(self.editor.call("planet_get")["id"], "museum.1234abcd")
+        # Naming it again keeps that id on disk.
+        self.editor.call("planet_set", {"name": "Museum Two"})
+        self.assertEqual(planet.settings(self.editor.project).get(planet.ID), "museum.1234abcd")
+
     def test_4_writes_and_checks_a_cutscene(self):
         doc = {
             "length": 300,
