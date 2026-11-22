@@ -1505,6 +1505,15 @@ def path_edits(nodes: dict, node: dict, meta: dict, subresources: dict, points: 
     return result
 
 
+def rail_lengths(points: list[tuple] | None) -> list[tuple] | None:
+    """A grind path's points with each fourth float the length to the next point, the last one's
+    back to the first: the game walks a rail by these (sample_path), and every rail on the disc
+    has them so. A rail without them (the -1 of a new point) is never caught."""
+    if points is None:
+        return None
+    return [(*p[:3], math.dist(p[:3], points[(i + 1) % len(points)][:3])) for i, p in enumerate(points)]
+
+
 def bounding_sphere(points: list[tuple], sphere: tuple | None = None) -> tuple:
     """A sphere around POINTS: SPHERE (the path's own, which the disc's builder made by a rule
     not known here) when it holds them all, else grown just enough for each point outside it;
@@ -1561,7 +1570,10 @@ def pack_paths(original: bytes, nodes: dict, subresources: dict, sections: dict,
         for node, i in [(n, i) for i, n in sorted(owner.items())] + [(n, None) for n in extra]:
             meta = meta_of(node)
             base = grinds[i] if i is not None else {"sphere": (0.0, 0.0, 0.0, 0.0), "words": (0, 0, 0, 0), "points": None}
-            points = path_edits(nodes, node, meta, subresources, base["points"], problems)
+            points = rail_lengths(path_edits(nodes, node, meta, subresources, base["points"], problems))
+            if points is not None and base["points"] is not None and len(points) == len(base["points"]) and all(
+                    near(a, b) for p, q in zip(points, base["points"]) for a, b in zip(p, q)):
+                points = None
             record = {"sphere": base["sphere"], "words": base["words"], "points": points or base["points"]}
             edits = ["points"] if points is not None else []
             sphere = meta.get("bounding_sphere")
