@@ -91,7 +91,7 @@ const TEXT_WIDTH: float = 220.0
 
 func _init() -> void:
 	title = "Collision"
-	default_slot = EditorDock.DOCK_SLOT_RIGHT_UL
+	default_slot = EditorDock.DOCK_SLOT_RIGHT_BL  # under Properties, beside Voices
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL

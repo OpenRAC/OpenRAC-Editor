@@ -370,6 +370,26 @@ void ScrollBar::_notification(int p_what) {
 		} break;
 
 		case NOTIFICATION_INTERNAL_PROCESS: {
+			if (wheel_gliding) {
+				const double now = get_value();
+				if (!Math::is_equal_approx(now, wheel_last)) {
+					wheel_gliding = false; // Something else moved it (a drag, a jump to the focus).
+				} else {
+					double next = Math::lerp(now, wheel_target, 1.0 - Math::exp(-get_process_delta_time() * 18.0));
+					if (Math::abs(next - wheel_target) < 0.5) {
+						next = wheel_target;
+					}
+					scroll_to(next);
+					if (Math::is_equal_approx(get_value(), now) && !Math::is_equal_approx(next, now)) {
+						scroll_to(wheel_target); // Steps too fine for the bar: go straight there.
+					}
+					wheel_last = get_value();
+					wheel_gliding = !Math::is_equal_approx(get_value(), wheel_target) && !Math::is_equal_approx(get_value(), now);
+				}
+				if (!wheel_gliding && !scrolling && !drag_node_touching) {
+					set_process_internal(false);
+				}
+			}
 			if (scrolling) {
 				if (get_value() != target_scroll) {
 					double target = target_scroll - get_value();
@@ -549,6 +569,26 @@ Size2 ScrollBar::get_minimum_size() const {
 	}
 
 	return minsize;
+}
+
+bool ScrollBar::smooth_wheel = false;
+
+bool ScrollBar::wheel(double p_amount) {
+	const double now = get_value();
+	if (!smooth_wheel || !is_visible_in_tree()) {
+		scroll(p_amount);
+		return !Math::is_equal_approx(get_value(), now);
+	}
+	const double from = wheel_gliding ? wheel_target : now;
+	const double to = CLAMP(from + p_amount, get_min(), MAX(get_min(), get_max() - get_page()));
+	if (Math::is_equal_approx(to, from)) {
+		return false;
+	}
+	wheel_target = to;
+	wheel_last = now;
+	wheel_gliding = true;
+	set_process_internal(true);
+	return true;
 }
 
 void ScrollBar::scroll(double p_amount) {

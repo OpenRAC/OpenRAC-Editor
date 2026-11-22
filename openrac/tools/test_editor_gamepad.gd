@@ -1,0 +1,782 @@
+@tool
+extends EditorPlugin
+## test_editor_gamepad.py's editor half: presses a pretend gamepad's buttons and sticks (through
+## Input, as a real pad's driver does) in a headless editor, checks what each did and writes the
+## results to the file named after --, then quits.
+
+const MOST_SECONDS: float = 90.0
+
+const SCENARIOS: PackedStringArray = ["first_press_focuses", "dpad_moves", "dpad_repeats", "next_panel", "tabs",
+	"main_menu", "menu_without_keys", "context_menu", "text_field", "number_field", "row_buttons", "play_button", "empty_panel", "settings_dialog", "properties_rows", "stays_in_panel", "tabs_wrap", "fly", "turn_and_undo", "carry_and_undo", "carry_put_back", "hint",
+	"touch_pointer", "touch_click", "touch_scroll", "touch_look"]
+
+## The touchpads, as the editor's SDL driver sends them (JoyTouchpad in core/input/input_enums.h).
+const TOUCH_LEFT := 26
+const TOUCH_RIGHT := 27
+const PRESS_LEFT := 28
+const PRESS_RIGHT := 29
+const LEFT_X := 6
+const LEFT_Y := 7
+const RIGHT_X := 8
+const RIGHT_Y := 9
+
+var checks: Array = []
+var times: Dictionary = {}
+var scenario: String = ""
+var out_path: String = ""
+var started: int = 0
+var finished: bool = false
+
+
+func _enter_tree() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	out_path = args[0] if not args.is_empty() else ""
+	get_tree().create_timer(MOST_SECONDS).timeout.connect(finish)
+	run.call_deferred()
+
+
+func run() -> void:
+	await until(func() -> bool: return EditorInterface.get_edited_scene_root() != null)
+	await frames(30)
+	started = Time.get_ticks_msec()
+	for name in SCENARIOS:
+		scenario = name
+		var began := Time.get_ticks_msec()
+		await call(name)
+		await release_all()
+		times[name] = Time.get_ticks_msec() - began
+	scenario = ""
+	finish()
+
+
+func finish() -> void:
+	if finished:
+		return
+	finished = true
+	var file := FileAccess.open(out_path, FileAccess.WRITE)
+	file.store_string(JSON.stringify({"checks": checks, "times": times, "total_ms": Time.get_ticks_msec() - started,
+		"stopped_in": scenario if not times.has(scenario) else ""}))
+	file.close()
+	get_tree().quit()
+
+
+func check(name: String, ok: bool, detail: Variant = "") -> void:
+	checks.append({"scenario": scenario, "name": name, "ok": ok, "detail": str(detail)})
+
+
+func frames(count: int) -> void:
+	for _i in range(count):
+		await get_tree().process_frame
+
+
+func until(condition: Callable, most: int = 300) -> bool:
+	for _i in range(most):
+		if condition.call():
+			return true
+		await get_tree().process_frame
+	return condition.call()
+
+
+# The pretend pad ---------------------------------------------------------------------------------
+
+func button(index: JoyButton, pressed: bool) -> void:
+	var e := InputEventJoypadButton.new()
+	e.device = 0
+	e.button_index = index
+	e.pressed = pressed
+	Input.parse_input_event(e)
+
+
+func axis(index: JoyAxis, value: float) -> void:
+	var e := InputEventJoypadMotion.new()
+	e.device = 0
+	e.axis = index
+	e.axis_value = value
+	Input.parse_input_event(e)
+
+
+func tap(index: JoyButton) -> void:
+	button(index, true)
+	await frames(3)
+	button(index, false)
+	await frames(3)
+
+
+func release_all() -> void:
+	for b in [JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_X, JOY_BUTTON_Y, JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER,
+			JOY_BUTTON_BACK, JOY_BUTTON_START, JOY_BUTTON_LEFT_STICK, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN,
+			JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT]:
+		button(b, false)
+	for b in [TOUCH_LEFT, TOUCH_RIGHT, PRESS_LEFT, PRESS_RIGHT]:
+		button(b, false)
+	for a in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y, JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y, JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]:
+		axis(a, 0.0)
+	await frames(3)
+	# Close whatever a scenario left open.
+	for w in popups():
+		w.hide()
+	await frames(2)
+
+
+# What the editor shows ---------------------------------------------------------------------------
+
+func focus() -> Control:
+	return get_tree().root.gui_get_focus_owner()
+
+
+func level_tree() -> Tree:
+	var dock: Node = EditorInterface.get_base_control().find_children("*", "SceneTreeDock", true, false)[0]
+	return dock.find_children("*", "Tree", true, false)[0]
+
+
+func view() -> Control:
+	return EditorInterface.get_editor_viewport_3d(0).get_parent() as Control
+
+
+func popups() -> Array:
+	var open: Array = []
+	for w in get_tree().root.find_children("*", "Window", true, false):
+		if w.visible and (w is PopupMenu or w is AcceptDialog):
+			open.append(w)
+	return open
+
+
+func moby() -> Node3D:
+	return EditorInterface.get_edited_scene_root().find_child("Vendor_0000", true, false)
+
+
+func pick_moby() -> void:
+	EditorInterface.get_selection().clear()
+	EditorInterface.get_selection().add_node(moby())
+	await frames(3)
+
+
+func focus_view() -> void:
+	# The view's surface: the control that takes the view's input.
+	var surface: Control = null
+	for c in EditorInterface.get_base_control().find_children("*", "Control", true, false):
+		if c.get_class() == "Control" and c.focus_mode == Control.FOCUS_ALL and c.get_parent().get_class() == "Node3DEditorViewport":
+			surface = c
+			break
+	surface.grab_focus()
+	await frames(2)
+
+
+# The scenarios -----------------------------------------------------------------------------------
+
+func first_press_focuses() -> void:
+	var owner := focus()
+	if owner:
+		owner.release_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_A)
+	check("a press with nothing focused focuses the Level list", focus() == level_tree(), focus())
+
+
+func dpad_moves() -> void:
+	var tree := level_tree()
+	tree.grab_focus()
+	tree.set_selected(tree.get_root(), 0)
+	await frames(2)
+	await tap(JOY_BUTTON_DPAD_DOWN)
+	var after: TreeItem = tree.get_selected()
+	check("d-pad down goes to the next row", after != null and after != tree.get_root(), after)
+	await tap(JOY_BUTTON_DPAD_UP)
+	check("d-pad up comes back", tree.get_selected() == tree.get_root(), tree.get_selected())
+
+
+func dpad_repeats() -> void:
+	var tree := level_tree()
+	tree.get_root().set_collapsed_recursive(false)
+	tree.grab_focus()
+	tree.set_selected(tree.get_root(), 0)
+	await frames(2)
+	button(JOY_BUTTON_DPAD_DOWN, true)
+	await get_tree().create_timer(0.8).timeout
+	button(JOY_BUTTON_DPAD_DOWN, false)
+	await frames(3)
+	var rows := 0
+	var it: TreeItem = tree.get_root()
+	while it and it != tree.get_selected():
+		it = it.get_next_visible()
+		rows += 1
+	check("holding the d-pad goes down more than one row", rows >= 3, rows)
+
+
+func next_panel() -> void:
+	var tree := level_tree()
+	tree.grab_focus()
+	await frames(2)
+	var seen: Array = [focus()]
+	for _i in range(6):
+		await tap(JOY_BUTTON_BACK)
+		if focus() and not seen.has(focus()):
+			seen.append(focus())
+	check("View visits several panels", seen.size() >= 3, seen)
+	var in_view := false
+	for c in seen:
+		if c and c.get_parent() and c.get_parent().get_class() == "Node3DEditorViewport":
+			in_view = true
+	check("one of them is the 3D view", in_view, seen)
+	# And it comes round again.
+	tree.grab_focus()
+	await frames(2)
+	for _i in range(seen.size()):
+		await tap(JOY_BUTTON_BACK)
+	check("View comes back round to the Level list", focus() == tree, focus())
+
+
+func tabs() -> void:
+	# A dock place with more than one tab.
+	var container: TabContainer = null
+	for c in EditorInterface.get_base_control().find_children("*", "DockTabContainer", true, false):
+		if c.is_visible_in_tree() and c.get_tab_count() >= 2 and c.get_class() != "EditorBottomPanel":
+			container = c
+			break
+	if container == null:
+		check("a dock place has tabs", false)
+		return
+	var before := container.current_tab
+	var inside: Control = null
+	for c in container.get_current_tab_control().find_children("*", "Control", true, false):
+		if c.is_visible_in_tree() and c.focus_mode == Control.FOCUS_ALL:
+			inside = c
+			break
+	inside.grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_RIGHT_SHOULDER)
+	check("RB goes to the next tab", container.current_tab != before, container.current_tab)
+	check("and focus goes into it", focus() != null and container.get_current_tab_control().is_ancestor_of(focus()), focus())
+	await tap(JOY_BUTTON_LEFT_SHOULDER)
+	check("LB comes back", container.current_tab == before, container.current_tab)
+
+
+func main_menu() -> void:
+	level_tree().grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_START)
+	await frames(3)
+	var open := popups()
+	check("Start opens the menu", open.size() == 1 and open[0] is PopupMenu, open)
+	if open.is_empty():
+		return
+	var first: PopupMenu = open[0]
+	await tap(JOY_BUTTON_DPAD_RIGHT)
+	await frames(3)
+	var now := popups()
+	check("right goes to the next menu", now.size() == 1 and now[0] != first, now)
+	await tap(JOY_BUTTON_B)
+	await frames(3)
+	check("B closes it", popups().is_empty(), popups())
+
+
+func context_menu() -> void:
+	var tree := level_tree()
+	tree.grab_focus()
+	var item: TreeItem = tree.get_root().get_first_child()
+	tree.set_selected(item, 0)
+	await frames(3)
+	await tap(JOY_BUTTON_Y)
+	await frames(3)
+	var open := popups()
+	check("Y opens the right-click menu", open.size() == 1 and open[0] is PopupMenu and open[0].item_count > 0, open)
+	await tap(JOY_BUTTON_B)
+	await frames(3)
+	check("B closes it", popups().is_empty(), popups())
+	check("and focus stays on the list", focus() == tree, focus())
+
+
+func text_field() -> void:
+	var field: LineEdit = null
+	for c in EditorInterface.get_base_control().find_children("*", "LineEdit", true, false):
+		if c.is_visible_in_tree() and c.editable:
+			field = c
+			break
+	if field == null:
+		check("a text field is on screen", false)
+		return
+	# Reached with the d-pad, as a pad does: the field is not typed in yet.
+	button(JOY_BUTTON_DPAD_DOWN, true)
+	await frames(3)
+	field.grab_focus()
+	await frames(2)
+	button(JOY_BUTTON_DPAD_DOWN, false)
+	await frames(3)
+	check("a field reached with the d-pad does not start typing", not field.is_editing())
+	await tap(JOY_BUTTON_A)
+	check("A starts typing", field.is_editing())
+	await tap(JOY_BUTTON_B)
+	check("B stops", not field.is_editing())
+
+
+func menu_without_keys() -> void:
+	level_tree().grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_START)
+	await frames(3)
+	var open := popups()
+	check("Start opens the menu", open.size() == 1 and open[0] is PopupMenu, open)
+	if open.is_empty():
+		return
+	var menu: PopupMenu = open[0]
+	var with_pad: float = menu.size.x
+	await tap(JOY_BUTTON_B)
+	await frames(3)
+	# The keyboard takes over: the same menu shows its keys (Ctrl+N, ...) again, so it is wider.
+	var key := InputEventKey.new()
+	key.keycode = KEY_SHIFT
+	key.pressed = true
+	Input.parse_input_event(key)
+	key = key.duplicate()
+	key.pressed = false
+	Input.parse_input_event(key)
+	await frames(3)
+	menu.popup()
+	await frames(3)
+	check("with the pad a menu leaves out its keys", menu.size.x < with_pad * 0.97 or with_pad < menu.size.x - 20,
+		"%s with the pad, %s with keys" % [with_pad, menu.size.x])
+	menu.hide()
+	await frames(2)
+
+
+## A number in Properties: A starts changing it, the d-pad changes it, B puts it back, A keeps it,
+## and X (Undo) after takes it back.
+func number_field() -> void:
+	await pick_moby()
+	EditorInterface.edit_node(moby())
+	await frames(5)
+	var slider: Range = null
+	for c in EditorInterface.get_inspector().find_children("*", "EditorSpinSlider", true, false):
+		if c.is_visible_in_tree() and not c.read_only and c.focus_mode == Control.FOCUS_ALL and (c.value < c.max_value or c.allow_greater):
+			slider = c
+			break
+	if slider == null:
+		check("a number is in Properties", false)
+		return
+	slider.grab_focus()
+	await frames(2)
+	var start: float = slider.value
+	await tap(JOY_BUTTON_A)
+	await tap(JOY_BUTTON_DPAD_RIGHT)
+	check("right makes it bigger", slider.value > start, "%s to %s" % [start, slider.value])
+	check("and focus stays on it", focus() == slider, focus())
+	await tap(JOY_BUTTON_B)
+	check("B puts it back", is_equal_approx(slider.value, start), slider.value)
+	await tap(JOY_BUTTON_A)
+	button(JOY_BUTTON_DPAD_RIGHT, true)
+	await get_tree().create_timer(0.7).timeout
+	button(JOY_BUTTON_DPAD_RIGHT, false)
+	await frames(3)
+	var held: float = slider.value
+	check("holding right goes on", held > start + slider.step * 2, "%s to %s" % [start, held])
+	await tap(JOY_BUTTON_A)
+	check("A keeps it", is_equal_approx(slider.value, held), slider.value)
+	await tap(JOY_BUTTON_X)
+	await frames(5)
+	check("X takes it back", is_equal_approx(slider.value, start), "%s, was %s" % [slider.value, start])
+	EditorInterface.get_selection().clear()
+
+
+## The buttons in a Level list row (the eye, ...): right steps onto them and A presses one.
+func row_buttons() -> void:
+	var tree := level_tree()
+	var item: TreeItem = tree.get_root()
+	while item and item.get_text(0) != "Vendor_0000":
+		item = item.get_next_in_tree()
+	if item == null:
+		check("the moby is in the Level list", false)
+		return
+	var eye := -1
+	for i in range(item.get_button_count(0)):
+		if item.get_button_tooltip_text(0, i) == "Show or Hide":
+			eye = i
+	check("its row has the eye", eye >= 0, item.get_button_count(0))
+	if eye < 0:
+		return
+	tree.grab_focus()
+	tree.set_selected(item, 0)
+	await frames(2)
+	var was: bool = moby().visible
+	for _i in range(eye + 1):
+		await tap(JOY_BUTTON_DPAD_RIGHT)
+	check("right stays on the row", tree.get_selected() == item, tree.get_selected())
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	check("A on the eye hides the moby", moby().visible != was, moby().visible)
+	moby().visible = was
+	await frames(2)
+
+
+## View also stops at Play Level, the big button on the toolbar.
+func play_button() -> void:
+	var play: Node = EditorInterface.get_base_control().find_child("OpenRACPlay", true, false)
+	if play == null:
+		check("Play Level is on the toolbar", false)
+		return
+	var target: Button = play.play_button
+	check("it is big", target.size.x >= 120 * EditorInterface.get_editor_scale(), target.size)
+	level_tree().grab_focus()
+	await frames(2)
+	for _i in range(10):
+		await tap(JOY_BUTTON_BACK)
+		if focus() == target:
+			break
+	check("View reaches it", focus() == target, focus())
+	level_tree().grab_focus()
+	await frames(2)
+
+
+## A panel with only a message in it (Voices away from the launcher) does not stop View.
+func empty_panel() -> void:
+	var dock := EditorDock.new()
+	dock.title = "Only words"
+	dock.default_slot = EditorDock.DOCK_SLOT_LEFT_BR
+	var words := Label.new()
+	words.text = "Nothing to press here."
+	dock.add_child(words)
+	add_dock(dock)
+	dock.make_visible()
+	await frames(5)
+	level_tree().grab_focus()
+	await frames(2)
+	var stuck := false
+	var last: Control = focus()
+	for _i in range(8):
+		await tap(JOY_BUTTON_BACK)
+		stuck = stuck or focus() == last
+		last = focus()
+	check("View never stays put", not stuck and dock.is_visible_in_tree(), "%s, shown %s" % [last, dock.is_visible_in_tree()])
+	remove_dock(dock)
+	dock.queue_free()
+	await frames(3)
+
+
+## The menus' Settings: it opens on its list of pages (not typing in its search field), View goes
+## to the settings, the d-pad walks them, B closes it.
+func settings_dialog() -> void:
+	level_tree().grab_focus()
+	await frames(2)
+	await tap(JOY_BUTTON_START)
+	var reached := false
+	for _i in range(6):
+		await tap(JOY_BUTTON_DPAD_RIGHT)
+		var w: Window = popups()[0] if not popups().is_empty() else null
+		if w is PopupMenu:
+			for i in range(w.item_count):
+				if w.get_item_text(i) == "Settings...":
+					reached = true
+			if reached:
+				break
+	var menu: PopupMenu = popups()[0]
+	for _i in range(10):
+		if menu.get_focused_item() >= 0 and menu.get_item_text(menu.get_focused_item()) == "Settings...":
+			break
+		await tap(JOY_BUTTON_DPAD_DOWN)
+	await tap(JOY_BUTTON_A)
+	await frames(10)
+	var dialog: Window = null
+	for w in get_tree().root.find_children("*", "EditorSettingsDialog", true, false):
+		if w.visible:
+			dialog = w
+	check("A on Settings... opens it", dialog != null)
+	if dialog == null:
+		return
+	var owner := dialog.gui_get_focus_owner()
+	check("it opens on its list of pages", owner is Tree, owner)
+	await tap(JOY_BUTTON_BACK)
+	await tap(JOY_BUTTON_DPAD_DOWN)
+	owner = dialog.gui_get_focus_owner()
+	var inspector := owner
+	while inspector and inspector.get_class() != "SectionedInspector" and inspector.get_class() != "EditorInspector":
+		inspector = inspector.get_parent()
+	check("View, then down: a setting", owner != null and inspector != null and owner.get_class() != "EditorInspector", owner)
+	await tap(JOY_BUTTON_B)
+	await frames(10)
+	check("B closes it", not dialog.visible)
+
+
+## Properties go row by row with the d-pad, section headers too, and A opens and closes a section.
+func properties_rows() -> void:
+	await pick_moby()
+	EditorInterface.edit_node(moby())
+	await frames(5)
+	var sections: Array = []
+	for c in EditorInterface.get_inspector().find_children("*", "EditorInspectorSection", true, false):
+		if c.is_visible_in_tree():
+			sections.append(c)
+	check("Properties has sections", not sections.is_empty())
+	if sections.is_empty():
+		return
+	var first: Control = sections[0]
+	first.grab_focus()
+	await frames(2)
+	var tall: float = first.size.y
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	check("A on a section opens or closes it", not is_equal_approx(first.size.y, tall), "%s to %s" % [tall, first.size.y])
+	await tap(JOY_BUTTON_A)
+	await frames(3)
+	var rows: Array = [focus()]
+	for _i in range(8):
+		await tap(JOY_BUTTON_DPAD_DOWN)
+		if focus() != rows[-1]:
+			rows.append(focus())
+	var tops: Array = rows.map(func(c: Control) -> float: return c.global_position.y if c else -1.0)
+	var ordered := true
+	for i in range(1, tops.size()):
+		ordered = ordered and tops[i] > tops[i - 1]
+	check("down goes to the next rows, in order", rows.size() >= 3 and ordered, tops)
+	var section_reached := false
+	for c in rows:
+		section_reached = section_reached or (c != first and c.get_class() == "EditorInspectorSection")
+	check("down reaches the next section's header too", section_reached or sections.size() < 2, rows)
+	EditorInterface.get_selection().clear()
+
+
+## The d-pad stays in its panel: down past the last row of the Level list's panel is not another panel.
+func stays_in_panel() -> void:
+	var tree := level_tree()
+	tree.grab_focus()
+	var last: TreeItem = tree.get_root()
+	while last.get_next_visible():
+		last = last.get_next_visible()
+	tree.set_selected(last, 0)
+	await frames(2)
+	for _i in range(3):
+		await tap(JOY_BUTTON_DPAD_DOWN)
+	check("down at the end stays in the list", focus() == tree, focus())
+
+
+## RB on the last tab goes round to the first.
+func tabs_wrap() -> void:
+	var container: TabContainer = null
+	for c in EditorInterface.get_base_control().find_children("*", "DockTabContainer", true, false):
+		if c.is_visible_in_tree() and c.get_tab_count() >= 2 and c.get_class() != "EditorBottomPanel":
+			container = c
+			break
+	if container == null:
+		check("a dock place has tabs", false)
+		return
+	container.current_tab = container.get_tab_count() - 1
+	await frames(2)
+	for c in container.get_current_tab_control().find_children("*", "Control", true, false):
+		if c.is_visible_in_tree() and c.focus_mode == Control.FOCUS_ALL:
+			c.grab_focus()
+			break
+	await frames(2)
+	await tap(JOY_BUTTON_RIGHT_SHOULDER)
+	check("RB on the last tab goes to the first", container.current_tab == 0, container.current_tab)
+	await tap(JOY_BUTTON_LEFT_SHOULDER)
+	check("LB on the first goes to the last", container.current_tab == container.get_tab_count() - 1, container.current_tab)
+
+
+func fly() -> void:
+	await focus_view()
+	var camera := EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
+	var start := camera.global_transform
+	axis(JOY_AXIS_LEFT_Y, -1.0)
+	await frames(30)
+	axis(JOY_AXIS_LEFT_Y, 0.0)
+	await frames(20)
+	var moved := camera.global_position - start.origin
+	var forward := -start.basis.z
+	forward.y = 0
+	check("the left stick flies forward", moved.length() > 0.1 and moved.normalized().dot(forward.normalized()) > 0.9, moved)
+	check("level, not up or down", absf(moved.y) < 0.01, moved)
+	var y0 := camera.global_position.y
+	axis(JOY_AXIS_TRIGGER_RIGHT, 1.0)
+	await frames(20)
+	axis(JOY_AXIS_TRIGGER_RIGHT, 0.0)
+	await frames(20)
+	check("RT goes up", camera.global_position.y > y0 + 0.05, camera.global_position.y - y0)
+	var look0 := -camera.global_transform.basis.z
+	axis(JOY_AXIS_RIGHT_X, 1.0)
+	await frames(20)
+	axis(JOY_AXIS_RIGHT_X, 0.0)
+	await frames(20)
+	var look1 := -camera.global_transform.basis.z
+	check("the right stick turns the view", look0.angle_to(look1) > 0.1, look0.angle_to(look1))
+	check("the left stick did not move the focus", focus() and focus().get_parent().get_class() == "Node3DEditorViewport", focus())
+
+
+func turn_and_undo() -> void:
+	await pick_moby()
+	await focus_view()
+	var before := moby().global_transform
+	await tap(JOY_BUTTON_LEFT_SHOULDER)
+	var turned := moby().global_transform
+	var angle := before.basis.x.angle_to(turned.basis.x)
+	check("LB turns the picked object by 15 degrees", absf(rad_to_deg(angle) - 15.0) < 0.5, rad_to_deg(angle))
+	check("in place", turned.origin.is_equal_approx(before.origin), turned.origin)
+	await tap(JOY_BUTTON_X) # X in the view is carry: a tap carries nowhere.
+	EditorInterface.get_editor_undo_redo().get_history_undo_redo(EditorInterface.get_editor_undo_redo().get_object_history_id(moby())).undo()
+	await frames(2)
+	if not moby().global_transform.is_equal_approx(before):
+		# The tap above may have made its own step; undo it too.
+		EditorInterface.get_editor_undo_redo().get_history_undo_redo(EditorInterface.get_editor_undo_redo().get_object_history_id(moby())).undo()
+		await frames(2)
+	check("undo turns it back", moby().global_transform.is_equal_approx(before), moby().global_transform)
+
+
+func carry_and_undo() -> void:
+	await pick_moby()
+	await focus_view()
+	var before := moby().global_position
+	button(JOY_BUTTON_X, true)
+	await frames(3)
+	axis(JOY_AXIS_LEFT_X, 1.0)
+	await frames(25)
+	axis(JOY_AXIS_LEFT_X, 0.0)
+	await frames(15)
+	button(JOY_BUTTON_X, false)
+	await frames(3)
+	var after := moby().global_position
+	check("holding X carries the picked object with the view", after.distance_to(before) > 0.1, after - before)
+	var ur := EditorInterface.get_editor_undo_redo().get_history_undo_redo(EditorInterface.get_editor_undo_redo().get_object_history_id(moby()))
+	check("as one undo step", ur.get_current_action_name() == "Move Objects", ur.get_current_action_name())
+	ur.undo()
+	await frames(2)
+	check("undo puts it back", moby().global_position.is_equal_approx(before), moby().global_position)
+
+
+func carry_put_back() -> void:
+	await pick_moby()
+	await focus_view()
+	var before := moby().global_position
+	button(JOY_BUTTON_X, true)
+	await frames(3)
+	axis(JOY_AXIS_LEFT_Y, -1.0)
+	await frames(20)
+	axis(JOY_AXIS_LEFT_Y, 0.0)
+	await frames(5)
+	check("it moves while carried", moby().global_position.distance_to(before) > 0.1)
+	await tap(JOY_BUTTON_B)
+	check("B puts it back", moby().global_position.is_equal_approx(before), moby().global_position)
+	button(JOY_BUTTON_X, false)
+	await frames(3)
+	check("and letting go of X then moves nothing", moby().global_position.is_equal_approx(before), moby().global_position)
+
+
+func bar() -> Control:
+	var found := EditorInterface.get_base_control().find_children("*", "EditorGamepadBar", true, false)
+	return found[0] if not found.is_empty() else null
+
+
+func hint() -> void:
+	level_tree().grab_focus()
+	await tap(JOY_BUTTON_DPAD_DOWN)
+	check("the bar at the bottom shows what the buttons do", bar() != null and bar().is_visible_in_tree(), bar())
+	check("across the editor's width", bar() != null and bar().size.x > 600, bar().size if bar() else null)
+	# The mouse takes over: the bar goes.
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(5, 5)
+	Input.parse_input_event(click)
+	click = click.duplicate()
+	click.pressed = false
+	Input.parse_input_event(click)
+	await get_tree().create_timer(0.6).timeout
+	check("a mouse click puts the mouse's hints in it", bar().is_visible_in_tree() and bar().get_hint_text().contains("Undo") and not bar().get_hint_text().begins_with("A:"), bar().get_hint_text())
+	EditorInterface.get_editor_settings().set_setting("interface/editor/display/hints", false)
+	await get_tree().create_timer(0.6).timeout # It slides away.
+	check("with Hints off, the mouse hides it", not bar().is_visible_in_tree())
+	EditorInterface.get_editor_settings().set_setting("interface/editor/display/hints", true)
+
+
+# The touchpads ------------------------------------------------------------------------------------
+
+func mouse_to(at: Vector2) -> void:
+	var e := InputEventMouseMotion.new()
+	e.position = at
+	e.global_position = at
+	Input.parse_input_event(e)
+	await frames(2)
+
+
+## A swipe on one touchpad (right or left) from FROM to TO, -1 to 1, in STEPS frames.
+func swipe(right: bool, from: Vector2, to: Vector2, steps: int = 12, lift: bool = true) -> void:
+	axis(RIGHT_X if right else LEFT_X, from.x)
+	axis(RIGHT_Y if right else LEFT_Y, from.y)
+	button(TOUCH_RIGHT if right else TOUCH_LEFT, true)
+	await frames(2)
+	for i in range(1, steps + 1):
+		var at := from.lerp(to, float(i) / steps)
+		axis(RIGHT_X if right else LEFT_X, at.x)
+		axis(RIGHT_Y if right else LEFT_Y, at.y)
+		await frames(1)
+	if lift:
+		button(TOUCH_RIGHT if right else TOUCH_LEFT, false)
+		await frames(2)
+
+
+func touch_pointer() -> void:
+	await mouse_to(Vector2(300, 300))
+	await swipe(true, Vector2(-0.4, 0), Vector2(0.4, 0))
+	var at := get_tree().root.get_mouse_position()
+	check("a swipe right on the right touchpad moves the pointer right", at.x > 400 and absf(at.y - 300) < 2, at)
+	await swipe(true, Vector2(0, 0.3), Vector2(0, -0.3))
+	var up := get_tree().root.get_mouse_position()
+	check("and up moves it up", up.y < at.y - 50, up)
+
+
+func touch_click() -> void:
+	# A button of the test's own on top of the editor, the pointer over it, then presses.
+	var target := Button.new()
+	target.text = "Test"
+	target.position = Vector2(300, 300)
+	target.size = Vector2(160, 48)
+	target.top_level = true
+	target.z_index = 100
+	EditorInterface.get_base_control().add_child(target)
+	var counts := {"left": 0, "right": 0}
+	target.pressed.connect(func() -> void: counts["left"] += 1)
+	target.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_RIGHT and e.pressed:
+			counts["right"] += 1)
+	await frames(3)
+	await mouse_to(target.get_global_transform_with_canvas() * (target.size / 2))
+	button(PRESS_RIGHT, true)
+	await frames(3)
+	check("pressing the right touchpad holds the left mouse button", Input.get_mouse_button_mask() & MOUSE_BUTTON_MASK_LEFT != 0)
+	button(PRESS_RIGHT, false)
+	await frames(3)
+	check("and lets go", Input.get_mouse_button_mask() & MOUSE_BUTTON_MASK_LEFT == 0)
+	check("a press clicks what is under the pointer", counts["left"] == 1, counts)
+	button(PRESS_LEFT, true)
+	await frames(2)
+	button(PRESS_LEFT, false)
+	await frames(3)
+	check("pressing the left touchpad is a right click", counts["right"] == 1, counts)
+	target.queue_free()
+	await frames(2)
+
+
+func touch_scroll() -> void:
+	await pick_moby()
+	var inspector := EditorInterface.get_inspector()
+	await frames(5)
+	var wheels := [0]
+	var seen := func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_WHEEL_DOWN and e.pressed:
+			wheels[0] += int(e.factor)
+	inspector.gui_input.connect(seen)
+	await mouse_to(inspector.get_global_transform_with_canvas() * (inspector.size / 2))
+	await swipe(false, Vector2(0, 0.6), Vector2(0, -0.6))
+	inspector.gui_input.disconnect(seen)
+	check("a finger up the left touchpad scrolls the Properties down", wheels[0] >= 8, wheels[0])
+
+
+func touch_look() -> void:
+	var surface: Control = null
+	for c in EditorInterface.get_base_control().find_children("*", "Control", true, false):
+		if c.get_class() == "Control" and c.focus_mode == Control.FOCUS_ALL and c.get_parent().get_class() == "Node3DEditorViewport":
+			surface = c
+			break
+	await mouse_to(surface.get_global_transform_with_canvas() * (surface.size / 2))
+	var camera := EditorInterface.get_editor_viewport_3d(0).get_camera_3d()
+	var look0 := -camera.global_transform.basis.z
+	await swipe(false, Vector2(-0.5, 0), Vector2(0.5, 0))
+	await frames(20)
+	var look1 := -camera.global_transform.basis.z
+	check("the left touchpad over the 3D view turns it", look0.angle_to(look1) > 0.2, look0.angle_to(look1))

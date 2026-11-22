@@ -109,6 +109,19 @@ enum class JoyButton {
 	MAX = 128, // Android supports up to 36 buttons. DirectInput supports up to 128 buttons.
 };
 
+// OpenRAC Editor: a pad's touchpads (the Steam Deck has two; a PlayStation pad's one counts as the
+// right) come in as these axes (-1 to 1, up and left are -1) and buttons (touched, pressed down).
+namespace JoyTouchpad {
+constexpr JoyAxis LEFT_X = JoyAxis(6);
+constexpr JoyAxis LEFT_Y = JoyAxis(7);
+constexpr JoyAxis RIGHT_X = JoyAxis(8);
+constexpr JoyAxis RIGHT_Y = JoyAxis(9);
+constexpr JoyButton LEFT_TOUCH = JoyButton(26);
+constexpr JoyButton RIGHT_TOUCH = JoyButton(27);
+constexpr JoyButton LEFT_PRESS = JoyButton(28);
+constexpr JoyButton RIGHT_PRESS = JoyButton(29);
+} //namespace JoyTouchpad
+
 enum class MIDIMessage {
 	NONE = 0,
 	NOTE_OFF = 0x8,

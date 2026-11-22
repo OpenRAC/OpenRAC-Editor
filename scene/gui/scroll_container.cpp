@@ -190,19 +190,19 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 			if (mb->get_button_index() == MouseButton::WHEEL_UP) {
 				// By default, the vertical orientation takes precedence. This is an exception.
 				if ((h_scroll_enabled && swap_axes) || v_scroll_hidden) {
-					h_scroll->scroll(-h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					h_scroll->wheel(-h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				} else if (v_scroll_enabled) {
-					v_scroll->scroll(-v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					v_scroll->wheel(-v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
 			if (mb->get_button_index() == MouseButton::WHEEL_DOWN) {
 				if ((h_scroll_enabled && swap_axes) || v_scroll_hidden) {
-					h_scroll->scroll(h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					h_scroll->wheel(h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				} else if (v_scroll_enabled) {
-					v_scroll->scroll(v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					v_scroll->wheel(v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
@@ -211,19 +211,19 @@ void ScrollContainer::gui_input(const Ref<InputEvent> &p_gui_input) {
 			if (mb->get_button_index() == MouseButton::WHEEL_LEFT) {
 				// By default, the horizontal orientation takes precedence. This is an exception.
 				if ((v_scroll_enabled && swap_axes) || h_scroll_hidden) {
-					v_scroll->scroll(-v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					v_scroll->wheel(-v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				} else if (h_scroll_enabled) {
-					h_scroll->scroll(-h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					h_scroll->wheel(-h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
 			if (mb->get_button_index() == MouseButton::WHEEL_RIGHT) {
 				if ((v_scroll_enabled && swap_axes) || h_scroll_hidden) {
-					v_scroll->scroll(v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					v_scroll->wheel(v_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				} else if (h_scroll_enabled) {
-					h_scroll->scroll(h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
+					h_scroll->wheel(h_scroll->get_page() / ScrollBar::PAGE_DIVISOR * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}

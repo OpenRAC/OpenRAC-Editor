@@ -82,6 +82,12 @@ class ScrollBar : public Range {
 	double target_scroll = 0.0;
 	bool smooth_scroll_enabled = false;
 
+	// OpenRAC Editor: a wheel notch glides to its place instead of jumping (wheel()).
+	static bool smooth_wheel;
+	bool wheel_gliding = false;
+	double wheel_target = 0.0;
+	double wheel_last = 0.0;
+
 	void _drag_node_exit();
 	void _drag_node_input(const Ref<InputEvent> &p_input);
 
@@ -126,6 +132,10 @@ public:
 	void set_drag_node_enabled(bool p_enable);
 
 	void set_smooth_scroll_enabled(bool p_enable);
+	// OpenRAC Editor: scrolls p_amount for the mouse wheel: gliding there when smooth wheels are on.
+	// True when it will move.
+	bool wheel(double p_amount);
+	static void set_smooth_wheel(bool p_smooth) { smooth_wheel = p_smooth; }
 	bool is_smooth_scroll_enabled() const;
 
 	virtual Size2 get_minimum_size() const override;

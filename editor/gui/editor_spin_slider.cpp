@@ -381,6 +381,11 @@ void EditorSpinSlider::_draw_spin_slider() {
 		Ref<StyleBox> focus = get_theme_stylebox(SNAME("focus"), SNAME("LineEdit"));
 		draw_style_box(focus, Rect2(Vector2(), size));
 	}
+	if (pad_adjusting) {
+		// OpenRAC Editor: a gamepad is changing the value: an accent frame around it.
+		const Color accent = get_theme_color(SNAME("accent_color"), EditorStringName(Editor));
+		draw_rect(Rect2(Vector2(), size).grow(-EDSCALE), accent, false, Math::round(2 * EDSCALE));
+	}
 
 	if (rtl) {
 		draw_string(font, Vector2(Math::round(size.width - sb->get_offset().x - label_width), vofs), label, HORIZONTAL_ALIGNMENT_RIGHT, -1, font_size, lc * Color(1, 1, 1, 0.5));
@@ -457,7 +462,7 @@ void EditorSpinSlider::_draw_spin_slider() {
 
 			grabbing_spinner_mouse_pos = get_global_position() + grabber_rect.get_center();
 
-			bool display_grabber = !read_only && (grabbing_grabber || mouse_over_spin || mouse_over_grabber) && !grabbing_spinner && !(value_input && value_input->is_visible());
+			bool display_grabber = !read_only && (grabbing_grabber || mouse_over_spin || mouse_over_grabber || pad_adjusting) && !grabbing_spinner && !(value_input && value_input->is_visible());
 			if (grabber->is_visible() != display_grabber) {
 				grabber->set_visible(display_grabber);
 			}
@@ -736,6 +741,13 @@ void EditorSpinSlider::_focus_entered(bool p_hide_focus) {
 	callable_mp((Control *)value_input, &Control::grab_focus).call_deferred(p_hide_focus);
 	callable_mp(value_input, &LineEdit ::select_all).call_deferred();
 	emit_signal("value_focus_entered");
+}
+
+void EditorSpinSlider::set_pad_adjusting(bool p_adjusting) {
+	if (pad_adjusting != p_adjusting) {
+		pad_adjusting = p_adjusting;
+		queue_redraw();
+	}
 }
 
 void EditorSpinSlider::_bind_methods() {

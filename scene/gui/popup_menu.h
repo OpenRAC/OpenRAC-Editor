@@ -49,6 +49,8 @@ class PopupMenu : public Popup {
 	friend class PopupMenuItems;
 
 	static HashMap<NativeMenu::SystemMenus, PopupMenu *> system_menus;
+	static bool keys_hidden; // OpenRAC Editor: no shortcut text while a gamepad is used.
+	bool keys_shaped_hidden = false;
 
 	struct Item {
 		mutable RID accessibility_item_element;
@@ -298,6 +300,9 @@ public:
 	// ATTENTION: This is used by the POT generator's scene parser. If the number of properties returned by `_get_items()` ever changes,
 	// this value should be updated to reflect the new size.
 	static const int ITEM_PROPERTY_SIZE = 10;
+
+	// OpenRAC Editor: while a gamepad is used, menus leave out their keyboard shortcuts.
+	static void set_keys_hidden(bool p_hidden);
 
 	virtual RID get_focused_accessibility_element() const override;
 

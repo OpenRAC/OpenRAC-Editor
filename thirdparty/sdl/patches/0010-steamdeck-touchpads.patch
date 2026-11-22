@@ -1,0 +1,45 @@
+diff --git a/thirdparty/sdl/joystick/hidapi/SDL_hidapi_steamdeck.c b/thirdparty/sdl/joystick/hidapi/SDL_hidapi_steamdeck.c
+index 75a13cc..2daa4dc 100644
+--- a/thirdparty/sdl/joystick/hidapi/SDL_hidapi_steamdeck.c
++++ b/thirdparty/sdl/joystick/hidapi/SDL_hidapi_steamdeck.c
+@@ -63,6 +63,8 @@ typedef enum
+     STEAMDECK_LBUTTON_R5            = 0x00010000,
+     STEAMDECK_LBUTTON_LEFT_PAD      = 0x00020000,
+     STEAMDECK_LBUTTON_RIGHT_PAD     = 0x00040000,
++    STEAMDECK_LBUTTON_LEFT_PAD_TOUCH  = 0x00080000, // OpenRAC Editor: the touchpads, touched.
++    STEAMDECK_LBUTTON_RIGHT_PAD_TOUCH = 0x00100000,
+     STEAMDECK_LBUTTON_L3            = 0x00400000,
+     STEAMDECK_LBUTTON_R3            = 0x04000000,
+ 
+@@ -208,6 +210,22 @@ static void HIDAPI_DriverSteamDeck_HandleState(SDL_HIDAPI_Device *device,
+         ctx->last_button_state = pInReport->payload.deckState.ulButtons;
+     }
+ 
++    // OpenRAC Editor: both touchpads, as touchpads 0 (left) and 1 (right): x and y from 0 to 1, top
++    // left at 0, and a pressure of 1 while pressed down (clicked), 0.5 while only touched.
++    {
++        const Uint32 buttons = pInReport->payload.deckState.ulButtonsL;
++        const bool left_touch = (buttons & STEAMDECK_LBUTTON_LEFT_PAD_TOUCH) != 0;
++        const bool right_touch = (buttons & STEAMDECK_LBUTTON_RIGHT_PAD_TOUCH) != 0;
++        SDL_SendJoystickTouchpad(timestamp, joystick, 0, 0, left_touch,
++                                 (pInReport->payload.deckState.sLeftPadX + 32768) / 65535.0f,
++                                 (32767 - pInReport->payload.deckState.sLeftPadY) / 65535.0f,
++                                 left_touch ? ((buttons & STEAMDECK_LBUTTON_LEFT_PAD) ? 1.0f : 0.5f) : 0.0f);
++        SDL_SendJoystickTouchpad(timestamp, joystick, 1, 0, right_touch,
++                                 (pInReport->payload.deckState.sRightPadX + 32768) / 65535.0f,
++                                 (32767 - pInReport->payload.deckState.sRightPadY) / 65535.0f,
++                                 right_touch ? ((buttons & STEAMDECK_LBUTTON_RIGHT_PAD) ? 1.0f : 0.5f) : 0.0f);
++    }
++
+     SDL_SendJoystickAxis(timestamp, joystick, SDL_GAMEPAD_AXIS_LEFT_TRIGGER,
+                          (int)pInReport->payload.deckState.sTriggerRawL * 2 - 32768);
+     SDL_SendJoystickAxis(timestamp, joystick, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER,
+@@ -365,6 +383,8 @@ static bool HIDAPI_DriverSteamDeck_OpenJoystick(SDL_HIDAPI_Device *device, SDL_J
+ 
+     SDL_PrivateJoystickAddSensor(joystick, SDL_SENSOR_GYRO, update_rate_in_hz);
+     SDL_PrivateJoystickAddSensor(joystick, SDL_SENSOR_ACCEL, update_rate_in_hz);
++    SDL_PrivateJoystickAddTouchpad(joystick, 1); // OpenRAC Editor: the left touchpad.
++    SDL_PrivateJoystickAddTouchpad(joystick, 1); // OpenRAC Editor: the right touchpad.
+ 
+     return true;
+ }
