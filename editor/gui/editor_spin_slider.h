@@ -67,6 +67,7 @@ class EditorSpinSlider : public Range {
 	bool value_input_dirty = false;
 	bool value_input_focus_visible = false;
 	bool deferred_drag_mode = false;
+	bool pad_adjusting = false; // OpenRAC Editor: a gamepad is changing the value.
 
 public:
 	enum ControlState {
@@ -142,6 +143,9 @@ public:
 	bool is_deferred_drag_mode_enabled() const;
 
 	void setup_and_show() { _focus_entered(); }
+	// OpenRAC Editor: shows that a gamepad is changing the value (d-pad left and right).
+	void set_pad_adjusting(bool p_adjusting);
+	bool is_pad_adjusting() const { return pad_adjusting; }
 	LineEdit *get_line_edit();
 
 	EditorSpinSlider();

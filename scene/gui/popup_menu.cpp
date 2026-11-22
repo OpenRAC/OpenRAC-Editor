@@ -50,6 +50,7 @@
 #include "servers/display/display_server.h"
 
 HashMap<NativeMenu::SystemMenus, PopupMenu *> PopupMenu::system_menus;
+bool PopupMenu::keys_hidden = false;
 
 bool PopupMenu::_set_item_accelerator(int p_index, const Ref<InputEventKey> &p_ie) {
 	NativeMenu *nmenu = NativeMenu::get_singleton();
@@ -204,6 +205,9 @@ NativeMenu::SystemMenus PopupMenu::get_system_menu() const {
 }
 
 String PopupMenu::_get_accel_text(const Item &p_item) const {
+	if (keys_hidden) {
+		return String(); // OpenRAC Editor: a gamepad has no keys to show.
+	}
 	if (p_item.shortcut.is_valid()) {
 		return p_item.shortcut->get_as_text();
 	} else if (p_item.accel != Key::NONE) {
@@ -3674,7 +3678,19 @@ bool PopupMenu::get_shrink_width() const {
 	return shrink_width;
 }
 
+// OpenRAC Editor: while a gamepad is used, menus leave out their keyboard shortcuts.
+void PopupMenu::set_keys_hidden(bool p_hidden) {
+	keys_hidden = p_hidden;
+}
+
 void PopupMenu::_pre_popup() {
+	if (keys_shaped_hidden != keys_hidden) {
+		keys_shaped_hidden = keys_hidden;
+		for (int i = 0; i < items.size(); i++) {
+			items.write[i].dirty = true;
+		}
+		control->queue_redraw();
+	}
 	real_t popup_scale = 1.0;
 	bool scale_with_parent = true;
 	Node *parent_node = get_parent();

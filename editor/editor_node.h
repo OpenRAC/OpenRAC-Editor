@@ -901,6 +901,7 @@ public:
 
 	bool has_scenes_in_session();
 
+	void open_main_menu(); // OpenRAC Editor: the gamepad's Start button.
 	void undo();
 	void redo();
 

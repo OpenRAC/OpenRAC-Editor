@@ -841,8 +841,13 @@ protected:
 	void _accessibility_action_edit_custom(const Variant &p_data, TreeItem *p_item, int p_col);
 	void _accessibility_action_button_press(const Variant &p_data, TreeItem *p_item, int p_col, int p_btn);
 
+	static bool keys_reach_buttons; // OpenRAC Editor: see set_keys_reach_buttons().
+
 public:
 	PackedStringArray get_accessibility_configuration_warnings() const override;
+	// OpenRAC Editor: left and right also step onto a row's buttons (the eye, ...), and Enter presses
+	// them, as for a screen reader. On while a gamepad is used.
+	static void set_keys_reach_buttons(bool p_reach) { keys_reach_buttons = p_reach; }
 	virtual RID get_focused_accessibility_element() const override;
 
 	virtual void set_self_modulate(const Color &p_self_modulate) override;

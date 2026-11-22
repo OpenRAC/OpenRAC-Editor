@@ -2736,7 +2736,12 @@ int Tree::draw_item(const Point2i &p_pos, const Point2 &p_draw_ofs, const Size2 
 				}
 				if (selected_item == p_item && selected_col == i && selected_button == j) {
 					Point2 od = convert_rtl_position(button_ofs, button_size.x);
-					theme_cache.button_hover->draw(ci, Rect2(od.x, od.y, button_size.width, MAX(button_size.height, label_h)));
+					const Rect2 button_rect(od.x, od.y, button_size.width, MAX(button_size.height, label_h));
+					theme_cache.button_hover->draw(ci, button_rect);
+					// OpenRAC Editor: the button the keys (or a gamepad) are on, framed as focus is.
+					if (has_focus()) {
+						theme_cache.focus_style->draw(ci, button_rect);
+					}
 				}
 
 				button_ofs.y += (label_h - button_size.height) / 2;
@@ -3613,8 +3618,10 @@ void Tree::popup_select(int p_option) {
 	item_edited(popup_edited_item_col, popup_edited_item);
 }
 
+bool Tree::keys_reach_buttons = false;
+
 void Tree::_go_left() {
-	if (get_tree()->is_accessibility_enabled() && selected_button >= 0) {
+	if ((keys_reach_buttons || get_tree()->is_accessibility_enabled()) && selected_button >= 0) {
 		selected_button--;
 	} else if (selected_col == 0) {
 		selected_button = -1;
@@ -3648,7 +3655,9 @@ void Tree::_go_left() {
 
 void Tree::_go_right() {
 	int buttons = (selected_item && selected_col >= 0 && selected_col < columns.size()) ? selected_item->cells[selected_col].buttons.size() : 0;
-	if (get_tree()->is_accessibility_enabled() && selected_button < buttons - 1) {
+	// OpenRAC Editor: with a gamepad, right opens a closed row first, then steps onto its buttons.
+	const bool open_first = keys_reach_buttons && selected_button == -1 && selected_col == columns.size() - 1 && selected_item && selected_item->get_first_child() != nullptr && selected_item->is_collapsed();
+	if ((keys_reach_buttons || get_tree()->is_accessibility_enabled()) && !open_first && selected_button < buttons - 1) {
 		selected_button++;
 	} else if (selected_col == (columns.size() - 1)) {
 		selected_button = -1;
@@ -3691,6 +3700,7 @@ void Tree::_go_up() {
 		}
 
 		selected_item = prev;
+		selected_button = -1; // OpenRAC Editor: the new row may have fewer buttons.
 		emit_signal(SNAME("cell_selected"));
 		queue_redraw();
 	} else {
@@ -3767,6 +3777,7 @@ void Tree::_go_down() {
 		}
 
 		selected_item = next;
+		selected_button = -1; // OpenRAC Editor: the new row may have fewer buttons.
 		emit_signal(SNAME("cell_selected"));
 		queue_redraw();
 	} else {
@@ -3787,10 +3798,7 @@ void Tree::_go_down() {
 bool Tree::_scroll(bool p_horizontal, float p_pages) {
 	ScrollBar *scroll = p_horizontal ? (ScrollBar *)h_scroll : (ScrollBar *)v_scroll;
 
-	double prev_value = scroll->get_value();
-	scroll->set_value(scroll->get_value() + scroll->get_page() * p_pages);
-
-	bool scroll_happened = scroll->get_value() != prev_value;
+	const bool scroll_happened = scroll->wheel(scroll->get_page() * p_pages); // OpenRAC Editor: glides when on.
 	if (scroll_happened) {
 		_determine_hovered_item();
 	}

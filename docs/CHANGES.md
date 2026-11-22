@@ -14,7 +14,7 @@ These are deleted from the source:
   multiplayer, navigation_2d, navigation_3d, noise, objectdb_profiler, ogg, openxr, raycast, tga,
   theora, tinyexr, upnp, vhacd, visual_shader, vorbis, webp, webrtc, websocket, webxr,
   xatlas_unwrap. GDScript has no language server.
-- **Drivers:** OpenGL, Direct3D 12, EGL, SDL input, AccessKit, XAudio2, MIDI. Linux has no
+- **Drivers:** OpenGL, Direct3D 12, EGL, AccessKit, XAudio2, MIDI. Linux has no
   text-to-speech.
 - **Editor:** the project list, Asset Store, version control, the 2D screen and the 2D node
   editors, the TileMap, GridMap MeshLibrary, baked lighting (LightmapGI, VoxelGI), SDF collision,
@@ -91,6 +91,34 @@ These are deleted from the source:
   with a level, which such a level needs on: its cutscenes ([CUTSCENE_FORMAT.md](CUTSCENE_FORMAT.md))
   and the behaviours set in a moby's Inspector, spin, bob, patrol, orbit, face or follow the hero
   ([BEHAVIOUR_FORMAT.md](BEHAVIOUR_FORMAT.md)).
+
+- **Where things are** (`editor/editor_node.cpp`, `editor/gui/editor_first_steps.cpp`): left, the Level
+  list (with Undo History) over the Assets to add from; right, Properties at full height over
+  Collision and Voices; the bottom panel (Cutscene, Messages, Keys) stays closed until needed.
+  Levels saved with the old arrangement take the new one once. The bar at the bottom says what the
+  mouse and keys do where the pointer is (Settings > Editor > Hints), a first steps card shows how
+  to make a level until "Got It", Properties says how to pick something, and Move, Turn and Size
+  are named on the toolbar. Properties lost Godot's file buttons and name styles.
+
+- **Motion** (`editor/gui/editor_motion.cpp`): an intro when the editor opens (the README's logo over a
+  gold line, with what is loading; any key, click or pad button skips it), tab pages fade
+  and slide in, menus and windows fade in, lists scroll smoothly (`ScrollBar::wheel`), the pad bar
+  slides up and away, and a gold frame glides after the pad's focus. Settings > Editor > Animations
+  and Intro turn them off.
+
+- **Gamepad** (`editor/gui/editor_gamepad.cpp`): every panel, list, menu and field works with a pad
+  (Steam Deck, Steam Controller, any pad). The pad acts as the arrow keys, Enter and Escape; LB/RB
+  switch tabs, View goes to the next panel, Start opens the menus, Y is the right-click menu, X is
+  undo, the right stick scrolls. In the 3D view the sticks fly and look, A picks under a cross,
+  holding X carries the picked objects, LB/RB turn them. A bar at the bottom shows each button.
+  The Steam Deck's two touchpads (SDL's Steam Deck driver now sends them, `thirdparty/sdl/patches`):
+  the right one is the mouse, the left one scrolls (looks in 3D); pressing them clicks. On the Deck
+  the editor opens in one window and text fields bring up the Steam keyboard. A on a number lets
+  the d-pad change it (LT fine, RT big steps, B puts it back); right on a list row steps onto its
+  buttons (the eye); menus leave out their keyboard shortcuts while the pad is used.
+  Tests: `openrac/tools/test_editor_gamepad.py`.
+- **Play Level** is one big gold button on the toolbar; Check Level is gone (Play checks the same
+  edits first and lists the ones the game can't take).
 
 ## Build options
 

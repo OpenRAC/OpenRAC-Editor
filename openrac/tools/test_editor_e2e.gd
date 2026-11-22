@@ -1132,12 +1132,12 @@ static func place(root: Node, node: Node) -> String:
 
 ## The level's name as a new planet is in Project Settings, OpenRAC > Planet, shown without
 ## Advanced Settings (planet.py reads them from project.godot).
-## Check level and Play level on the toolbar: what they say without the launcher's arguments, and
+## Play level on the toolbar: what it says without the launcher's arguments, and
 ## a refused edit listed and selected with a click (the command itself: test_openrac_editor.py).
 func check_and_play() -> void:
 	var play: Node = plugin.get("play")
-	check("on the toolbar", play != null and play.get_parent() != null and play.check_button.text == "Check Level"
-		and play.play_button.text == "Play Level")
+	check("on the toolbar", play != null and play.get_parent() != null and play.play_button.text == "Play Level"
+		and play.play_button.get_theme_stylebox("normal") is StyleBoxFlat and play.play_button.icon != null)
 	var level: Dictionary = play.this_level()
 	check("this level is found", String(level.get("project", "")) != "" and level.get("version") == "ntsc", level)
 	check("without the launcher it says how", String(play.command_for("check", level)).begins_with("Open the level from the launcher"))
@@ -1145,15 +1145,15 @@ func check_and_play() -> void:
 		== "/home/my-states/openrac-rac1-pal" and play.game_beside("C:\\my-states\\openrac-rac1-pal-states.exe")
 		== "C:\\my-states\\openrac-rac1-pal.exe" and play.game_beside("") == "")
 	check("not a level: nothing to pack", String(play.command_for("play", {})).begins_with("This isn't a Ratchet & Clank level"))
-	play.show_result("check", 1, PackedStringArray(["openrac-progress: pack 1/1", "openrac-problem: Vendor_0000: a mirrored object (a negative scale) cannot be packed",
-		"Some edits cannot be packed yet: fix them and check again."]))
+	play.show_result(1, PackedStringArray(["openrac-progress: pack 1/1", "openrac-problem: Vendor_0000: a mirrored object (a negative scale) cannot be packed",
+		"Some edits cannot be packed yet: fix them and play again."]))
 	await frames(2)
 	check("the refused edit is listed", play.problems.item_count == 1 and play.dialog.visible, play.problems.item_count)
 	EditorInterface.get_selection().clear()
 	play.select_problem(0)
 	var selected: Array = EditorInterface.get_selection().get_selected_nodes()
 	check("a click selects its node", selected.size() == 1 and String(selected[0].name) == "Vendor_0000", selected)
-	play.show_result("check", 0, PackedStringArray(["openrac-check: 1 level(s), 0 edit(s), nothing refused", "Every edit packs."]))
+	play.show_result(0, PackedStringArray(["openrac-check: 1 level(s), 0 edit(s), nothing refused", "Every edit packs."]))
 	check("all packs: said", play.problems.item_count == 0 and not play.problems.visible and play.summary.text == "Every edit packs.", play.summary.text)
 	play.dialog.hide()
 	EditorInterface.get_selection().clear()
