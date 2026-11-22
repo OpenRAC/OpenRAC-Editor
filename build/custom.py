@@ -18,9 +18,9 @@ metal = "no"
 no_editor_splash = "no"
 engine_update_check = "no"
 
-# Desktop editor: no screen reader kit, no gamepad driver, no XR.
+# Desktop editor: no screen reader kit, no XR. SDL is on for gamepads (Steam Controller, Steam Deck).
 accesskit = "no"
-sdl = "no"
+sdl = "yes"
 disable_xr = "yes"
 
 # Text: the simple text server (no ICU or HarfBuzz). It is off by default, so switch it on.

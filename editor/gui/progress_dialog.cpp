@@ -271,6 +271,23 @@ void ProgressDialog::end_task(const String &p_task) {
 	}
 }
 
+void ProgressDialog::set_quiet(bool p_quiet) {
+	center_panel->set_modulate(Color(1, 1, 1, p_quiet ? 0.0 : 1.0));
+}
+
+String ProgressDialog::get_state_text() const {
+	if (!is_visible() || tasks.is_empty()) {
+		return String();
+	}
+	// The newest task says best what is going on.
+	const Task &t = tasks.last()->value;
+	if (!t.state->get_text().is_empty()) {
+		return t.state->get_text();
+	}
+	const Label *title = Object::cast_to<Label>(t.vb->get_child(0));
+	return title ? title->get_text() : String();
+}
+
 void ProgressDialog::add_host_window(ObjectID p_window) {
 	host_windows.push_back(p_window);
 }

@@ -871,19 +871,19 @@ void ItemList::gui_input(const Ref<InputEvent> &p_event) {
 			if (mb->get_button_index() == MouseButton::WHEEL_UP) {
 				// By default, the vertical orientation takes precedence. This is an exception.
 				if (mb->is_shift_pressed() || v_scroll_hidden) {
-					scroll_bar_h->scroll(-scroll_bar_h->get_page() / 8 * mb->get_factor());
+					scroll_bar_h->wheel(-scroll_bar_h->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				} else {
-					scroll_bar_v->scroll(-scroll_bar_v->get_page() / 8 * mb->get_factor());
+					scroll_bar_v->wheel(-scroll_bar_v->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
 			if (mb->get_button_index() == MouseButton::WHEEL_DOWN) {
 				if (mb->is_shift_pressed() || v_scroll_hidden) {
-					scroll_bar_h->scroll(scroll_bar_h->get_page() / 8 * mb->get_factor());
+					scroll_bar_h->wheel(scroll_bar_h->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				} else {
-					scroll_bar_v->scroll(scroll_bar_v->get_page() / 8 * mb->get_factor());
+					scroll_bar_v->wheel(scroll_bar_v->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
@@ -892,19 +892,19 @@ void ItemList::gui_input(const Ref<InputEvent> &p_event) {
 			if (mb->get_button_index() == MouseButton::WHEEL_LEFT) {
 				// By default, the horizontal orientation takes precedence. This is an exception.
 				if (mb->is_shift_pressed() || h_scroll_hidden) {
-					scroll_bar_v->scroll(-scroll_bar_v->get_page() / 8 * mb->get_factor());
+					scroll_bar_v->wheel(-scroll_bar_v->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				} else {
-					scroll_bar_h->scroll(-scroll_bar_h->get_page() / 8 * mb->get_factor());
+					scroll_bar_h->wheel(-scroll_bar_h->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}
 			if (mb->get_button_index() == MouseButton::WHEEL_RIGHT) {
 				if (mb->is_shift_pressed() || h_scroll_hidden) {
-					scroll_bar_v->scroll(scroll_bar_v->get_page() / 8 * mb->get_factor());
+					scroll_bar_v->wheel(scroll_bar_v->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				} else {
-					scroll_bar_h->scroll(scroll_bar_h->get_page() / 8 * mb->get_factor());
+					scroll_bar_h->wheel(scroll_bar_h->get_page() / 8 * mb->get_factor());
 					scroll_value_modified = true;
 				}
 			}

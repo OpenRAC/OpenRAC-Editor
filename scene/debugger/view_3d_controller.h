@@ -258,6 +258,7 @@ public:
 
 	void cursor_pan(const Ref<InputEventWithModifiers> &p_event, const Vector2 &p_relative);
 	void cursor_look(const Ref<InputEventWithModifiers> &p_event, const Vector2 &p_relative);
+	void cursor_look_degrees(const Vector2 &p_degrees); // OpenRAC Editor: a gamepad turns by degrees, not mouse pixels.
 	void cursor_orbit(const Ref<InputEventWithModifiers> &p_event, const Vector2 &p_relative);
 	void cursor_zoom(const Ref<InputEventWithModifiers> p_event, const Vector2 &p_relative);
 

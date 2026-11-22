@@ -4072,6 +4072,37 @@ static void draw_indicator_bar(Control &p_surface, real_t p_fill, const Ref<Text
 	p_surface.draw_string(p_font, Vector2(icon_pos.x, icon_pos.y + icon_size.y + 16 * EDSCALE), p_text, HORIZONTAL_ALIGNMENT_LEFT, -1.f, p_font_size, p_color);
 }
 
+// OpenRAC Editor: the gamepad flies the view. p_move is (right, up, forward), each -1..1: forward
+// stays level, so the view flies like a drone, and up is always up.
+void Node3DEditorViewport::gamepad_fly(const Vector3 &p_move, const Vector2 &p_look_degrees, real_t p_delta) {
+	if (previewing || (p_move.is_zero_approx() && p_look_degrees.is_zero_approx())) {
+		return; // Looking through a camera (not ours to move), or the sticks are let go.
+	}
+	if (!p_look_degrees.is_zero_approx()) {
+		view_3d_controller->cursor_look_degrees(p_look_degrees);
+	}
+	if (!p_move.is_zero_approx()) {
+		const Basis basis = view_3d_controller->to_camera_transform().basis;
+		Vector3 forward = basis.xform(Vector3(0, 0, -1));
+		forward.y = 0;
+		forward = forward.length_squared() > CMP_EPSILON ? forward.normalized() : basis.xform(Vector3(0, 1, 0));
+		Vector3 right = basis.xform(Vector3(1, 0, 0));
+		right.y = 0;
+		right = right.length_squared() > CMP_EPSILON ? right.normalized() : Vector3(1, 0, 0);
+		const Vector3 motion = (right * p_move.x + Vector3(0, 1, 0) * p_move.y + forward * p_move.z) * view_3d_controller->get_freelook_speed() * p_delta;
+		view_3d_controller->cursor.pos += motion;
+		view_3d_controller->cursor.eye_pos += motion;
+	}
+	_disable_follow_mode();
+}
+
+void Node3DEditorViewport::set_gamepad_aim(bool p_show) {
+	if (gamepad_aim != p_show) {
+		gamepad_aim = p_show;
+		surface->queue_redraw();
+	}
+}
+
 void Node3DEditorViewport::_draw() {
 	EditorNode::get_singleton()->get_editor_plugins_over()->forward_3d_draw_over_viewport(surface);
 	EditorNode::get_singleton()->get_editor_plugins_force_over()->forward_3d_force_draw_over_viewport(surface);
@@ -4099,6 +4130,21 @@ void Node3DEditorViewport::_draw() {
 	}
 
 	RID ci = surface->get_canvas_item();
+
+	if (gamepad_aim) {
+		// OpenRAC Editor: the gamepad picks what is under this cross.
+		const Point2 c = (surface->get_size() / 2).round();
+		const real_t gap = 4 * EDSCALE;
+		const real_t len = 10 * EDSCALE;
+		for (int pass = 0; pass < 2; pass++) {
+			const Color col = pass == 0 ? Color(0, 0, 0, 0.7) : Color(1, 1, 1, 0.95);
+			const real_t w = (pass == 0 ? 4 : 2) * EDSCALE;
+			for (const Vector2 dir : { Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1) }) {
+				surface->draw_line(c + dir * gap, c + dir * (gap + len), col, w, true);
+			}
+			surface->draw_circle(c, (pass == 0 ? 2.5 : 1.5) * EDSCALE, col, true, -1, true);
+		}
+	}
 
 	if (message_time > 0) {
 		Ref<Font> font = get_theme_font(SceneStringName(font), SNAME("Label"));
@@ -8348,47 +8394,6 @@ void Node3DEditor::_menu_item_pressed(int p_option) {
 			undo_redo->add_undo_method(this, "_refresh_menu_icons");
 			undo_redo->commit_action();
 		} break;
-		case MENU_GROUP_SELECTED: {
-			undo_redo->create_action(TTR("Group Selected"));
-
-			const List<Node *> &selection = editor_selection->get_top_selected_node_list();
-
-			for (Node *E : selection) {
-				Node3D *spatial = Object::cast_to<Node3D>(E);
-				if (!spatial || !spatial->is_inside_tree()) {
-					continue;
-				}
-
-				undo_redo->add_do_method(spatial, "set_meta", "_edit_group_", true);
-				undo_redo->add_undo_method(spatial, "remove_meta", "_edit_group_");
-				undo_redo->add_do_method(this, "emit_signal", "item_group_status_changed");
-				undo_redo->add_undo_method(this, "emit_signal", "item_group_status_changed");
-			}
-
-			undo_redo->add_do_method(this, "_refresh_menu_icons");
-			undo_redo->add_undo_method(this, "_refresh_menu_icons");
-			undo_redo->commit_action();
-		} break;
-		case MENU_UNGROUP_SELECTED: {
-			undo_redo->create_action(TTR("Ungroup Selected"));
-			const List<Node *> &selection = editor_selection->get_top_selected_node_list();
-
-			for (Node *E : selection) {
-				Node3D *spatial = Object::cast_to<Node3D>(E);
-				if (!spatial || !spatial->is_inside_tree()) {
-					continue;
-				}
-
-				undo_redo->add_do_method(spatial, "remove_meta", "_edit_group_");
-				undo_redo->add_undo_method(spatial, "set_meta", "_edit_group_", true);
-				undo_redo->add_do_method(this, "emit_signal", "item_group_status_changed");
-				undo_redo->add_undo_method(this, "emit_signal", "item_group_status_changed");
-			}
-
-			undo_redo->add_do_method(this, "_refresh_menu_icons");
-			undo_redo->add_undo_method(this, "_refresh_menu_icons");
-			undo_redo->commit_action();
-		} break;
 		case MENU_RULER: {
 			for (int i = 0; i < TOOL_MAX; i++) {
 				tool_button[i]->set_pressed(i == p_option);
@@ -9413,14 +9418,12 @@ void Node3DEditor::refresh_dirty_gizmos() {
 
 void Node3DEditor::_refresh_menu_icons() {
 	bool all_locked = true;
-	bool all_grouped = true;
 	bool has_node3d_item = false;
 
 	const List<Node *> &selection = editor_selection->get_top_selected_node_list();
 
 	if (selection.is_empty()) {
 		all_locked = false;
-		all_grouped = false;
 	} else {
 		for (Node *E : selection) {
 			Node3D *node = Object::cast_to<Node3D>(E);
@@ -9428,29 +9431,20 @@ void Node3DEditor::_refresh_menu_icons() {
 				if (all_locked && !node->has_meta("_edit_lock_")) {
 					all_locked = false;
 				}
-				if (all_grouped && !node->has_meta("_edit_group_")) {
-					all_grouped = false;
-				}
 				has_node3d_item = true;
 			}
-			if (!all_locked && !all_grouped) {
+			if (!all_locked) {
 				break;
 			}
 		}
 	}
 
 	all_locked = all_locked && has_node3d_item;
-	all_grouped = all_grouped && has_node3d_item;
 
 	tool_button[TOOL_LOCK_SELECTED]->set_visible(!all_locked);
 	tool_button[TOOL_LOCK_SELECTED]->set_disabled(!has_node3d_item);
 	tool_button[TOOL_UNLOCK_SELECTED]->set_visible(all_locked);
 	tool_button[TOOL_UNLOCK_SELECTED]->set_disabled(!has_node3d_item);
-
-	tool_button[TOOL_GROUP_SELECTED]->set_visible(false); // OpenRAC Editor: no selection groups.
-	tool_button[TOOL_GROUP_SELECTED]->set_disabled(!has_node3d_item);
-	tool_button[TOOL_UNGROUP_SELECTED]->set_visible(false);
-	tool_button[TOOL_UNGROUP_SELECTED]->set_disabled(!has_node3d_item);
 }
 
 template <typename T>
@@ -9714,8 +9708,6 @@ void Node3DEditor::_update_theme() {
 	tool_button[TOOL_MODE_LIST_SELECT]->set_button_icon(get_editor_theme_icon(SNAME("ListSelect")));
 	tool_button[TOOL_LOCK_SELECTED]->set_button_icon(get_editor_theme_icon(SNAME("Lock")));
 	tool_button[TOOL_UNLOCK_SELECTED]->set_button_icon(get_editor_theme_icon(SNAME("Unlock")));
-	tool_button[TOOL_GROUP_SELECTED]->set_button_icon(get_editor_theme_icon(SNAME("Group")));
-	tool_button[TOOL_UNGROUP_SELECTED]->set_button_icon(get_editor_theme_icon(SNAME("Ungroup")));
 	tool_button[TOOL_RULER]->set_button_icon(get_editor_theme_icon(SNAME("Ruler")));
 
 	tool_option_button[TOOL_OPT_LOCAL_COORDS]->set_button_icon(get_editor_theme_icon(SNAME("Object")));
@@ -10583,6 +10575,7 @@ Node3DEditor::Node3DEditor() {
 	tool_button[TOOL_MODE_MOVE] = memnew(Button);
 	main_menu_hbox->add_child(tool_button[TOOL_MODE_MOVE]);
 	tool_button[TOOL_MODE_MOVE]->set_toggle_mode(true);
+	tool_button[TOOL_MODE_MOVE]->set_text(TTRC("Move")); // OpenRAC Editor: the main tools say what they do.
 	tool_button[TOOL_MODE_MOVE]->set_tooltip_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	tool_button[TOOL_MODE_MOVE]->set_theme_type_variation(SceneStringName(FlatButton));
 
@@ -10594,6 +10587,7 @@ Node3DEditor::Node3DEditor() {
 	tool_button[TOOL_MODE_ROTATE] = memnew(Button);
 	main_menu_hbox->add_child(tool_button[TOOL_MODE_ROTATE]);
 	tool_button[TOOL_MODE_ROTATE]->set_toggle_mode(true);
+	tool_button[TOOL_MODE_ROTATE]->set_text(TTRC("Turn")); // OpenRAC Editor: the main tools say what they do.
 	tool_button[TOOL_MODE_ROTATE]->set_tooltip_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	tool_button[TOOL_MODE_ROTATE]->set_theme_type_variation(SceneStringName(FlatButton));
 	tool_button[TOOL_MODE_ROTATE]->connect(SceneStringName(pressed), callable_mp(this, &Node3DEditor::_menu_item_pressed).bind(MENU_TOOL_ROTATE));
@@ -10604,6 +10598,7 @@ Node3DEditor::Node3DEditor() {
 	tool_button[TOOL_MODE_SCALE] = memnew(Button);
 	main_menu_hbox->add_child(tool_button[TOOL_MODE_SCALE]);
 	tool_button[TOOL_MODE_SCALE]->set_toggle_mode(true);
+	tool_button[TOOL_MODE_SCALE]->set_text(TTRC("Size")); // OpenRAC Editor: the main tools say what they do.
 	tool_button[TOOL_MODE_SCALE]->set_tooltip_auto_translate_mode(AUTO_TRANSLATE_MODE_DISABLED);
 	tool_button[TOOL_MODE_SCALE]->set_theme_type_variation(SceneStringName(FlatButton));
 	tool_button[TOOL_MODE_SCALE]->connect(SceneStringName(pressed), callable_mp(this, &Node3DEditor::_menu_item_pressed).bind(MENU_TOOL_SCALE));
@@ -10648,24 +10643,6 @@ Node3DEditor::Node3DEditor() {
 	// Define the shortcut globally (without a context) so that it works if the Scene tree dock is currently focused.
 	tool_button[TOOL_UNLOCK_SELECTED]->set_shortcut(ED_GET_SHORTCUT("editor/unlock_selected_nodes"));
 	tool_button[TOOL_UNLOCK_SELECTED]->set_accessibility_name(TTRC("Unlock"));
-
-	tool_button[TOOL_GROUP_SELECTED] = memnew(Button);
-	main_menu_hbox->add_child(tool_button[TOOL_GROUP_SELECTED]);
-	tool_button[TOOL_GROUP_SELECTED]->set_theme_type_variation(SceneStringName(FlatButton));
-	tool_button[TOOL_GROUP_SELECTED]->connect(SceneStringName(pressed), callable_mp(this, &Node3DEditor::_menu_item_pressed).bind(MENU_GROUP_SELECTED));
-	tool_button[TOOL_GROUP_SELECTED]->set_tooltip_text(TTRC("Group the object with its parts. Clicking a part selects the whole object."));
-	// Define the shortcut globally (without a context) so that it works if the Scene tree dock is currently focused.
-	tool_button[TOOL_GROUP_SELECTED]->set_shortcut(ED_GET_SHORTCUT("editor/group_selected_nodes"));
-	tool_button[TOOL_GROUP_SELECTED]->set_accessibility_name(TTRC("Group"));
-
-	tool_button[TOOL_UNGROUP_SELECTED] = memnew(Button);
-	main_menu_hbox->add_child(tool_button[TOOL_UNGROUP_SELECTED]);
-	tool_button[TOOL_UNGROUP_SELECTED]->set_theme_type_variation(SceneStringName(FlatButton));
-	tool_button[TOOL_UNGROUP_SELECTED]->connect(SceneStringName(pressed), callable_mp(this, &Node3DEditor::_menu_item_pressed).bind(MENU_UNGROUP_SELECTED));
-	tool_button[TOOL_UNGROUP_SELECTED]->set_tooltip_text(TTRC("Ungroup the object so its parts can be clicked one by one."));
-	// Define the shortcut globally (without a context) so that it works if the Scene tree dock is currently focused.
-	tool_button[TOOL_UNGROUP_SELECTED]->set_shortcut(ED_GET_SHORTCUT("editor/ungroup_selected_nodes"));
-	tool_button[TOOL_UNGROUP_SELECTED]->set_accessibility_name(TTRC("Ungroup"));
 
 	tool_button[TOOL_RULER] = memnew(Button);
 	main_menu_hbox->add_child(tool_button[TOOL_RULER]);
@@ -10746,13 +10723,11 @@ Node3DEditor::Node3DEditor() {
 	main_menu_hbox->add_child(sun_environ_settings);
 
 	// OpenRAC Editor: fewer buttons. A level brings its own sky and sun, so no preview sun and sky; and no
-	// pick-from-a-list, selection groups, trackball or keep-children-in-place options.
+	// pick-from-a-list, trackball or keep-children-in-place options.
 	sun_button->hide();
 	environ_button->hide();
 	sun_environ_settings->hide();
 	tool_button[TOOL_MODE_LIST_SELECT]->hide();
-	tool_button[TOOL_GROUP_SELECTED]->hide();
-	tool_button[TOOL_UNGROUP_SELECTED]->hide();
 	tool_option_button[TOOL_OPT_USE_TRACKBALL]->hide();
 	tool_option_button[TOOL_OPT_PRESERVE_CHILDREN_TRANSFORM]->hide();
 

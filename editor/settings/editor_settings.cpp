@@ -523,7 +523,12 @@ void EditorSettings::_load_defaults(Ref<ConfigFile> p_extra_config) {
 	EDITOR_SETTING(Variant::STRING, PROPERTY_HINT_GLOBAL_FILE, "interface/editor/fonts/code_font", "", "*.ttf,*.otf,*.woff,*.woff2,*.pfb,*.pfm")
 	EDITOR_SETTING(Variant::FLOAT, PROPERTY_HINT_RANGE, "interface/editor/timers/dragging_hover_wait_seconds", 0.5, "0.01,10,0.01,or_greater,suffix:s");
 	_initial_set("interface/editor/behavior/automatically_open_screenshots", true, true);
-	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/single_window_mode", false, "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED | PROPERTY_USAGE_EDITOR_BASIC_SETTING)
+	// OpenRAC Editor: one window on the Steam Deck: its game mode shows one window at a time.
+	EDITOR_SETTING_USAGE(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/single_window_mode", OS::get_singleton()->get_environment("SteamDeck") == "1", "", PROPERTY_USAGE_DEFAULT | PROPERTY_USAGE_RESTART_IF_CHANGED | PROPERTY_USAGE_EDITOR_BASIC_SETTING)
+	// OpenRAC Editor: the intro, fading pages and windows, smooth scrolling and the gliding focus frame.
+	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/animations", true, "")
+	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/intro", true, "")
+	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/display/hints", true, "")
 	_initial_set("interface/editor/input/mouse_extra_buttons_navigate_history", true);
 	_initial_set("interface/editor/behavior/save_each_scene_on_quit", true, true); // Regression
 	EDITOR_SETTING_BASIC(Variant::BOOL, PROPERTY_HINT_NONE, "interface/editor/behavior/save_on_focus_loss", false, "")

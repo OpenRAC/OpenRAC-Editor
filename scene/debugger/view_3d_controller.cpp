@@ -444,6 +444,14 @@ void View3DController::cursor_look(const Ref<InputEventWithModifiers> &p_event, 
 	set_view_type(VIEW_TYPE_USER);
 }
 
+// OpenRAC Editor: a gamepad stick turns the view by degrees, whatever the mouse sensitivity is.
+void View3DController::cursor_look_degrees(const Vector2 &p_degrees) {
+	const float degrees_per_pixel = freelook_sensitivity * MIN(1.0, cursor.fov_scale);
+	if (degrees_per_pixel > 0) {
+		cursor_look(Ref<InputEventWithModifiers>(), p_degrees / degrees_per_pixel);
+	}
+}
+
 void View3DController::cursor_zoom(const Ref<InputEventWithModifiers> p_event, const Vector2 &p_relative) {
 	float zoom_speed = 1 / 80.0;
 	if (p_event.is_valid() && navigation_scheme == NAV_SCHEME_MAYA && p_event->is_shift_pressed()) {

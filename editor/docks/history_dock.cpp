@@ -240,7 +240,7 @@ HistoryDock::HistoryDock() {
 	set_layout_key("History");
 	set_icon_name("History");
 	set_dock_shortcut(ED_SHORTCUT_AND_COMMAND("docks/open_history", TTRC("Open History Panel")));
-	set_default_slot(EditorDock::DOCK_SLOT_LEFT_BR);
+	set_default_slot(EditorDock::DOCK_SLOT_LEFT_UR); // OpenRAC Editor: a tab beside the Level list.
 
 	ur_manager = EditorUndoRedoManager::get_singleton();
 	ur_manager->connect("history_changed", callable_mp(this, &HistoryDock::on_history_changed));
