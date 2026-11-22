@@ -30,7 +30,7 @@ var picker: Array = []
 
 func _init() -> void:
 	title = "Terrain"
-	default_slot = EditorDock.DOCK_SLOT_RIGHT_UL
+	default_slot = EditorDock.DOCK_SLOT_RIGHT_BL  # under Properties, beside Collision and Voices
 
 
 func _ready() -> void:
