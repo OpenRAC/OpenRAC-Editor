@@ -74,7 +74,7 @@ double EditorIntro::_now() const {
 	return clock;
 }
 
-void EditorIntro::_leave() {
+void EditorIntro::_finish() {
 	if (leave_at < 0 || leave_at > _now()) {
 		leave_at = MAX(_now(), LOGO_IN_END * 0.5);
 	}
@@ -83,7 +83,7 @@ void EditorIntro::_leave() {
 void EditorIntro::gui_input(const Ref<InputEvent> &p_event) {
 	Ref<InputEventMouseButton> mb = p_event;
 	if (mb.is_valid() && mb->is_pressed()) {
-		_leave();
+		_finish();
 		accept_event();
 	}
 }
@@ -91,7 +91,7 @@ void EditorIntro::gui_input(const Ref<InputEvent> &p_event) {
 void EditorIntro::input(const Ref<InputEvent> &p_event) {
 	// A key or a pad button skips it.
 	if ((Object::cast_to<InputEventKey>(*p_event) || Object::cast_to<InputEventJoypadButton>(*p_event)) && p_event->is_pressed()) {
-		_leave();
+		_finish();
 		get_viewport()->set_input_as_handled();
 	}
 }

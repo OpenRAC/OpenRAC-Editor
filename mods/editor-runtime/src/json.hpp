@@ -3,6 +3,8 @@
 #pragma once
 
 #include <charconv>
+#include <locale>
+#include <sstream>
 #include <cmath>
 #include <cstdint>
 #include <map>
@@ -12,6 +14,23 @@
 #include <vector>
 
 namespace cutscene::json {
+
+// A number already checked against JSON's grammar, as std::from_chars reads it. Apple's libc++
+// has no from_chars for double on the macOS the mod is built for, so there a stream in the "C"
+// locale reads it; one too big or too small for a double fails there and is out of range.
+inline std::from_chars_result to_double(const char* first, const char* last, double& d) {
+#if defined(__APPLE__)
+    std::istringstream in(std::string(first, last));
+    in.imbue(std::locale::classic());
+    in >> d;
+    if (in.fail()) {
+        return {last, std::errc::result_out_of_range};
+    }
+    return {in.eof() ? last : first + static_cast<std::ptrdiff_t>(in.tellg()), std::errc()};
+#else
+    return std::from_chars(first, last, d);
+#endif
+}
 
 // One JSON value. A missing key reads as null, so lookups chain without checks.
 class Value {
@@ -271,7 +290,7 @@ private:
                     }
                 }
                 double d = 0;
-                const auto [end, ec] = std::from_chars(text.data() + begin, text.data() + pos, d);
+                const auto [end, ec] = to_double(text.data() + begin, text.data() + pos, d);
                 if (ec == std::errc::result_out_of_range) {
                     // Past what a double holds: a tiny one is zero, a huge one infinite.
                     const std::string_view num = text.substr(begin, pos - begin);
