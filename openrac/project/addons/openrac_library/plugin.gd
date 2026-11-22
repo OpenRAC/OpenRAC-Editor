@@ -263,6 +263,47 @@ func handle_scene_changed(root: Node) -> void:
 		show_skins(root)
 		stand_up_lying.call_deferred()
 		Callable(DrawDistance, "apply_edited").call_deferred()
+		view_hero.call_deferred(root)
+
+
+## The 3D view's camera as the editor starts a scene it has no saved view for: at the world's middle.
+const FIRST_VIEW_DISTANCE: float = 4.0
+
+## A level opened for the first time shows the empty world's middle (0, 0, 0), often far from
+## anything. Then the view goes to the hero's start, a little behind and above. A level with a saved
+## view keeps it.
+func view_hero(root: Node) -> void:
+	# The editor puts back a saved view after the scene change: wait for it.
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	if root == null or not is_instance_valid(root) or root != EditorInterface.get_edited_scene_root():
+		return
+
+	var mobys: Node = root.get_node_or_null("Game/Mobys")
+	var hero: Node3D = null
+
+	for moby in mobys.get_children() if mobys != null else []:
+		if moby is Node3D and (int(moby.get_meta("rc1_class", -1)) == 0 or moby.scene_file_path.ends_with("/moby_0.tscn")):
+			hero = moby
+			break
+
+	var view: Node = EditorInterface.get_editor_viewport_3d(0)
+
+	while view != null and not view.has_method("set_state"):
+		view = view.get_parent()
+
+	if hero == null or view == null:
+		return
+
+	var state: Dictionary = view.call("get_state")
+
+	if Vector3(state.get("position", Vector3.ZERO)) != Vector3.ZERO \
+			or not is_equal_approx(float(state.get("distance", 0.0)), FIRST_VIEW_DISTANCE):
+		return
+
+	view.call("set_state", {"position": hero.global_position + Vector3(0, 1, 0), "distance": 10.0,
+		"x_rotation": 0.35, "y_rotation": hero.global_rotation.y - PI / 2})
 
 
 ## The light mode may have changed: the edited level's draw distances follow it (draw_distance.gd).

@@ -5371,6 +5371,9 @@ Dictionary Node3DEditorViewport::get_state() const {
 }
 
 void Node3DEditorViewport::_bind_methods() {
+	// OpenRAC Editor: the level plugin moves a level's first view to the hero (openrac_library/plugin.gd).
+	ClassDB::bind_method(D_METHOD("get_state"), &Node3DEditorViewport::get_state);
+	ClassDB::bind_method(D_METHOD("set_state", "state"), &Node3DEditorViewport::set_state);
 	ADD_SIGNAL(MethodInfo("toggle_maximize_view", PropertyInfo(Variant::OBJECT, "viewport")));
 	ADD_SIGNAL(MethodInfo("clicked"));
 }
