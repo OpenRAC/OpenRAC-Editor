@@ -253,11 +253,13 @@ class CheckAndPlay(unittest.TestCase):
     def test_a_game_that_runs_is_left_running(self):
         import sys
         with tempfile.TemporaryDirectory() as tmp:
-            command = [sys.executable, "-c", "import time; time.sleep(30)"]
+            import time
+            command = [sys.executable, "-c", "import time; time.sleep(2)"]
             with mock.patch.object(oe, "GAME_START_SECONDS", 0.5), redirect_stdout(io.StringIO()) as out, \
                     mock.patch.object(oe.subprocess, "run"):
                 self.assertEqual(oe.start_game(Path(sys.executable), command, Path(tmp) / "game.log"), 0)
             self.assertIn("openrac-started", out.getvalue())
+            time.sleep(2.5)  # it ends, and lets go of its log (Windows cannot delete an open file)
 
     def test_on_a_mac_the_game_draws_with_vulkan_like_the_launcher(self):
         with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {}, clear=True):
