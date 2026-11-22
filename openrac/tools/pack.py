@@ -250,6 +250,14 @@ def placement(t: tuple) -> tuple[tuple, tuple, float]:
     return tuple(t[9:12]), (rx, ry, rz), scale
 
 
+def needs_expanded_ram(core: bytes, original: bytes) -> bool:
+    """Whether a level's edited decoded CORE needs the game's expanded RAM. The level's memory after
+    the core moves up by as much as the core grew, and the disc's levels leave no known room at the
+    top of the 32 MiB: any growth may run past it (a crash while the level loads), not only a core
+    that is itself over 32 MiB. Packed in virtual sectors, the level gets the 256 MiB arena."""
+    return len(core) > VANILLA_RAM_BYTES or len(core) > len(original)
+
+
 def set_expanded_range(disc, info: dict, headers: dict[int, bytearray], slot: int,
                        first: int, count: int) -> None:
     """Set one range in a level header, preserving other expanded ranges."""
@@ -731,7 +739,7 @@ def pack_collision(disc, info: dict, scene: Path, text: str, out: Path, patches:
                           "the 256 MiB expanded guest RAM arena", code="level-too-big")
     data = disc.sectors(info["ranges"]["data"]["lba"], info["ranges"]["data"]["sectors"])
     expanded = collision_scene.expanded_level_data(data, core, index, level.index, compress,
-                                                   force=force_expanded_ram or len(core) > VANILLA_RAM_BYTES)
+                                                   force=force_expanded_ram or needs_expanded_ram(core, level.core))
     core_stream = compress(core, data[struct.unpack_from("<i", data, 10 * 8)[0]:][:16])
     changes.append(
         f"level core size: {len(core)} bytes decoded; {len(core_stream)} compressed; "
@@ -883,6 +891,56 @@ def check_cutscene(doc: dict, source: Path, level_id: int | None = None, spawn_i
             warnings.append(f"{event['do']} at tick {event.get('t')}: moby {event.get('spawn_id')} "
                             "is not in this level")
     return errors, warnings
+
+
+# How far (game units) a Terrain_MMM mesh may reach past its fragment's sphere: the disc's own
+# reach up to about 5.
+TERRAIN_REACH = 8.0
+
+
+def fragment_spheres(level) -> list[tuple]:
+    """Each terrain fragment's bounding sphere (x, y, z, r) in game units, as the game culls it."""
+    at, = struct.unpack_from("<I", level.index, 0x08)
+    data = level.block(at)
+    table, count = struct.unpack_from("<II", data)
+    return [tuple(v / 1024 for v in struct.unpack_from("<4f", data, table + 0x40 * i)) for i in range(count)]
+
+
+def terrain_replaced(level_dir: Path) -> bool:
+    """Whether the level's terrain.glb was written after its extraction (level.json, written last)."""
+    try:
+        return (level_dir / "terrain.glb").stat().st_mtime > (level_dir / "level.json").stat().st_mtime + 1
+    except OSError:
+        return False
+
+
+def terrain_notes(terrain: Path, spheres: list[tuple]) -> list[str]:
+    """The port hides a mesh named Terrain_MMM whenever the game culls its own fragment MMM
+    (port scene/level.cpp), so a new mesh with such a name blinks out. Says which ones reach far
+    past their fragment's sphere."""
+    import gltf_read
+    try:
+        doc = gltf_read.read(terrain)
+    except (OSError, ValueError, KeyError, IndexError, FormatError):
+        return []
+    far = []
+    for n, node in enumerate(doc.list("nodes")):
+        found = re.fullmatch(r"Terrain_(\d+)", node.get("name", ""))
+        if not found or "mesh" not in node or int(found.group(1)) >= len(spheres):
+            continue
+        sphere = spheres[int(found.group(1))]
+        world = doc.node_world(n)
+        reach = max((math.dist(sphere[:3], gltf_read.point(world, p))
+                     for prim in doc.list("meshes")[node["mesh"]]["primitives"]
+                     for p in doc.accessor(prim["attributes"]["POSITION"])), default=0.0)
+        if reach > sphere[3] + TERRAIN_REACH:
+            far.append(node["name"])
+    if not far:
+        return []
+    names = ", ".join(far[:3]) + (f" and {len(far) - 3} more" if len(far) > 3 else "")
+    return [(f"terrain.glb: {names} reach far past the game's own terrain piece of that number; the game "
+             "hides each one whenever it hides its piece, so it blinks out. Rename your own meshes "
+             "(for example Island_000) so the game draws them always")]
 
 
 def pack_cutscenes(scene_dir: Path, out_dir: Path, level_id: int | None = None, spawn_ids: set | None = None,
@@ -1232,6 +1290,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
                                                                     spawn_ids, classes_loaded)
         scenery_changes += cutscene_changes
         scenery_problems += cutscene_problems
+        if terrain_replaced(scene.parent):
+            notes += terrain_notes(scene.parent / "terrain.glb", fragment_spheres(load_level(disc, info)))
         if changes or problems or scenery_changes or scenery_problems or notes:
             report.append(f"level {info['id']:02}")
             report += [f"  {line}" for line in changes + scenery_changes]

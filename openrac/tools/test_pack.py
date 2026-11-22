@@ -2,13 +2,16 @@
 
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
 import math
+from pathlib import Path
+import tempfile
 import struct
 import unittest
 
 import gameplay as gp
 from godot import transform
 from mobys import FIELDS, POINTER, RECORD, SIZE, USUAL, moby_instances
-from pack import RAC1_SPAWN_ID_COUNT, pack_level, placement, scene_mobys, stable_spawn_ids, virtual_range
+from pack import (RAC1_SPAWN_ID_COUNT, terrain_notes, VANILLA_RAM_BYTES, needs_expanded_ram, pack_level, placement, scene_mobys,
+                  stable_spawn_ids, virtual_range)
 
 
 def gameplay(records: list[dict]) -> bytes:
@@ -36,6 +39,45 @@ def scene(data: bytes, edit=None) -> str:
             node = edit(p["index"], node)
         lines += node + [""]
     return "\n".join(lines)
+
+
+class ExpandedRam(unittest.TestCase):
+    # A core that grows moves the level's memory after it up, past the 32 MiB the game has: the
+    # level then needs the expanded arena though the core alone is far under 32 MiB (Pokitaru with
+    # new ground crashed loading).
+    def test_a_core_that_grows_needs_the_expanded_ram(self):
+        self.assertTrue(needs_expanded_ram(bytes(1000 + 64), bytes(1000)))
+        self.assertTrue(needs_expanded_ram(bytes(VANILLA_RAM_BYTES + 1), bytes(VANILLA_RAM_BYTES + 1)))
+
+    def test_a_core_of_the_same_size_does_not(self):
+        self.assertFalse(needs_expanded_ram(bytes(1000), bytes(1000)))
+        self.assertFalse(needs_expanded_ram(bytes(900), bytes(1000)))
+
+
+class TerrainNames(unittest.TestCase):
+    # The port hides Terrain_MMM whenever the game culls its fragment MMM: a new island named
+    # Terrain_000 blinked out.
+    def glb(self, folder, name, size):
+        from gltf import Gltf
+        from mesh import Mesh
+        g = Gltf()
+        mesh = Mesh(name, [(0, 0, 0), (size, 0, 0), (0, size, 0)], [(0, 0)] * 3, normals=[(0, 0, 1)] * 3)
+        mesh.add_face(None, (0, 1, 2))
+        g.node(name, g.mesh(mesh, {None: g.material('paint', None)}))
+        path = Path(folder) / 'terrain.glb'
+        path.write_bytes(g.glb())
+        return path
+
+    def test_a_big_mesh_with_a_fragment_name_is_named(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            notes = terrain_notes(self.glb(tmp, 'Terrain_000', 800), [(0.0, 0.0, 0.0, 10.0)])
+            self.assertEqual(len(notes), 1)
+            self.assertIn('Terrain_000', notes[0])
+
+    def test_the_games_own_and_other_names_are_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(terrain_notes(self.glb(tmp, 'Terrain_000', 5), [(0.0, 0.0, 0.0, 10.0)]), [])
+            self.assertEqual(terrain_notes(self.glb(tmp, 'Island_000', 800), [(0.0, 0.0, 0.0, 10.0)]), [])
 
 
 class PackLevel(unittest.TestCase):

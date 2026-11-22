@@ -72,6 +72,16 @@ static func this_level() -> Dictionary:
 	return {}
 
 
+## The game program beside the states program STATES (openrac-rac1-pal-states -> openrac-rac1-pal), or
+## "". Only the program's own name changes: a folder with "-states" in it stays as it is.
+static func game_beside(states: String) -> String:
+	if states.is_empty():
+		return ""
+
+	var name: String = states.get_file()
+	return states.left(states.length() - name.length()) + name.replace("-states", "")
+
+
 ## The command for KIND ("check" or "play"), or a sentence saying what is missing.
 static func command_for(kind: String, level: Dictionary) -> Variant:
 	var python: String = user_arg("--openrac-python")
@@ -87,7 +97,7 @@ static func command_for(kind: String, level: Dictionary) -> Variant:
 
 	if kind == "play":
 		var states: String = user_arg("--openrac-states")
-		var game: String = states.replace("-states", "")
+		var game: String = game_beside(states)
 
 		if user_arg("--openrac-packed") == "" or user_arg("--openrac-data") == "" or game == "":
 			return "Open the level from the launcher (Mods, Level editor, Open) to play it."

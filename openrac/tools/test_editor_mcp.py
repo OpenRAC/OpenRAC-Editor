@@ -20,6 +20,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import planet
 from test_editor_e2e import LEVEL
 from test_library_dock import level_project
 
@@ -171,6 +172,44 @@ class EditorMCP(unittest.TestCase):
         self.assertEqual([round(v, 3) for v in moby["position"]], [10, 20, 3])
         self.assertIn("40 characters", self.editor.error("planet_set", {"name": "x" * 41}))
 
+    def test_3b_removes_each_moby_once_and_puts_them_back_in_place(self):
+        added = []
+        for x in (30, 31):
+            answer = self.editor.call("moby_add", {"class": 11, "position": [x, 0, 0]})
+            if "job" in answer:
+                answer = self.editor.call("job_wait", {"id": answer["job"], "seconds": 60})["result"]
+            added.append(answer["node"])
+        before = [m["path"] for m in self.editor.call("moby_list", {"limit": 512})["mobys"]]
+        # Named twice, and the later one first.
+        gone = self.editor.call("moby_remove", {"nodes": [added[1], added[0], added[1]]})
+        self.assertEqual(len(gone["deleted"]), 2, gone)
+        self.editor.call("undo")
+        self.assertEqual([m["path"] for m in self.editor.call("moby_list", {"limit": 512})["mobys"]], before)
+        self.assertNotIn("already has a parent", self.editor.text())
+        self.assertNotIn("Invalid new child index", self.editor.text())
+        self.editor.call("moby_remove", {"nodes": added})
+
+    def test_3c_takes_the_planet_id_the_first_add_wrote(self):
+        # planet.py writes the id into project.godot while the editor is open.
+        self.editor.call("planet_set", {"name": "Museum"})
+        planet.set_setting(self.editor.project, planet.ID, "museum.1234abcd")
+        self.assertEqual(self.editor.call("planet_get")["id"], "museum.1234abcd")
+        # Naming it again keeps that id on disk.
+        self.editor.call("planet_set", {"name": "Museum Two"})
+        self.assertEqual(planet.settings(self.editor.project).get(planet.ID), "museum.1234abcd")
+
+    def test_3d_an_add_while_another_comes_in_waits(self):
+        flag = ('for p in editor.get_base_control().find_children("*", "", true, false):\n'
+                '\tif p.get_script() != null and String(p.get_script().resource_path).ends_with("openrac_library/dock.gd"):\n'
+                '\t\tp.plugin.waiting_for_import = %s\n\t\treturn true\nreturn false')
+        self.assertTrue(self.editor.call("run_gdscript", {"code": flag % "true"})["result"])
+        answer = self.editor.call("moby_add", {"class": 11, "position": [40, 0, 0]})
+        self.assertEqual(answer.get("state"), "running", answer)
+        self.assertTrue(self.editor.call("run_gdscript", {"code": flag % "false"})["result"])
+        done = self.editor.call("job_wait", {"id": answer["job"], "seconds": 30})
+        self.assertEqual(done["state"], "done", done)
+        self.editor.call("moby_remove", {"nodes": [done["result"]["node"]]})
+
     def test_4_writes_and_checks_a_cutscene(self):
         doc = {
             "length": 300,
@@ -227,6 +266,9 @@ class EditorMCP(unittest.TestCase):
         self.editor.call("undo")
         missing = self.editor.error("job_status", {"id": "nope"})
         self.assertIn("nope", missing)
+        # The tools that start a job answer {"job": id}: that name works too.
+        self.assertIn("nope", self.editor.error("job_wait", {"job": "nope"}))
+        self.assertIn("id", self.editor.error("job_wait", {}))
 
     def test_6_the_plugin_bridge(self):
         # ai/openrac's stdio bridge finds the editor by its mcp.json and passes messages through.

@@ -18,6 +18,7 @@ const Dock = preload("dock.gd")
 const Library = preload("library.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
 const ForeignInspector = preload("foreign_inspector.gd")
+const PlanetInspector = preload("planet_inspector.gd")
 const Play = preload("play.gd")
 const VoicesDock = preload("voices_dock.gd")
 const DrawDistance = preload("draw_distance.gd")
@@ -38,6 +39,8 @@ var foreign_inspector: ForeignInspector
 var play: Play
 ## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
 var voices: VoicesDock
+## The Planet Name section of the level (planet_inspector.gd).
+var planet_inspector: PlanetInspector
 
 ## What placed files are, by res:// path: the asset placed, until its node arrives.
 var pending: Dictionary = {}
@@ -76,6 +79,8 @@ func _enter_tree() -> void:
 	foreign_inspector.level_name = level_name
 	foreign_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(foreign_inspector)
+	planet_inspector = PlanetInspector.new()
+	add_inspector_plugin(planet_inspector)
 	scene_changed.connect(handle_scene_changed)
 	get_tree().node_added.connect(handle_node_added)
 	handle_scene_changed(EditorInterface.get_edited_scene_root())
@@ -104,7 +109,7 @@ func register_mcp() -> void:
 
 ## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
 ## name in the ship's menu, and its id, which the first add sets so later ones update the same
-## planet. In Project Settings, OpenRAC > Planet.
+## planet. The level's Properties show the name (planet_inspector.gd).
 static func add_planet_settings() -> void:
 	for entry in [["openrac/planet/name", "Name in the ship's menu (letters, digits, spaces; 40 at most)"],
 			["openrac/planet/id", "Set when the planet is first added."]]:
@@ -134,6 +139,8 @@ func _exit_tree() -> void:
 	behaviour_inspector = null
 	remove_inspector_plugin(foreign_inspector)
 	foreign_inspector = null
+	remove_inspector_plugin(planet_inspector)
+	planet_inspector = null
 	remove_dock(dock)
 	dock.queue_free()
 	dock = null
@@ -256,6 +263,54 @@ func handle_scene_changed(root: Node) -> void:
 		show_skins(root)
 		stand_up_lying.call_deferred()
 		Callable(DrawDistance, "apply_edited").call_deferred()
+		view_hero.call_deferred(root.get_instance_id(), 2)
+
+
+## The 3D view's camera as the editor starts a scene it has no saved view for: at the world's middle.
+const FIRST_VIEW_DISTANCE: float = 4.0
+
+## A level opened for the first time shows the empty world's middle (0, 0, 0), often far from
+## anything. Then the view goes to the hero's start, a little behind and above. A level with a saved
+## view keeps it.
+func view_hero(root_id: int, frames: int) -> void:
+	# The editor puts back a saved view after the scene change: wait for it. A signal, not an await,
+	# so nothing is left waiting when the plugin is switched off meanwhile.
+	if not is_inside_tree():
+		return
+
+	if frames > 0:
+		get_tree().process_frame.connect(view_hero.bind(root_id, frames - 1), CONNECT_ONE_SHOT)
+		return
+
+	var root: Node = instance_from_id(root_id) as Node
+
+	if root == null or root != EditorInterface.get_edited_scene_root():
+		return
+
+	var mobys: Node = root.get_node_or_null("Game/Mobys")
+	var hero: Node3D = null
+
+	for moby in mobys.get_children() if mobys != null else []:
+		if moby is Node3D and (int(moby.get_meta("rc1_class", -1)) == 0 or moby.scene_file_path.ends_with("/moby_0.tscn")):
+			hero = moby
+			break
+
+	var view: Node = EditorInterface.get_editor_viewport_3d(0)
+
+	while view != null and not view.has_method("set_state"):
+		view = view.get_parent()
+
+	if hero == null or view == null:
+		return
+
+	var state: Dictionary = view.call("get_state")
+
+	if Vector3(state.get("position", Vector3.ZERO)) != Vector3.ZERO \
+			or not is_equal_approx(float(state.get("distance", 0.0)), FIRST_VIEW_DISTANCE):
+		return
+
+	view.call("set_state", {"position": hero.global_position + Vector3(0, 1, 0), "distance": 10.0,
+		"x_rotation": 0.35, "y_rotation": hero.global_rotation.y - PI / 2})
 
 
 ## The light mode may have changed: the edited level's draw distances follow it (draw_distance.gd).

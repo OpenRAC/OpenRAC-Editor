@@ -2600,8 +2600,20 @@ Dictionary EditorMCPServer::_job_info(const Job &p_job, int p_from_line) const {
 	return d;
 }
 
+// OpenRAC Editor: a job's id from "id", or "job" as the tools that start one name it in their answer.
+static String _job_id_of(const Dictionary &p_args) {
+	return p_args.get("id", p_args.get("job", ""));
+}
+
+static String _no_job(const String &p_id) {
+	if (p_id.is_empty()) {
+		return "Give the job's id (id), as the tool that started it answered.";
+	}
+	return "No job " + p_id + ": job_status with no id lists the jobs.";
+}
+
 Dictionary EditorMCPServer::_tool_job_status(const Dictionary &p_args) {
-	String id = p_args.get("id", "");
+	String id = _job_id_of(p_args);
 	if (id.is_empty()) {
 		Array all;
 		for (const KeyValue<String, Job> &E : jobs) {
@@ -2616,7 +2628,7 @@ Dictionary EditorMCPServer::_tool_job_status(const Dictionary &p_args) {
 		return _text_result(d);
 	}
 	if (!jobs.has(id)) {
-		return _error_result("No job " + id + ".");
+		return _error_result(_no_job(id));
 	}
 	const Job &j = jobs[id];
 	Dictionary info = _job_info(j, p_args.get("from_line", 0));
@@ -2637,9 +2649,9 @@ Dictionary EditorMCPServer::_tool_job_status(const Dictionary &p_args) {
 }
 
 Dictionary EditorMCPServer::_tool_job_wait(const Dictionary &p_args) {
-	String id = p_args.get("id", "");
+	String id = _job_id_of(p_args);
 	if (!jobs.has(id)) {
-		return _error_result("No job " + id + ".");
+		return _error_result(_no_job(id));
 	}
 	if (jobs[id].state == "running") {
 		double seconds = CLAMP(double(p_args.get("seconds", 60.0)), 0.0, double(WAIT_MAX_MSEC) / 1000.0);
@@ -2651,9 +2663,9 @@ Dictionary EditorMCPServer::_tool_job_wait(const Dictionary &p_args) {
 }
 
 Dictionary EditorMCPServer::_tool_job_cancel(const Dictionary &p_args) {
-	String id = p_args.get("id", "");
+	String id = _job_id_of(p_args);
 	if (!jobs.has(id)) {
-		return _error_result("No job " + id + ".");
+		return _error_result(_no_job(id));
 	}
 	Job &j = jobs[id];
 	if (j.state != "running") {
