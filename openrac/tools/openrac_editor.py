@@ -463,8 +463,9 @@ def check_or_play(args) -> int:
     if not game.is_file():
         raise FormatError(f"no game program at {game}: build the port (or start it from the launcher)",
                           code="file-missing")
-    command = [str(game), "--data", str(args.data), "--levels", str(args.levels), "--mods", str(result["dest"]),
-               "--level", str(number), "--skip-movies"]
+    # --window as the launcher's Play has it: without it the game runs with no window at all.
+    command = [str(game), "--data", str(args.data), "--window", "--levels", str(args.levels),
+               "--mods", str(result["dest"]), "--level", str(number), "--skip-movies"]
     return start_game(game, command, Path(result["dest"]).parent / "game.log")
 
 
