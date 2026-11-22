@@ -46,7 +46,7 @@ The ground is the level's terrain mesh. `terrain_info` compares it with Pokitaru
 overhangs, deep shadows) and says what to do. For new land, add rocks (`terrain_rock_add`: a foot
 under the sea, an undercut, a shoulder) and `terrain_build`; paint pictures by slope and height
 (`terrain_paint`), map them at 3 units a tile (`terrain_uv`), and end with `terrain_bake_light`.
-New land needs collision too: give `terrain.py build --collision` a file and add it to the level's
+New land needs collision too: give `terrain_tools.py build --collision` a file and add it to the level's
 collision. [TERRAIN.md](TERRAIN.md) has the details.
 
 ## Cutscenes

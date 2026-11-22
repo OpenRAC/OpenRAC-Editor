@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 the OpenRAC contributors
-"""Tests for terrain.py: a small glb terrain is built, painted, mapped, sculpted and lit."""
+"""Tests for terrain_tools.py: a small glb terrain is built, painted, mapped, sculpted and lit."""
 
 import json
 from pathlib import Path
@@ -9,7 +9,7 @@ import unittest
 
 import numpy as np
 
-import terrain
+import terrain_tools as terrain
 
 
 def flat_terrain(path: Path, size=40, step=2.0):

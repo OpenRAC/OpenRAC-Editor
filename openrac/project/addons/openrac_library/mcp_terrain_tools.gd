@@ -2,7 +2,7 @@
 extends RefCounted
 ## The terrain tools for AI assistants, on the editor's MCP server (docs/MCP.md, docs/TERRAIN.md).
 ## They work on the level's terrain mesh (levels/level_NN/terrain.glb) through
-## openrac/tools/terrain.py, run as a job; the editor then imports the terrain again. Every change
+## openrac/tools/terrain_tools.py, run as a job; the editor then imports the terrain again. Every change
 ## keeps a backup first (terrain_undo takes it back). Places are the game's: x, y across, z up.
 ## plugin.gd makes one and calls register() and unregister(); the Terrain panel (terrain_dock.gd)
 ## runs the same commands.
@@ -116,7 +116,7 @@ static func terrain_res() -> String:
 	return ""
 
 
-## terrain.py's command line for OP with ARGS, or an error text.
+## terrain_tools.py's command line for OP with ARGS, or an error text.
 static func command(op: String, args: PackedStringArray) -> Variant:
 	var path := terrain_res()
 	if path.is_empty():
@@ -125,7 +125,7 @@ static func command(op: String, args: PackedStringArray) -> Variant:
 	var tools: String = Play.user_arg("--openrac-tools")
 	if python.is_empty() or tools.is_empty():
 		return "Open the level from the launcher (Mods, Level editor, Open) first."
-	var out: PackedStringArray = ["-u", tools.path_join("terrain.py"), op, ProjectSettings.globalize_path(path)]
+	var out: PackedStringArray = ["-u", tools.path_join("terrain_tools.py"), op, ProjectSettings.globalize_path(path)]
 	out.append_array(args)
 	return {"program": python, "args": out}
 
@@ -145,7 +145,7 @@ static func brush_args(args: Dictionary) -> PackedStringArray:
 	return out
 
 
-## Runs terrain.py as a job; when it changed the terrain, the editor imports it again.
+## Runs terrain_tools.py as a job; when it changed the terrain, the editor imports it again.
 func run(op: String, args: PackedStringArray, title: String, changes: bool = true) -> Variant:
 	var cmd: Variant = command(op, args)
 	if cmd is String:
@@ -165,7 +165,7 @@ static func finished(code: int, lines: PackedStringArray, changes: bool) -> Dict
 		if result is Dictionary:
 			break
 	if code != 0 or not result is Dictionary:
-		return {"ok": false, "error": "\n".join(lines.slice(-5)) if not lines.is_empty() else "terrain.py did not run."}
+		return {"ok": false, "error": "\n".join(lines.slice(-5)) if not lines.is_empty() else "terrain_tools.py did not run."}
 	if changes:
 		reimport.call_deferred()
 	(result as Dictionary)["ok"] = true

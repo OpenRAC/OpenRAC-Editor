@@ -2,14 +2,14 @@
 # Copyright (c) 2026 the OpenRAC contributors
 """Terrain tools: work on a level's terrain mesh (terrain.glb), not only a height map.
 
-    python3 terrain.py info  TERRAIN [--near X Y R]
-    python3 terrain.py bake-light TERRAIN [--sun AZ EL] [--region X0 Y0 X1 Y1] [--ao 24]
-    python3 terrain.py uv    TERRAIN --tile 3 [brush]
-    python3 terrain.py paint TERRAIN --texture textures/terrain_0003.png [brush] [filters]
-    python3 terrain.py sculpt TERRAIN --mode raise|lower|smooth|roughen|flatten --strength S [brush]
-    python3 terrain.py rock-add TERRAIN --at X Y Z --radius R --height H [--undercut U --bulge B ...]
-    python3 terrain.py build TERRAIN [--step 2] [--budget N] [--collision OUT.glb]
-    python3 terrain.py undo  TERRAIN
+    python3 terrain_tools.py info  TERRAIN [--near X Y R]
+    python3 terrain_tools.py bake-light TERRAIN [--sun AZ EL] [--region X0 Y0 X1 Y1] [--ao 24]
+    python3 terrain_tools.py uv    TERRAIN --tile 3 [brush]
+    python3 terrain_tools.py paint TERRAIN --texture textures/terrain_0003.png [brush] [filters]
+    python3 terrain_tools.py sculpt TERRAIN --mode raise|lower|smooth|roughen|flatten --strength S [brush]
+    python3 terrain_tools.py rock-add TERRAIN --at X Y Z --radius R --height H [--undercut U --bulge B ...]
+    python3 terrain_tools.py build TERRAIN [--step 2] [--budget N] [--collision OUT.glb]
+    python3 terrain_tools.py undo  TERRAIN
 
 A brush is --at X Y Z --radius R (a sphere; without it, the whole terrain). Coordinates are the
 game's: x and y across, z up. Each change first copies TERRAIN to .terrain-backups/ next to it
@@ -1212,7 +1212,7 @@ def main(argv=None):
                 "x": args.at[0], "y": args.at[1], "z0": args.at[2], "z1": args.at[2] + args.height, "radius": args.radius,
                 "undercut": args.undercut, "bulge": args.bulge, "taper": args.taper, "roughness": args.roughness,
                 "layering": args.layering, "layer": args.layer, "yaw": args.yaw, "warp": args.warp, "stretch": args.stretch, "seed": args.seed})
-        rpath.write_text(json.dumps(recipe, indent=1) + "\n", encoding="utf-8")
+        rpath.write_text(json.dumps(recipe, indent=1) + "\n", encoding="utf-8", newline="\n")
         result = {"rocks": len(recipe["rocks"]), "recipe": str(rpath)}
     else:
         t = Terrain(path)

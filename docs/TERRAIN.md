@@ -53,7 +53,7 @@ whole archipelago.
 (the house shades its deck, the deck its stilts, a cliff the house) and torches light both:
 
 ```
-terrain.py bake-light terrain.glb --models models/house.glb models/props.glb \
+terrain_tools.py bake-light terrain.glb --models models/house.glb models/props.glb \
     --subdivide 2.2 --glow 0.9 --model-tint 0.5 --keep-tint --lights lights.json --ambient 0.2
 ```
 

@@ -4,7 +4,7 @@ extends EditorDock
 ## Pick what the brush does, its size and strength, then click on the ground in the 3D view.
 ## Bake light puts sun, shadows and sky light into the ground's colours. Build rocks turns the rock
 ## recipe into the Rocks mesh. Every change keeps a backup (Undo). The work is
-## openrac/tools/terrain.py's (docs/TERRAIN.md), the same commands as the terrain_* MCP tools.
+## openrac/tools/terrain_tools.py's (docs/TERRAIN.md), the same commands as the terrain_* MCP tools.
 
 const Tools = preload("mcp_terrain_tools.gd")
 
@@ -127,7 +127,7 @@ func busy() -> bool:
 	return worker != null and worker.is_alive()
 
 
-## Runs terrain.py OP in a thread; when it changed the ground, the editor imports it again.
+## Runs terrain_tools.py OP in a thread; when it changed the ground, the editor imports it again.
 func start(op: String, args: PackedStringArray, what: String, changes: bool = true) -> void:
 	if busy():
 		status.text = "Still working on the last change."
