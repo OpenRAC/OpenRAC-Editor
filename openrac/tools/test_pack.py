@@ -247,6 +247,30 @@ class AddAndDelete(unittest.TestCase):
         out, changes, problems = pack_level(0, self.data, text)
         self.assertEqual((changes, problems), (["Crate: added, after moby 0"], []))
 
+    def test_a_class_the_level_loads_but_never_places_takes_another_levels_moby(self):
+        # Pack refused it ("no placed instance to copy initialized pvars from").
+        import foreign_classes
+        donor = foreign_classes.Donor(5, 77, dict(zip(FIELDS, RECORD.unpack(gp.records(self.data)[0])),
+                                                  class_id=77, x=1.0, y=2.0, z=3.0), pvar=bytes(16))
+        text = scene(self.data) + ('\n[ext_resource type="PackedScene" path="res://levels/level_00/mobys/moby_77.tscn" id="m77"]\n'
+                                   '[node name="Ship" parent="Game/Mobys" instance=ExtResource("m77")]\n'
+                                   "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6)\n")
+        out, changes, problems = pack_level(0, self.data, text, {500, 7, 77}, core_donors={77: donor})
+        self.assertEqual((changes, problems), (["Ship: added, with the values of a moby of level 05"], []))
+        added = dict(zip(FIELDS, RECORD.unpack(gp.records(out)[-1])))
+        self.assertEqual(added["class_id"], 77)
+        self.assertGreaterEqual(added["pvar_index"], 0)
+
+    def test_a_class_no_level_places_comes_with_a_simple_move_or_says_how(self):
+        text = scene(self.data) + ('\n[ext_resource type="PackedScene" path="res://levels/level_00/mobys/moby_77.tscn" id="m77"]\n'
+                                   '[node name="Ship" parent="Game/Mobys" instance=ExtResource("m77")]\n'
+                                   "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6)\n")
+        out, changes, problems = pack_level(0, self.data, text + 'metadata/rc1_behaviour = "follow"\n', {500, 7, 77},
+                                            made_here={"Ship"})
+        self.assertEqual((out, changes, problems), (self.data, [], []))     # the mod makes it: no record
+        _, _, problems = pack_level(0, self.data, text, {500, 7, 77})
+        self.assertIn("simple move", problems[0])
+
     def test_a_deleted_moby_closes_the_table_and_what_names_mobys_follows(self):
         out, changes, problems = pack_level(0, self.data, scene(self.data, lambda i, node: [] if i == 1 else node))
         self.assertEqual((changes, problems), (["BoltCrate_0001: deleted"], []))

@@ -363,7 +363,9 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                node_names: list[str] | None = None,
                spawn_ids: dict[str, int] | None = None,
                foreign: dict | None = None,
-               foreign_placed: list | None = None) -> tuple[bytes, list[str], list[str]]:
+               foreign_placed: list | None = None,
+               core_donors: dict | None = None,
+               made_here: set | None = None) -> tuple[bytes, list[str], list[str]]:
     """The gameplay file with the scene's edits, what changed, and what could not be packed.
 
     A moby the scene has once keeps its place in the table. A node with the index of another
@@ -375,7 +377,10 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
     mobys by their place in the table, follow. A moby of a class FOREIGN has (class -> its
     foreign_classes.Donor, a moby of it in its own level) takes after that moby, in no group.
     NODE_NAMES, when given, gets each packed moby's node name, in the table's order; SPAWN_IDS each packed moby's spawn id, by its node's name.
-    FOREIGN_PLACED, when given, gets each moby of a class FOREIGN has: (its record, its Donor)."""
+    FOREIGN_PLACED, when given, gets each moby of a class FOREIGN has: (its record, its Donor).
+    CORE_DONORS (class -> Donor) are mobys in other levels of classes this level loads but never
+    places: a new moby of one takes its pvars, and runs as this level's own class. MADE_HERE names
+    the nodes the editor-runtime mod makes instead (a simple move, no moby to copy): no record."""
     originals = moby_instances(gameplay)
     raw = gp.records(gameplay)
     nodes = scene_mobys(scene)
@@ -484,11 +489,25 @@ def pack_level(level_id: int, gameplay: bytes, scene: str, available_classes: se
                         "native classes from another level are not supported yet. Use a class available in "
                         "this level or import the model as static scenery."
                     )
+                elif made_here and node["name"] in made_here:
+                    continue    # the editor-runtime mod makes it (pack(): behaviours.py)
+                elif core_donors and node["class_id"] in core_donors:
+                    # The level loads the class but places none: a moby of it in another level
+                    # gives its values and pvars, moved to where this one stands.
+                    import foreign_classes
+                    donor = core_donors[node["class_id"]]
+                    record = dict(donor.record, group=-1)
+                    apply(node, record, None, False, problems)
+                    moved[id(record)] = foreign_classes.Move.between(donor.record, record)
+                    added.append((record, donor))
+                    added_names.append(node["name"])
+                    changes.append(f"{node['name']}: added, with the values of a moby of level {donor.level:02}")
+                    continue
                 elif available_classes is not None:
                     problems.append(
-                        f"{node['name']}: class {node['class_id']} exists in this level's core, but there is "
-                        "no placed instance to copy initialized pvars from; this class cannot be added safely. "
-                        "Use a class with an existing instance or import the model as static scenery."
+                        f"{node['name']}: no level places class {node['class_id']} (the game makes it from its "
+                        "own code), so its actions can't run here. Give it a simple move (Behaviour in the "
+                        "Inspector), or add it as scenery."
                     )
                 else:
                     problems.append(f"{node['name']}: the level has no moby of class {node['class_id']} to take "
@@ -1048,6 +1067,39 @@ def write_unchanged(root: Path, keys: dict) -> None:
         pass    # a project that cannot be written packs in full each time
 
 
+def loaded_class_donors(disc, survey: dict, here: int, text: str, available: set[int] | None,
+                        placed: set[int], wanted: dict, sources: dict) -> dict:
+    """A moby in another level (the nearest that places one) of each class the scene adds that
+    this level loads but places none of: class -> foreign_classes.Donor. SOURCES caches each
+    level's gameplay (and loaded level) as pack() reads them."""
+    import foreign_classes
+    if not available:
+        return {}
+    need = {n["class_id"] for n in scene_mobys(text)
+            if n["class_id"] is not None and n["meta"].get("foreign_level") is None and n["meta"].get("index") is None}
+    need = {c for c in need if c in available and c not in placed and c not in wanted}
+    out = {}
+    levels = sorted((i for i in survey["levels"] if i["id"] != here and 0 <= i["id"] < foreign_classes.LEVELS),
+                    key=lambda i: abs(i["id"] - here))
+    for info in levels:
+        if not need:
+            break
+        if info["id"] not in sources:
+            place = info["ranges"][disc.version.gameplay]
+            sources[info["id"]] = (decoded(disc.sectors(place["lba"], place["sectors"])), load_level(disc, info))
+        gameplay = sources[info["id"]][0]
+        for class_id in sorted(need):
+            try:
+                foreign_classes.check(here, info["id"], class_id)
+            except ValueError:
+                continue
+            found = foreign_classes.donor(info["id"], gameplay, class_id)
+            if found is not None:
+                out[class_id] = found
+                need.discard(class_id)
+    return out
+
+
 def pack(disc, survey: dict, project: Path, out: Path,
          moby_names: dict[int, tuple[Path, list[str]]] | None = None) -> tuple[int, int]:
     """Writes OUT from the scenes of PROJECT, for DISC's version. Returns (levels packed, mobys changed).
@@ -1249,8 +1301,16 @@ def pack(disc, survey: dict, project: Path, out: Path,
         names: list[str] = []
         moby_spawn_ids: dict[str, int] = {}
         placed: list = []
+        core_donors = loaded_class_donors(disc, survey, info["id"], text, available_classes, original_classes,
+                                          wanted, sources)
+        # A class this level loads that no level places, with a simple move: the mod makes it.
+        made_here = {n["name"]: made_by_mod(n) for n in scene_mobys(text)
+                     if available_classes and n["class_id"] in available_classes
+                     and n["class_id"] not in original_classes and n["class_id"] not in core_donors
+                     and n["meta"].get("index") is None and n["meta"].get("foreign_level") is None
+                     and "behaviour" in n["meta"]}
         edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes, names, moby_spawn_ids,
-                                               donors, placed)
+                                               donors, placed, core_donors, set(made_here))
         problems += foreign_problems
         changes += foreign_classes.write(out / name, blobs) + foreign_notes if donors or looks else []
 
@@ -1296,7 +1356,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
         # Behaviours: mobys the editor-runtime mod moves (behaviours.py), beside the placements.
         import behaviours
         behaviour_changes, behaviour_problems = behaviours.write_behaviours(
-            text, out / name, moby_spawn_ids, {n["name"]: made_by_mod(n) for n in foreign_nodes if n["class_id"] in looks})
+            text, out / name, moby_spawn_ids,
+            {n["name"]: made_by_mod(n) for n in foreign_nodes if n["class_id"] in looks} | made_here)
         scenery_changes += behaviour_changes
         scenery_problems += behaviour_problems
         # Cutscenes: files the editor-runtime mod reads from the pack, beside the level's.

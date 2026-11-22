@@ -381,7 +381,7 @@ func class_search(args: Dictionary) -> Variant:
 			if not Array(words).all(func(w: String) -> bool: return name.contains(w)):
 				continue
 
-			var how: String = "own" if Library.status(asset, here) == Library.FULL else (
+			var how: String = "look" if Library.made_only(asset, here) else "own" if Library.status(asset, here) == Library.FULL else (
 				"import" if Library.import_refusal(asset, here).is_empty() else "look")
 			out.append({"class": asset["class"], "name": asset["name"], "level": asset["level"],
 				"level_name": asset["level_name"], "scale": asset["scale"], "comes_as": how})

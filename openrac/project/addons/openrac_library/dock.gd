@@ -305,6 +305,8 @@ func show_selected() -> void:
 	add_button.disabled = here.is_empty()
 	add_button.text = "Add"
 	add_button.tooltip_text = ("Open a level first." if here.is_empty() else
+		"The game makes it from its own code, so it comes as scenery. Add With a Simple Move to make it move."
+			if Library.made_only(asset, here) else
 		"The game's own %s of this level." % asset["kind"].trim_suffix("s") if status == Library.FULL else
 		"Scenery only. Or drag it into the 3D view.")
 	own_button.disabled = not refusal.is_empty()

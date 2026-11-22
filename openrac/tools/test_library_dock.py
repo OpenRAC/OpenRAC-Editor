@@ -137,6 +137,9 @@ class LibraryOnProjects(unittest.TestCase):
             self.assertEqual(result["names"]["rac1/pal/mobys/75"], ["red_ship_1", 0.5])
             self.assertEqual(result["full_path"], "res://levels/level_05/mobys/moby_10.tscn")
             self.assertEqual(result["look_path"], "res://library/rac1/pal/level_03/mobys/moby_75.glb")
+            # A class this level loads but places none of: placed in its own level it can start its
+            # logic from there (pack.py), placed nowhere it is scenery (made_only).
+            self.assertEqual(result["made_only"], [False, True])
 
             # The copy: still, its texture beside it by the same relative path, and static_assets takes it.
             copy = here / "library" / "rac1" / "pal" / "level_03" / "mobys" / "moby_75.glb"
