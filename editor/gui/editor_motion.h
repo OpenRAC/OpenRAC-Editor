@@ -22,7 +22,7 @@ class EditorIntro : public Control {
 	double leave_at = -1.0; // On its clock; -1 until the editor is ready.
 
 	double _now() const;
-	void _leave();
+	void _finish();
 
 protected:
 	void _notification(int p_what);
