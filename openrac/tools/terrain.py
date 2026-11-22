@@ -677,12 +677,25 @@ def smooth_union(a, b, k):
     return a * (1 - h) + b * h + k * h * (1 - h)
 
 
+def rock_bounds(rock):
+    """The box a rock can reach (its bulge, noise and warp included): (lo, hi)."""
+    R = rock["radius"] * max(rock.get("stretch", [1.0, 1.0]))
+    reach = R * (1.15 * (1 + rock.get("roughness", 0.25) + rock.get("layering", 0.06)) + rock.get("warp", 0.35)) + 1
+    top = rock["z1"] + rock.get("roughness", 0.25) * rock["radius"] * 0.25 + 1
+    return (np.array([rock["x"] - reach, rock["y"] - reach, rock["z0"] - 1]),
+            np.array([rock["x"] + reach, rock["y"] + reach, top]))
+
+
 def recipe_density(P, recipe):
-    rocks = recipe.get("rocks", [])
+    """Positive inside the recipe's rocks. Each rock is only worked out inside its own box, so a
+    recipe of many rocks over a whole level stays quick."""
     k = recipe.get("blend", 4.0)
-    out = rock_density(P, rocks[0])
-    for rock in rocks[1:]:
-        out = smooth_union(out, rock_density(P, rock), k)
+    out = np.full(len(P), -1e3)
+    for rock in recipe.get("rocks", []):
+        lo, hi = rock_bounds(rock)
+        m = np.all((P >= lo) & (P <= hi), axis=1)
+        if m.any():
+            out[m] = smooth_union(out[m], rock_density(P[m], rock), k)
     for cave in recipe.get("caves", []):
         c = np.array(cave["at"], float)
         d = cave["radius"] - np.linalg.norm((P - c) / np.array(cave.get("scale", [1, 1, 0.7])), axis=1)
@@ -773,12 +786,9 @@ def build(t, recipe, args):
     rocks = recipe.get("rocks", [])
     if not rocks:
         raise SystemExit(f"no rocks in the recipe ({RECIPE}): add some with rock-add")
-    lo = np.array([min(r["x"] - r["radius"] * max(r.get("stretch", [1, 1])) * 1.6 for r in rocks),
-                   min(r["y"] - r["radius"] * max(r.get("stretch", [1, 1])) * 1.6 for r in rocks),
-                   min(r["z0"] for r in rocks) - args.step * 2])
-    hi = np.array([max(r["x"] + r["radius"] * max(r.get("stretch", [1, 1])) * 1.6 for r in rocks),
-                   max(r["y"] + r["radius"] * max(r.get("stretch", [1, 1])) * 1.6 for r in rocks),
-                   max(r["z1"] for r in rocks) + args.step * 3])
+    boxes = [rock_bounds(r) for r in rocks]
+    lo = np.min([b[0] for b in boxes], axis=0) - args.step * 2
+    hi = np.max([b[1] for b in boxes], axis=0) + args.step * 2
     V, F = surface_nets(lambda P: recipe_density(P, recipe), lo, hi, args.step)
     # Faces deep under the sea are never seen: dropped (the rocks' flat feet).
     if recipe.get("sea") is not None:
@@ -831,7 +841,8 @@ def auto_texture(t, recipe, args):
     centre, n, area = face_data(p, np.zeros(3))
     nz = n[:, 2]
     # Top edge: a face is a "lip" when a top face lies just above it.
-    tops = centre[nz > 0.75]
+    flat = recipe.get("top_slope", 0.75)       # a face this upright or more is a top (grass)
+    tops = centre[nz > flat]
     lip = np.zeros(len(centre), bool)
     if len(tops):
         cell = 3.0
@@ -839,21 +850,21 @@ def auto_texture(t, recipe, args):
         for q in tops:
             k = (int(q[0] // cell), int(q[1] // cell))
             key[k] = max(key.get(k, -1e9), q[2])
-        for i in np.nonzero((nz <= 0.75) & (nz > -0.3))[0]:
+        for i in np.nonzero((nz <= flat) & (nz > -0.3))[0]:
             q = centre[i]
             best = -1e9
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     best = max(best, key.get((int(q[0] // cell) + dx, int(q[1] // cell) + dy), -1e9))
             lip[i] = 0 < best - q[2] < recipe.get("lip", 4.0)
-    creep = value_noise3(centre / 14.0, 9, 2) > 0.58
+    creep = value_noise3(centre / 14.0, 9, 2) > 1 - recipe.get("creepers", 0.42)   # creepers: the share of walls they cover
     kind = np.full(len(centre), "wall", dtype=object)
     kind[creep] = "creeper"
     kind[lip] = "lip"
-    kind[nz > 0.75] = "top"
+    kind[nz > flat] = "top"
     kind[nz < -0.35] = "under"
     if sea is not None:
-        kind[(centre[:, 2] < sea + 2.5) & (nz <= 0.75)] = "shore"
+        kind[(centre[:, 2] < sea + 2.5) & (nz <= flat)] = "shore"
     prims = []
     for name in ("top", "lip", "wall", "creeper", "under", "shore"):
         sel = kind == name
@@ -863,9 +874,10 @@ def auto_texture(t, recipe, args):
         prims.append(Prim(t.material_for(styles[name]), {k: v[used] for k, v in p.attrs.items()}, inverse.reshape(-1, 3)))
     node[2] = prims
     tile = recipe.get("tile", 3.0)
-    for q in prims:
+    tiles = recipe.get("tiles", {})            # a kind's own tile size, e.g. {"wall": 5}
+    for name, q in zip([k for k in ("top", "lip", "wall", "creeper", "under", "shore") if (kind == k).any()], prims):
         uri = t.texture_uri(q.material)
-        box_uv_prim(q, tile, lip_tile=recipe.get("lip", 4.0) if uri == styles["lip"] else None)
+        box_uv_prim(q, tiles.get(name, tile), lip_tile=recipe.get("lip", 4.0) if uri == styles["lip"] else None)
 
 
 def box_uv_prim(p, tile, lip_tile=None):
