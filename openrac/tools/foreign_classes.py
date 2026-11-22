@@ -54,6 +54,7 @@ class Donor:
 SET_PIECES = {
     (1843, 17): "this ship gets its path from the fleet turret (class 347); place the turret, it brings its ships",
     (1319, 11): "this ship gets its path from the oil tanker (class 1264); place the tanker, it brings its ships",
+    (654, 16): "it plays one of Kalebo III's scenes and points the camera at that level's cameras; give it simple logic",
 }
 
 # The engine's 224 moby class slots (resident_class_id_by_slot) less two: after the level's classes

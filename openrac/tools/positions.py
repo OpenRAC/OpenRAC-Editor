@@ -2,11 +2,15 @@
 moby's are moved with it (foreign_classes.py), as its paths are, so a lift still stops at its own
 floors and not at the heights of its old level.
 
-    positions.py write GEN LIBRARIES   the table again, from the port's generated C of a build
+    positions.py write GEN LIBRARIES [DECOMP]
+                                       the table again, from the port's generated C of a build
                                        (port/build/<preset>/games/rac1-ntsc/gen) and the version's
-                                       libraries.tsv (its "The update of class N" hooks)
+                                       libraries.tsv (its "The update of class N" hooks); with
+                                       rac1-decomp's checkout (OpenRAC's games/rac1/decomp) also
+                                       the updates no hook names (spawns.roles)
 
-A word is a place when the game sets a moby's position to it: `pos.z = vars->raised_z`, followed
+A word is a place when the game sets a moby's position to it: `pos.z = vars->raised_z`, or eases
+the position to it (a lift going to `vars->top`), followed
 back through locals and the arguments callers pass as groups.py does. A word the code only adds to
 a position (a speed) is not one. A class gets the words of its update and the functions it calls.
 Standard library and clang.
@@ -22,6 +26,10 @@ import spawns
 
 TABLE = Path(__file__).with_name("rac1_position_fields.tsv")
 SET = re.compile(r"offsetof\(struct Moby, pos\)\)+->([xyz])\) = ")
+# The game's eases (rac1-ntsc's names): (value, its speed, target, ...) move a value to the target
+# a step a tick, as a lift goes to its floor. With a moby's position as the value, the target is a place.
+EASES = ("game_FUN_00213f38", "game_FUN_L00_0025b8c0")
+EASE = re.compile(r"\b(" + "|".join(EASES) + r")\s*\(")
 
 
 def table(path: Path = TABLE) -> dict[tuple[int, int], list[tuple[int, str]]]:
@@ -138,17 +146,23 @@ def place_of(expr: str) -> list[str]:
     return reads
 
 
-def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
+def write(gen: Path, libraries: Path, path: Path = TABLE, decomp: Path | None = None) -> int:
     found = spawns.functions(gen)
     offsets: dict[str, set[tuple[int, str]]] = {}
     for axis in "xyz":
         sinks = [(name, right_side(f.body, m.end())) for name, f in found.items()
                  for m in SET.finditer(f.body) if m.group(1) == axis]
+        for name, f in found.items():
+            for m in EASE.finditer(f.body):
+                args = spawns.arguments(f.body, m.end() - 1)
+                if (len(args) > 2 and "offsetof(struct Moby, pos)" in args[0]
+                        and f"offsetof(Vec4f, {axis})" in args[0]):
+                    sinks.append((name, args[2]))
         reads = {name: {p for e in exprs for p in place_of(e)} for name, exprs in groups.trace(found, sinks).items()}
         for function, words in groups.measure(gen, found, reads).items():
             offsets.setdefault(function, set()).update((o, axis) for o, size in words if size == 4)
     rows: dict[tuple[int, int], set[tuple[int, str]]] = {}
-    for function, level, class_id in spawns.hooks(libraries):
+    for function, level, class_id in spawns.updates(libraries, decomp):
         words = set()
         for f in spawns.closure(found, function):
             words |= offsets.get(f, set())
@@ -164,6 +178,6 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
 if __name__ == "__main__":
     groups.DEBUG = "--debug" in sys.argv
     sys.argv = [a for a in sys.argv if a != "--debug"]
-    if len(sys.argv) != 4 or sys.argv[1] != "write":
+    if len(sys.argv) not in (4, 5) or sys.argv[1] != "write":
         sys.exit(__doc__)
-    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]))} rows")
+    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]), decomp=Path(sys.argv[4]) if len(sys.argv) == 5 else None)} rows")

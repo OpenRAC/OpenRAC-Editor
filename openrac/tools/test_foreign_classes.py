@@ -214,6 +214,29 @@ class ForeignClasses(unittest.TestCase):
         self.assertEqual(spawns.made_by(29, 13, known), {36, 1238, 775})
         self.assertEqual(spawns.made_by(29, 12, known), set())
         self.assertTrue(spawns.table())    # the table the repository carries
+        # Updates no mod hook names (a moving platform playing another class's sound) come from
+        # rac1-decomp's names, as rac1-ntsc's functions.
+        self.assertEqual(spawns.table().get((868, 3)), {905})
+        # A lift eases to its floors' heights (positions.EASES): they move with its copy.
+        import positions
+        self.assertEqual(positions.table().get((21, 13)), [(96, "z"), (100, "z")])
+
+    def test_the_updates_the_decomp_names(self):
+        import spawns
+        with tempfile.TemporaryDirectory() as temp:
+            config = Path(temp) / "config" / "overlays"
+            config.mkdir(parents=True)
+            (config / "names.tsv").write_text(
+                "# name\troles\n"
+                "func_L03_00295DB0\tUpdateMoby_868:03,UpdateMoby_905:03\n"
+                "func_L00_0028EF68\tSound:00/01\n"
+                "func_001E9768\tUpdateMoby_85:04\n", encoding="utf-8")
+            (config / "us_map.tsv").write_text(
+                "# program\n"
+                "level_03\t00294C08\t1412\tfunc_L03_00295DB0\tfingerprint\t1.00\n"
+                "boot\t001E93E8\t8\tfunc_001E9768\tfingerprint\t1.00\n", encoding="utf-8")
+            self.assertEqual(spawns.roles(Path(temp)), [
+                ("FUN_L03_00294c08", 3, 868), ("FUN_L03_00294c08", 3, 905), ("FUN_001e93e8", -1, 85)])
 
     def test_writes_the_list_and_the_blobs_and_clears_them(self):
         with tempfile.TemporaryDirectory() as temp:
