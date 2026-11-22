@@ -1,5 +1,7 @@
 # Create and add a ship destination
 
+To send your map to other players, see [Share a map](#share-a-map) at the end.
+
 A destination pack **adds a world** to RAC1's ship computer. It does not replace
 its template planet. Enable one pack to add the twentieth destination; enable
 another to add the twenty-first. Each has its own name, arrival position and
@@ -346,3 +348,39 @@ standalone map; creators should use format 4 and normal launcher preparation.
   disc-derived terrain, models, textures, packed game files or ISOs with this code.
   Keep generated outputs private; the repository contains only tools, tests and
   documentation.
+
+## Share a map
+
+A shared map is one `.openrac-map` file. It holds no game data, so you can send
+it to anyone. Each player's own disc fills in the rest.
+
+**Make it.** Click the level (the top object in the Level list). Type its
+**Planet Name** and, if you like, **Made By**. Press **Share Map** and pick where
+to save the file. The launcher's **Share a level as a map** does the same.
+
+**Add it.** In the launcher, go to **Mods** and add the file like any mod (pick
+it or drop it). OpenRAC Editor must be downloaded. The map becomes its own
+project beside your levels, `level_NN-<map id>`. Your own `level_NN` is not
+touched. On the European disc it is also added as a new planet: board the ship
+and pick it. On other discs, open the project and press **Play Level**. Adding
+the same map again updates it, and the old copy goes to the backups folder.
+
+What is in the file:
+
+| What you did | What the file holds |
+|---|---|
+| moved, changed, added or deleted objects | only those nodes; a copy names the object it copies |
+| edited collision or other level files | a patch with only the new bytes |
+| used textures or models of the game (Assets, static imports) | their level, path and sha256 |
+| added your own models, textures, cutscenes | the files as they are |
+
+Credit the people whose models you used: put a `CREDITS.txt` or license file in
+the project, and it goes into the map. A map works only with the same disc
+version it was made from (PAL, NTSC-U and so on).
+
+From a shell:
+
+```sh
+python3 <editor>/openrac/tools/openrac_editor.py map export assets/levels/rac1/pal/level_02 my-world.openrac-map --author "Your name"
+python3 <editor>/openrac/tools/openrac_editor.py map import my-world.openrac-map assets/levels/rac1/pal --planet <data>/overrides
+```

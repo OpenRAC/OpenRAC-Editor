@@ -3,9 +3,18 @@ extends EditorInspectorPlugin
 ## The Planet section in the Properties of a level (the top object in the Level list): the name the
 ## ship's menu shows when the level is added as a new planet (openrac/tools/planet.py). It is kept in
 ## project.godot ([openrac] planet/name), as the editor has no Project Settings window.
+## Share Map writes the level as one .openrac-map file others can import on their own disc
+## (openrac/tools/shared_map.py): the creator's edits and own files, no game data.
+
+const Play = preload("play.gd")
 
 const NAME_SETTING: String = "openrac/planet/name"
 const ID_SETTING: String = "openrac/planet/id"
+const AUTHOR_SETTING: String = "openrac/map/author"
+
+## The export running in the background, and its result window.
+static var worker: Thread
+static var result: AcceptDialog
 
 ## What the ship's menu shows at most (planet.py MOST_NAME).
 const MOST_NAME: int = 40
@@ -99,4 +108,114 @@ func section() -> Control:
 
 	field.text_submitted.connect(func(_text: String) -> void: apply.call())
 	field.focus_exited.connect(apply)
+
+	var made_by := Label.new()
+	made_by.text = "Made By"
+	made_by.tooltip_text = "Your name, shown to players who import your map."
+	box.add_child(made_by)
+	var author := LineEdit.new()
+	author.text = String(ProjectSettings.get_setting(AUTHOR_SETTING, ""))
+	author.placeholder_text = "Your name (optional)"
+	author.max_length = 80
+	author.text_submitted.connect(func(_text: String) -> void: save_author(author.text))
+	author.focus_exited.connect(func() -> void: save_author(author.text))
+	box.add_child(author)
+
+	var share := Button.new()
+	share.text = "Share Map"
+	share.tooltip_text = "Saves this level as one .openrac-map file. It holds your edits and your own models, no game data: players import it on their own disc."
+	share.pressed.connect(func() -> void:
+		save_author(author.text)
+		apply.call()
+		pick_file())
+	box.add_child(share)
 	return box
+
+
+static func save_author(text: String) -> void:
+	text = text.strip_edges()
+
+	if text != String(ProjectSettings.get_setting(AUTHOR_SETTING, "")):
+		sync_id()
+		ProjectSettings.set_setting(AUTHOR_SETTING, text)
+		ProjectSettings.save()
+
+
+## Asks where the map file goes, then writes it there.
+static func pick_file() -> void:
+	if worker != null and worker.is_started():
+		return
+
+	var picker := EditorFileDialog.new()
+	picker.file_mode = EditorFileDialog.FILE_MODE_SAVE_FILE
+	picker.access = EditorFileDialog.ACCESS_FILESYSTEM
+	picker.add_filter("*.openrac-map", "OpenRAC map")
+	picker.title = "Save your map"
+	var name: String = String(ProjectSettings.get_setting(NAME_SETTING, "")).strip_edges()
+	picker.current_file = (name.to_lower().replace(" ", "-") if name != "" else "my-map") + ".openrac-map"
+	picker.file_selected.connect(func(path: String) -> void:
+		picker.queue_free()
+		export_to(path))
+	picker.canceled.connect(picker.queue_free)
+	EditorInterface.get_base_control().add_child(picker)
+	picker.popup_file_dialog()
+
+
+## Saves the scenes and writes the map to PATH off the editor's thread (it reads the level from the
+## disc again, some seconds).
+static func export_to(path: String) -> void:
+	var python: String = Play.user_arg("--openrac-python")
+	var tools: String = Play.user_arg("--openrac-tools")
+	var level: Dictionary = Play.this_level()
+
+	if level.is_empty() or python == "" or tools == "":
+		show_result(1, PackedStringArray(["Open the level from the launcher (Mods, Level editor, Open) first."]))
+		return
+
+	if String(ProjectSettings.get_setting(NAME_SETTING, "")).strip_edges() == "":
+		show_result(1, PackedStringArray(["Type the map's name in Planet Name first."]))
+		return
+
+	EditorInterface.save_all_scenes()
+	var args := PackedStringArray([tools.path_join("openrac_editor.py"), "map", "export", level["project"], path])
+	var author: String = String(ProjectSettings.get_setting(AUTHOR_SETTING, "")).strip_edges()
+
+	if author != "":
+		args.append_array(["--author", author])
+
+	worker = Thread.new()
+	worker.start(func() -> void:
+		var output: Array = []
+		var code: int = OS.execute(python, args, output, true)
+		var lines := PackedStringArray()
+		for chunk in output:
+			lines.append_array(String(chunk).split("\n", false))
+		finish.call_deferred(code, lines))
+
+
+static func finish(code: int, lines: PackedStringArray) -> void:
+	worker.wait_to_finish()
+	worker = null
+	show_result(code, lines)
+
+
+static func show_result(code: int, lines: PackedStringArray) -> void:
+	var said := PackedStringArray()
+
+	for line in lines:
+		if line.begins_with("map: "):
+			said.append(line.trim_prefix("map: "))
+		elif not line.begins_with("openrac-"):
+			said.append(line)
+
+	if result == null or not is_instance_valid(result):
+		result = AcceptDialog.new()
+		result.title = "Share Map"
+		EditorInterface.get_base_control().add_child(result)
+
+	if code == 0:
+		result.dialog_text = "Your map is saved. Send the file to players: they add it in the launcher.\n\n" + "\n".join(said)
+	else:
+		result.dialog_text = "\n".join(said) if not said.is_empty() else "Couldn't save the map. Try again."
+
+	result.popup_centered_clamped(Vector2(560, 300) * EditorInterface.get_editor_scale(), 0.8)

@@ -704,6 +704,9 @@ if __name__ == "__main__":
     if sys.argv[1:2] == ["terrain"]:
         import terrain_tools as terrain
         sys.exit(terrain.main(sys.argv[2:]))
+    if sys.argv[1:2] == ["map"]:
+        import shared_map
+        sys.exit(shared_map.main(sys.argv[2:]))
     if sys.argv[1:2] == ["open"]:
         sys.exit(open_editor(sys.argv[2:]))
     if sys.argv[1:] == ["--worker"]:
