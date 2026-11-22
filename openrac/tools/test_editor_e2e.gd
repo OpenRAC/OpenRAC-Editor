@@ -80,6 +80,8 @@ func run() -> void:
 			if not only.is_empty() and not only.has(name):
 				continue
 			scenario = name
+			# Assets shares its tabs with Level: a scenario that opened Level leaves the dock hidden.
+			show_dock()
 			var began: int = Time.get_ticks_msec()
 			await call(name)
 			times[name] = Time.get_ticks_msec() - began
