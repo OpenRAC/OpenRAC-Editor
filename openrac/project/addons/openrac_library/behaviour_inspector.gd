@@ -1,7 +1,8 @@
 @tool
 extends EditorInspectorPlugin
 ## The Behaviour section in the Inspector of a moby under Game/Mobys: a preset (spin, bob, patrol,
-## orbit, face the hero, follow the hero) and its numbers, kept as rc1_behaviour metadata, which
+## orbit, face the hero, follow the hero, wander), its numbers and the animations it plays standing
+## and moving, kept as rc1_behaviour metadata, which
 ## editor/behaviours.py packs and the editor-runtime mod plays. Undoable.
 
 ## Each preset's numbers, their defaults and steps (editor/behaviours.py PRESETS), and a hint.
@@ -13,10 +14,15 @@ const PRESETS: Dictionary = {
 	"face_hero": {"speed": [180.0, 0.0, 3600.0, "degrees a second"]},
 	"follow": {"speed": [4.0, 0.0, 200.0, "units a second"], "distance": [3.0, 0.0, 1000.0, "units"],
 		"range": [30.0, 0.0, 10000.0, "units; 0 means always"]},
+	"wander": {"radius": [8.0, 0.0, 1000.0, "units"], "speed": [3.0, 0.0, 200.0, "units a second"],
+		"pause": [2.0, 0.0, 600.0, "seconds"]},
 }
 
 const LABELS: Dictionary = {"spin": "Spin", "bob": "Bob", "patrol": "Patrol", "orbit": "Orbit",
-	"face_hero": "Face Ratchet", "follow": "Follow Ratchet"}
+	"face_hero": "Face Ratchet", "follow": "Follow Ratchet", "wander": "Wander"}
+
+## The animation metadata: the one it plays standing, and the one while it moves.
+const ANIMATIONS: Array = [["sequence", "Standing animation", "Its own"], ["walk_sequence", "Moving animation", "Same as standing"]]
 
 var undo_redo: EditorUndoRedoManager
 
@@ -70,8 +76,16 @@ func section(node: Node3D) -> Control:
 			box.add_child(number_row(node, key, "%s (%s)" % [key.capitalize(), spec[3]],
 				float(node.get_meta("rc1_behaviour_" + key, spec[0])), spec[1], spec[2], 0.05))
 
-		box.add_child(number_row(node, "sequence", "Animation (-1: its own)",
-			float(node.get_meta("rc1_behaviour_sequence", -1)), -1.0, 255.0, 1.0))
+		var sequences: Array = class_sequences(node)
+
+		for row: Array in ANIMATIONS:
+			var value: int = int(node.get_meta("rc1_behaviour_" + row[0], -1))
+
+			if sequences.is_empty():
+				box.add_child(number_row(node, row[0], "%s (-1: %s)" % [row[1], String(row[2]).to_lower()],
+					float(value), -1.0, 255.0, 1.0))
+			else:
+				box.add_child(animation_row(node, row[0], row[1], row[2], sequences, value))
 
 	return box
 
@@ -96,6 +110,52 @@ func number_row(node: Node3D, key: String, label: String, value: float, low: flo
 	return row
 
 
+## The animations of NODE's class, from its model's AnimationPlayer: [[sequence number, name]].
+static func class_sequences(node: Node) -> Array:
+	var out: Array = []
+	var number := RegEx.create_from_string("seq_(\\d+)")
+
+	for player: Node in node.find_children("*", "AnimationPlayer", true, false):
+		for name: StringName in (player as AnimationPlayer).get_animation_list():
+			var found: RegExMatch = number.search(String(name))
+
+			if found != null and not out.any(func(a: Array) -> bool: return a[0] == found.get_string(1).to_int()):
+				out.append([found.get_string(1).to_int(), String(name)])
+
+	out.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	return out
+
+
+## A row to pick one of SEQUENCES (or NONE) for KEY.
+func animation_row(node: Node3D, key: String, label: String, none: String, sequences: Array, value: int) -> Control:
+	var row := HBoxContainer.new()
+	var name := Label.new()
+	name.text = label
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name.clip_text = true
+	name.tooltip_text = label
+	name.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(name)
+	var pick := OptionButton.new()
+	pick.fit_to_longest_item = false
+	pick.clip_text = true
+	pick.custom_minimum_size.x = 90.0 * EditorInterface.get_editor_scale()
+	pick.add_item(none)
+	pick.set_item_metadata(0, -1)
+
+	for sequence: Array in sequences:
+		pick.add_item("Animation %d" % sequence[0])
+		pick.set_item_metadata(pick.item_count - 1, sequence[0])
+		pick.set_item_tooltip(pick.item_count - 1, sequence[1])
+
+		if sequence[0] == value:
+			pick.select(pick.item_count - 1)
+
+	pick.item_selected.connect(func(index: int) -> void: set_number(node, key, float(pick.get_item_metadata(index))))
+	row.add_child(pick)
+	return row
+
+
 ## Gives NODE the preset PRESET ("" for none), its numbers kept when they are the new preset's too.
 func set_preset(node: Node3D, preset: String) -> void:
 	var before: Dictionary = behaviour_meta(node)
@@ -108,6 +168,7 @@ func set_preset(node: Node3D, preset: String) -> void:
 			after["rc1_behaviour_" + key] = before.get("rc1_behaviour_" + key, PRESETS[preset][key][0])
 
 		after["rc1_behaviour_sequence"] = before.get("rc1_behaviour_sequence", -1)
+		after["rc1_behaviour_walk_sequence"] = before.get("rc1_behaviour_walk_sequence", -1)
 
 	commit(node, "Set the behaviour of %s" % node.name, before, after, true)
 
@@ -115,7 +176,7 @@ func set_preset(node: Node3D, preset: String) -> void:
 func set_number(node: Node3D, key: String, value: float) -> void:
 	var before: Dictionary = behaviour_meta(node)
 	var after: Dictionary = before.duplicate()
-	after["rc1_behaviour_" + key] = int(value) if key == "sequence" else value
+	after["rc1_behaviour_" + key] = int(value) if key.ends_with("sequence") else value
 	commit(node, "Set %s of %s's behaviour" % [key, node.name], before, after, false)
 
 

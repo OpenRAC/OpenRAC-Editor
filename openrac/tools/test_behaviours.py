@@ -81,15 +81,19 @@ class Inspector(unittest.TestCase):
         self.assertEqual(steps[:2], [True, False])
         self.assertEqual(steps[2], {"rc1_behaviour": "follow", "rc1_behaviour_speed": 4.0,
                                     "rc1_behaviour_distance": 3.0, "rc1_behaviour_range": 30.0,
-                                    "rc1_behaviour_sequence": -1})
+                                    "rc1_behaviour_sequence": -1, "rc1_behaviour_walk_sequence": -1})
         # A new preset keeps the numbers both have (speed, the animation), the rest go.
         self.assertEqual(steps[3], {"rc1_behaviour": "orbit", "rc1_behaviour_radius": 4.0,
-                                    "rc1_behaviour_speed": 7.5, "rc1_behaviour_sequence": 3})
-        self.assertEqual(steps[4], 5)   # title, preset, radius, speed, animation
+                                    "rc1_behaviour_speed": 7.5, "rc1_behaviour_sequence": 3,
+                                    "rc1_behaviour_walk_sequence": -1})
+        self.assertEqual(steps[4], 6)   # title, preset, radius, speed, standing and moving animations
         self.assertEqual(steps[5], {})
         # What it sets packs as the mod reads it.
         node = {"name": "Vendor", "meta": {k[len("rc1_"):]: v for k, v in steps[3].items()}}
         self.assertEqual(behaviours.entry(node), {"preset": "orbit", "radius": 4.0, "speed": 7.5, "sequence": 3})
+        node["meta"].update({"behaviour": "wander", "behaviour_walk_sequence": 5})
+        self.assertEqual(behaviours.entry(node), {"preset": "wander", "radius": 4.0, "speed": 7.5, "pause": 2.0,
+                                                  "sequence": 3, "walk_sequence": 5})
 
 
 if __name__ == "__main__":

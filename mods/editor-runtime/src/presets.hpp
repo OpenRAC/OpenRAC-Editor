@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -21,10 +22,16 @@ struct V3 {
     float x = 0, y = 0, z = 0;
 };
 
-enum class Preset { Spin, Bob, Patrol, Orbit, FaceHero, Follow };
+enum class Preset { Spin, Bob, Patrol, Orbit, FaceHero, Follow, Wander };
 
 struct Behaviour {
     int spawn_id = -1;
+    // A moby the mod makes (another level's class brought for its look): its class, place, turn
+    // (radians) and scale; -1 for a placed one, named by spawn_id.
+    int oclass = -1;
+    float position[3] = {0, 0, 0};
+    float rotation[3] = {0, 0, 0};
+    float scale = 0;
     Preset preset = Preset::Spin;
     double speed = 0;     // degrees a second (spin, orbit, face_hero) or units a second (patrol, follow)
     double height = 0;    // bob: how far up and down
@@ -32,7 +39,9 @@ struct Behaviour {
     double distance = 0;  // patrol: how far it goes; follow: how near the hero it stops
     double radius = 0;    // orbit
     double range = 0;     // follow: how near the hero must be for it to follow (0: always)
-    int sequence = -1;    // the class's sequence it plays, -1 its own
+    double pause = 0;     // wander: seconds it stands at each place
+    int sequence = -1;    // the class's sequence it plays standing, -1 its own
+    int walk_sequence = -1;  // the one it plays while it moves, -1 the standing one
 };
 
 inline double radians(double degrees) { return degrees * kPi / 180.0; }
@@ -58,6 +67,7 @@ inline std::optional<Preset> preset_of(const std::string& name) {
     if (name == "orbit") return Preset::Orbit;
     if (name == "face_hero") return Preset::FaceHero;
     if (name == "follow") return Preset::Follow;
+    if (name == "wander") return Preset::Wander;
     return std::nullopt;
 }
 
@@ -73,20 +83,34 @@ inline double field(const Value& v, double fallback, double lo, double hi) {
 inline std::optional<Behaviour> behaviour_of(const Value& v) {
     const auto preset = preset_of(v["preset"].string());
     const int id = v["spawn_id"].integer(-1);
-    if (!preset || id < 0 || id >= 0xFFFF) return std::nullopt;
+    const int oclass = v["class"].integer(-1);
+    const bool made = oclass >= 0 && oclass < 0x10000 && v["position"].is_array();
+    if (!preset || (!made && (id < 0 || id >= 0xFFFF))) return std::nullopt;
     Behaviour b;
-    b.spawn_id = id;
+    b.spawn_id = made ? -1 : id;
     b.preset = *preset;
+    if (made) {
+        b.oclass = oclass;
+        for (int i = 0; i < 3; ++i) {
+            b.position[i] = static_cast<float>(field(v["position"][i], 0, -1e6, 1e6));
+            b.rotation[i] = static_cast<float>(field(v["rotation"][i], 0, -10, 10));
+        }
+        b.scale = static_cast<float>(field(v["scale"], 0, 0, 1000));
+    }
     const bool turns = *preset == Preset::Spin || *preset == Preset::Orbit || *preset == Preset::FaceHero;
-    const double speed = *preset == Preset::Spin ? 90 : *preset == Preset::Orbit ? 45 : *preset == Preset::FaceHero ? 180 : 4;
+    const double speed = *preset == Preset::Spin ? 90 : *preset == Preset::Orbit ? 45 : *preset == Preset::FaceHero ? 180
+                       : *preset == Preset::Wander ? 3 : 4;
     b.speed = field(v["speed"], speed, turns ? -3600 : 0, turns ? 3600 : 200);
     b.height = field(v["height"], 1, -100, 100);
     b.period = field(v["period"], 2, 0.05, 600);
     b.distance = field(v["distance"], *preset == Preset::Follow ? 3 : 8, 0, 1000);
-    b.radius = field(v["radius"], 4, 0, 1000);
+    b.radius = field(v["radius"], *preset == Preset::Wander ? 8 : 4, 0, 1000);
     b.range = field(v["range"], 30, 0, 10000);
+    b.pause = field(v["pause"], 2, 0, 600);
     b.sequence = v["sequence"].integer(-1);
     if (b.sequence < -1 || b.sequence > 255) b.sequence = -1;
+    b.walk_sequence = v["walk_sequence"].integer(-1);
+    if (b.walk_sequence < -1 || b.walk_sequence > 255) b.walk_sequence = -1;
     return b;
 }
 
@@ -94,9 +118,29 @@ inline std::optional<Behaviour> behaviour_of(const Value& v) {
 struct State {
     V3 start_position, start_rotation;
     V3 position, rotation;
+    V3 target;               // wander: where it goes next
+    double wait = 0;         // wander: seconds left standing
+    std::uint32_t rng = 1;   // wander: its own dice, so a moby wanders the same way each load
 };
 
-inline State start(const V3& position, const V3& rotation) { return {position, rotation, position, rotation}; }
+inline State start(const V3& position, const V3& rotation, std::uint32_t seed = 1) {
+    State s{position, rotation, position, rotation, position};
+    s.rng = seed * 2654435761u + 1u;
+    return s;
+}
+
+// A number in 0..1 from the state's dice (xorshift).
+inline double dice(State& s) {
+    s.rng ^= s.rng << 13;
+    s.rng ^= s.rng >> 17;
+    s.rng ^= s.rng << 5;
+    return (s.rng & 0xFFFFFF) / double(0x1000000);
+}
+
+// The sequence a moby with `b` plays: its walking one while it moved this tick, else its standing one.
+inline int sequence_for(const Behaviour& b, bool moved) {
+    return moved && b.walk_sequence >= 0 ? b.walk_sequence : b.sequence;
+}
 
 // Moves `s` to time `t` (seconds since the behaviour began; `dt` since the last step). `hero`: where
 // the hero is, or null for none.
@@ -152,6 +196,27 @@ inline void step(const Behaviour& b, State& s, double t, double dt, const V3* he
                 s.position.x = static_cast<float>(s.position.x + dx / far * go);
                 s.position.y = static_cast<float>(s.position.y + dy / far * go);
             }
+            break;
+        }
+        case Preset::Wander: {
+            // Walks to a place within `radius` of where it started, stands there `pause` seconds,
+            // then picks the next.
+            if (s.wait > 0) {
+                s.wait -= dt;
+                break;
+            }
+            const double dx = s.target.x - s.position.x, dy = s.target.y - s.position.y;
+            const double far = std::sqrt(dx * dx + dy * dy);
+            if (far < 0.05 || b.speed <= 0) {
+                const double a = 2.0 * kPi * dice(s), r = b.radius * std::sqrt(dice(s));
+                s.target = {static_cast<float>(p0.x + r * std::cos(a)), static_cast<float>(p0.y + r * std::sin(a)), p0.z};
+                if (far < 0.05 && t > 0) s.wait = b.pause;
+                break;
+            }
+            s.rotation.z = static_cast<float>(turn(s.rotation.z, std::atan2(dy, dx), radians(360.0) * dt));
+            const double go = std::fmin(b.speed * dt, far);
+            s.position.x = static_cast<float>(s.position.x + dx / far * go);
+            s.position.y = static_cast<float>(s.position.y + dy / far * go);
             break;
         }
     }

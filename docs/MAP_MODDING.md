@@ -128,8 +128,11 @@ texts are this level's; each such moby costs about 0.5 ms a frame on a
 desktop.
 
 **Behaviour** (top of a moby's Inspector) replaces a moby's logic with a simple
-move: spin, bob, patrol, orbit, face the hero or follow the hero, with its
-numbers and the animation to play. It works on any moby, skinned ones too. It is
+move: spin, bob, patrol, orbit, face the hero, follow the hero or wander, with its
+numbers and the animations to play standing and moving. It works on any moby, skinned ones too.
+The Assets dock's **Add With a Simple Move** adds an object with one: this level's as it is,
+another level's (of the same disc) for its look, made by the mod, so even one the game only makes
+from its code (Drek) can walk about. It is
 stored as `rc1_behaviour` metadata; Pack writes `behaviours.json`
 (`openrac/tools/behaviours.py`) and the editor-runtime mod (`mods/editor-runtime` in
 the editor's repository) plays it, so a level made in the editor needs that mod

@@ -277,6 +277,16 @@ def virtual_range(next_sector: list[int], count: int) -> int:
     return first
 
 
+def made_by_mod(node: dict) -> dict:
+    """Where the editor-runtime mod makes NODE, a moby of a class imported for its look (pack()):
+    its class, place, turn and scale, as the game's (behaviours.py)."""
+    (x, y, z), (rx, ry, rz), scale = placement(node["transform"])
+    class_scale = node["meta"].get("foreign_class_scale", 1.0)
+    if isinstance(class_scale, (int, float)) and class_scale > 0:
+        scale /= class_scale
+    return {"class": node["class_id"], "position": [x, y, z], "rotation": [rx, ry, rz], "scale": scale}
+
+
 def apply(node: dict, record: dict, original: dict | None, whole: bool, problems: list[str],
           usual_values: dict = USUAL) -> list[str]:
     """Writes a scene node's placement, class and values into RECORD (a moby's fields). ORIGINAL is
@@ -1112,6 +1122,12 @@ def pack(disc, survey: dict, project: Path, out: Path,
         wanted, foreign_problems = foreign_classes.wanted(text)
         donors, blobs, sources = {}, {}, {}
         owner: dict[int, int] = {}     # each imported class: the placed class it came with
+        # A class whose every imported moby has a simple move (rc1_behaviour) comes for its look and
+        # animations only: the editor-runtime mod makes those mobys and moves them, its code never
+        # runs, so it needs no moby of it in its level to copy (behaviours.py).
+        foreign_nodes = [n for n in scene_mobys(text) if n["meta"].get("foreign_level") is not None]
+        acting = {c for c in wanted if all("behaviour" in n["meta"] for n in foreign_nodes if n["class_id"] == c)}
+        looks: dict[int, int] = {}     # those classes, and their levels
         for class_id, there in wanted.items():
             try:
                 if available_classes is not None and class_id in available_classes:
@@ -1127,6 +1143,10 @@ def pack(disc, survey: dict, project: Path, out: Path,
                     sources[there] = (decoded(disc.sectors(source_place["lba"], source_place["sectors"])),
                                       load_level(disc, source))
                 source_gameplay, source_level = sources[there]
+                if class_id in acting:
+                    blobs[class_id] = (there, foreign_classes.class_blob(source_level, class_id))
+                    looks[class_id] = there
+                    continue
                 found = foreign_classes.donor(there, source_gameplay, class_id)
                 if found is None:
                     raise ValueError(f"class {class_id}: level {there:02} never places one (the game makes it from "
@@ -1192,6 +1212,12 @@ def pack(disc, survey: dict, project: Path, out: Path,
         # first; a class left out is not made (the game's path for a class with no slot).
         room = foreign_classes.room(len(own)) if blobs else 0
         taken: set[int] = set()
+        for class_id in list(looks):
+            if len(taken) < room:
+                taken.add(class_id)
+                continue
+            del looks[class_id]
+            foreign_problems.append(f"class {class_id}: no class slot left in this level for it")
         foreign_notes: list[str] = []
         lenient = foreign_classes.partial(text)
         for class_id in list(donors):
@@ -1226,9 +1252,9 @@ def pack(disc, survey: dict, project: Path, out: Path,
         edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes, names, moby_spawn_ids,
                                                donors, placed)
         problems += foreign_problems
-        changes += foreign_classes.write(out / name, blobs) + foreign_notes if donors else []
+        changes += foreign_classes.write(out / name, blobs) + foreign_notes if donors or looks else []
 
-        if not donors:
+        if not donors and not looks:
             foreign_classes.write(out / name, {})
         # Each imported moby's own level's tables, moved to where it stands (foreign_classes.world).
         changes += foreign_classes.write_worlds(
@@ -1269,7 +1295,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
         scenery_problems += skin_problems
         # Behaviours: mobys the editor-runtime mod moves (behaviours.py), beside the placements.
         import behaviours
-        behaviour_changes, behaviour_problems = behaviours.write_behaviours(text, out / name, moby_spawn_ids)
+        behaviour_changes, behaviour_problems = behaviours.write_behaviours(
+            text, out / name, moby_spawn_ids, {n["name"]: made_by_mod(n) for n in foreign_nodes if n["class_id"] in looks})
         scenery_changes += behaviour_changes
         scenery_problems += behaviour_problems
         # Cutscenes: files the editor-runtime mod reads from the pack, beside the level's.
