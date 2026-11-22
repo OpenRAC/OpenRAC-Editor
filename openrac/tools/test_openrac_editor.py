@@ -242,6 +242,31 @@ class CheckAndPlay(unittest.TestCase):
             game.write_bytes(b"x")
             self.assertEqual(oe.game_program(game), game)
 
+    def test_a_game_that_closes_at_once_says_why(self):
+        import sys
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "game.log"
+            command = [sys.executable, "-c", "import sys; print('no renderer works here'); sys.exit(3)"]
+            with self.assertRaisesRegex(FormatError, "(?s)closed right away \\(exit code 3\\).*no renderer works here"):
+                oe.start_game(Path(sys.executable), command, log)
+
+    def test_a_game_that_runs_is_left_running(self):
+        import sys
+        with tempfile.TemporaryDirectory() as tmp:
+            command = [sys.executable, "-c", "import time; time.sleep(30)"]
+            with mock.patch.object(oe, "GAME_START_SECONDS", 0.5), redirect_stdout(io.StringIO()) as out, \
+                    mock.patch.object(oe.subprocess, "run"):
+                self.assertEqual(oe.start_game(Path(sys.executable), command, Path(tmp) / "game.log"), 0)
+            self.assertIn("openrac-started", out.getvalue())
+
+    def test_on_a_mac_the_game_draws_with_metal_like_the_launcher(self):
+        with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {}, clear=True):
+            self.assertEqual(oe.game_environment()["OPENRAC_GL_API"], "vulkan")
+        with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {"OPENRAC_GL_API": "desktop"}):
+            self.assertEqual(oe.game_environment()["OPENRAC_GL_API"], "desktop")
+        with mock.patch.object(oe.sys, "platform", "linux"), mock.patch.dict(oe.os.environ, {}, clear=True):
+            self.assertNotIn("OPENRAC_GL_API", oe.game_environment())
+
     @unittest.skipUnless(os.environ.get("OPENRAC_RAC1_PAL_DISC"), "set OPENRAC_RAC1_PAL_DISC")
     def test_check_lists_a_refused_edit_and_play_starts_the_game(self):
         import argparse
@@ -278,13 +303,14 @@ class CheckAndPlay(unittest.TestCase):
             args = argparse.Namespace(command="play", project=level, packed=Path(tmp) / "packed", game=game,
                                       data=Path(tmp) / "data", levels=Path(tmp) / "levels")
             with mock.patch.object(oe.subprocess, "Popen") as popen, redirect_stdout(io.StringIO()) as out:
+                popen.return_value.poll.return_value = None  # still running
                 self.assertEqual(oe.check_or_play(args), 0)
             command = popen.call_args.args[0]
             self.assertEqual(command[0], str(game.resolve()))
             self.assertEqual(command[command.index("--level") + 1], "0")
             self.assertEqual(command[command.index("--mods") + 1], str((Path(tmp) / "packed").resolve()))
             self.assertTrue((Path(tmp) / "packed" / "packed.json").is_file())
-            self.assertIn("Started the game on level 00", out.getvalue())
+            self.assertIn("openrac-started", out.getvalue())
 
     @unittest.skipUnless(os.environ.get("OPENRAC_RAC1_PAL_DISC"), "set OPENRAC_RAC1_PAL_DISC")
     def test_check_and_play_take_the_other_european_and_the_japanese_disc(self):

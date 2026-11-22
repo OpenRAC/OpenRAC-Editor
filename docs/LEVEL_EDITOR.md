@@ -233,7 +233,10 @@ your scenes and, in the background, packs into your packed levels folder (as the
 does) and starts the game on this level with your edits, movies skipped. Every disc of the game:
 Europe, Europe v1.00, USA and Japan. When the game can't take an edit, such as a mirrored object or
 a value out of range, it lists each one instead: click one to select its node, fix it and play
-again. (The MCP tools can also check without playing: `level_check`.)
+again. Once the game is up the button says Game Started and its window comes to the front (on a
+Mac it draws with Metal, as the launcher does by default). A game that closes within a few seconds
+is an error, shown with the last lines it wrote; its whole output is in `game.log` beside the packed
+levels folder. (The MCP tools can also check without playing: `level_check`.)
 
 They work on a level opened from the launcher, which tells the editor where Python, the editor's
 tools, the game and your folders are. The projects folder remembers the disc it was read from

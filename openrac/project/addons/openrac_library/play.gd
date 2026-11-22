@@ -187,6 +187,15 @@ func finish(code: int, lines: PackedStringArray) -> void:
 	worker = null
 	play_button.disabled = false
 	play_button.text = "Play Level"
+
+	# The game is up: its window says so, a dialog would only stand in the way.
+	if code == 0 and lines.has("openrac-started"):
+		play_button.text = "Game Started"
+		play_button.get_tree().create_timer(3.0).timeout.connect(func() -> void:
+			if is_instance_valid(play_button) and not play_button.disabled:
+				play_button.text = "Play Level")
+		return
+
 	show_result(code, lines)
 
 

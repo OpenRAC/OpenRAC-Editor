@@ -19,6 +19,7 @@ OpenRAC's assets/ or build/ (or anywhere, with --anywhere). Never commit or shar
 import argparse
 from concurrent.futures import as_completed
 import json
+import os
 from pathlib import Path
 import plistlib
 import shutil
@@ -464,11 +465,54 @@ def check_or_play(args) -> int:
                           code="file-missing")
     command = [str(game), "--data", str(args.data), "--levels", str(args.levels), "--mods", str(result["dest"]),
                "--level", str(number), "--skip-movies"]
+    return start_game(game, command, Path(result["dest"]).parent / "game.log")
+
+
+# How long Play watches the game it started: one that ends sooner did not start.
+GAME_START_SECONDS = 4.0
+
+
+def game_environment() -> dict:
+    """The game's environment as the launcher gives it by default: on macOS its renderer is Metal
+    (Vulkan through the bundle's MoltenVK), the launcher's default there."""
+    env = dict(os.environ)
+    if sys.platform == "darwin":
+        env.setdefault("OPENRAC_GL_API", "vulkan")
+    return env
+
+
+def start_game(game: Path, command: list[str], log: Path) -> int:
+    """Starts COMMAND (the game program GAME) on its own, its output in LOG, and watches it for a few
+    seconds: when it ends in that time, says so with the last lines it wrote (an error). Started
+    from OpenRAC's folder, as the launcher does (a signed app's own folder is not writable). On
+    macOS its window then comes to the front."""
     options = {"start_new_session": True} if sys.platform != "win32" else {
         "creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP}
-    subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     cwd=str(game.parent), **options)
-    print(f"Started the game on level {number:02} with your edits.")
+    root = os.environ.get("OPENRAC_ROOT", "")
+    cwd = root if root and Path(root).is_dir() else str(log.parent)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with open(log, "wb") as out:
+        try:
+            process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                                       cwd=cwd, env=game_environment(), **options)
+        except OSError as exc:
+            raise FormatError(f"the game could not be started ({game}): {exc.strerror or exc}",
+                              code="game-not-started") from exc
+    until = time.monotonic() + GAME_START_SECONDS
+    while process.poll() is None and time.monotonic() < until:
+        time.sleep(0.1)
+    code = process.poll()
+    if code is not None:
+        lines = log.read_text(encoding="utf-8", errors="replace").splitlines() if log.is_file() else []
+        said = "\n".join(line for line in lines[-12:] if line.strip())
+        raise FormatError(f"the game closed right away (exit code {code}). Its last words, in {log}:\n"
+                          + (said or "(nothing)"), code="game-closed")
+    bundle = next((p for p in game.parents if p.suffix == ".app"), None)
+    if sys.platform == "darwin" and bundle is not None:
+        # Started by a program rather than the Finder, a Mac app opens behind the editor.
+        subprocess.run(["open", "-a", str(bundle)], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL, check=False)
+    print("openrac-started", flush=True)
     return 0
 
 
