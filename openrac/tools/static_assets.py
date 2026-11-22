@@ -291,7 +291,10 @@ def import_asset(source: Path, project: Path, level: int, name: str, at, collisi
     backup = backups / f'{scene.stem}-{uuid.uuid4().hex}.tscn'
     shutil.copyfile(scene, backup)
     # The newest BACKUPS_KEPT of this scene stay; an older one is a whole level scene each.
-    kept = sorted(backups.glob(f'{scene.stem}-*.tscn'), key=lambda p: p.stat().st_mtime, reverse=True)
+    # Only this rotation's own backups (<scene>-<32 hex>.tscn): other files there are someone else's.
+    ours = re.compile(re.escape(scene.stem) + r'-[0-9a-f]{32}\.tscn')
+    kept = sorted((p for p in backups.glob(f'{scene.stem}-*.tscn') if ours.fullmatch(p.name)),
+                  key=lambda p: p.stat().st_mtime, reverse=True)
     for old in kept[BACKUPS_KEPT:]:
         if old != backup:
             old.unlink()
