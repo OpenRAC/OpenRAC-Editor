@@ -172,8 +172,6 @@ def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
     from pack import pack
     if not (project / "project.godot").is_file():
         raise PlanetError(f"{project} is not a level project (open the level in the editor first)", NO_PROJECT)
-    if disc.version.key != "pal":
-        raise PlanetError("New planets work with the European disc (SCES_509.16) for now")
     name = planet_name(project)
     level = level_of(project)
     ident = planet_id(project, name)

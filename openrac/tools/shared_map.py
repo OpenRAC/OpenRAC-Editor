@@ -16,7 +16,7 @@ A map file never holds the game's own data. It holds what the creator changed:
 
 Import extracts the level from the player's disc, makes the same changes there, and writes the
 project beside the player's levels as level_NN-<map>, so their own level_NN is not touched. With
---planet (PAL) it is then added to the mods as a new planet, so it plays without the editor.
+--planet it is then added to the mods as a new planet, so it plays without the editor.
 """
 
 from __future__ import annotations
@@ -737,7 +737,7 @@ def main(argv=None) -> int:
     into.add_argument("map", type=Path, help="the .openrac-map file")
     into.add_argument("projects", type=Path, help="your levels folder (where level_NN projects are)")
     into.add_argument("--planet", type=Path, metavar="OVERRIDES",
-                      help="then add it as a new planet to these mods (<data>/overrides, PAL disc)")
+                      help="then add it as a new planet to these mods (<data>/overrides)")
     into.add_argument("--disc", type=Path, help="the disc (default: the one the levels were read from)")
     into.add_argument("--anywhere", action="store_true", help="accepted for the launcher")
     args = parser.parse_args(argv)
@@ -773,16 +773,12 @@ def main(argv=None) -> int:
             import overrides
             from disc import Disc
             with Disc(done["disc"]) as disc:
-                if disc.version.key == "pal":
-                    try:
-                        added = planet.add_planet(disc, disc.survey(), done["project"], args.planet.resolve())
-                    except overrides.PackError as exc:
-                        raise FormatError(str(exc), code=planet.code_of(exc)) from exc
-                    print(f"Added it to your mods as the planet {added['name']}: turn on Mods, board the ship "
-                          "and pick it in the ship's menu.")
-                else:
-                    print("New planets work with the European disc for now: open the project in the editor "
-                          "and press Play.")
+                try:
+                    added = planet.add_planet(disc, disc.survey(), done["project"], args.planet.resolve())
+                except overrides.PackError as exc:
+                    raise FormatError(str(exc), code=planet.code_of(exc)) from exc
+                print(f"Added it to your mods as the planet {added['name']}: turn on Mods, board the ship "
+                      "and pick it in the ship's menu.")
         print(f"openrac-output: {done['project']}")
         return 0
     except (MapError, planet.PlanetError, FormatError, OSError, struct.error, zipfile.BadZipFile) as exc:

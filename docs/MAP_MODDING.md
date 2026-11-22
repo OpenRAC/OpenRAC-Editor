@@ -9,7 +9,7 @@ resource folder, even when several use the same template program.
 
 The creator edits an OpenRAC Editor project and exports a pack. They do not edit the game's
 C, choose unused memory addresses, or manually assign destination numbers.
-This workflow currently targets the **native RAC1 PAL port**.
+This works with every Ratchet & Clank disc the port plays: PAL, PAL v1.00, NTSC-U and the Japanese one.
 
 ## 1. Prepare a project of your own
 
@@ -343,7 +343,6 @@ standalone map; creators should use format 4 and normal launcher preparation.
   cannot.
 - Galaxy previews still use template artwork/location; the added world has its
   own selectable name and resource mount. This does not add a retail ISO overlay.
-- NTSC-U supports existing standalone maps, but ship destinations are PAL only.
 - The [sourcing policy](https://github.com/OpenRAC/OpenRAC/blob/develop/docs/policy/SOURCING.md) applies: do not commit or upload
   disc-derived terrain, models, textures, packed game files or ISOs with this code.
   Keep generated outputs private; the repository contains only tools, tests and
@@ -361,8 +360,7 @@ to save the file. The launcher's **Share a level as a map** does the same.
 **Add it.** In the launcher, go to **Mods** and add the file like any mod (pick
 it or drop it). OpenRAC Editor must be downloaded. The map becomes its own
 project beside your levels, `level_NN-<map id>`. Your own `level_NN` is not
-touched. On the European disc it is also added as a new planet: board the ship
-and pick it. On other discs, open the project and press **Play Level**. Adding
+touched. It is also added as a new planet: board the ship and pick it. Adding
 the same map again updates it, and the old copy goes to the backups folder.
 
 What is in the file:

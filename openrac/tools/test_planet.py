@@ -268,14 +268,10 @@ class AddPlanet(unittest.TestCase):
                     self.assertIn(words, str(caught.exception))
                     self.assertFalse((into / "packs").exists() and any((into / "packs").iterdir()),
                                      "nothing is added when it stops")
-            # Not a project at all, and the NTSC disc (no ship destinations there yet).
+            # Not a project at all.
             with self.assertRaises(planet.PlanetError) as caught:
                 self.add(root / "nothing", root / "o1")
             self.assertEqual(caught.exception.code, planet.NO_PROJECT)
-            project = level_project(root / "f")
-            planet.set_setting(project, planet.NAME, "World")
-            with self.assertRaises(planet.PlanetError):
-                self.add(project, root / "o2", disc=SimpleNamespace(version=SimpleNamespace(key="ntsc")))
 
     def test_the_project_folder_forms_map_mod_reads(self):
         """map_mod.py finds the level from the level's project, the folder of projects or the level folder."""
@@ -307,7 +303,7 @@ class Launcher(unittest.TestCase):
     def test_the_action_adds_to_the_launchers_packs_folder(self):
         actions = json.loads((HERE.parent / "editor.json").read_text(encoding="utf-8"))["versions"]
         found = [(key, a) for key, listed in actions.items() for a in listed if a["id"] == "editor-new-planet"]
-        self.assertEqual([key for key, _ in found], ["rac1/pal"], "ship destinations are PAL only")
+        self.assertEqual([key for key, _ in found], ["rac1/pal", "rac1/ntsc", "rac1/pal1", "rac1/jp"], "every Ratchet & Clank disc")
         args = found[0][1]["args"]
         self.assertEqual(args[1:5], ["planet", "{disc}", "{projects}/level_{level}", "{data}/overrides"])
 

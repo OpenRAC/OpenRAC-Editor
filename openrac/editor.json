@@ -505,6 +505,34 @@
         "todo": "Run it from the desktop app. From a shell on macOS (2026-10-16): level 0 extracted from SCUS_971.99, one bolt moved, packed to {packed}'s level_00/gameplay_ntsc.wad at the NTSC copy's sectors, reading back as the disc's but for that bolt's record. Not yet played: the NTSC-U port does not reach a level."
       },
       {
+        "id": "editor-new-planet",
+        "label": "Add as a new planet",
+        "description": "Packs the level you pick and adds it to your mods as a new planet the ship can fly to. The original planet stays as it is. Name the planet in OpenRAC Editor first (Project > Project Settings > OpenRAC > Planet). Adding it again updates the same planet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "planet",
+          "{disc}",
+          "{projects}/level_{level}",
+          "{data}/overrides",
+          "--anywhere"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/MAP_MODDING.md",
+        "todo": "Same as the PAL entry; the port's ship menu hooks exist for this disc too. Not run from the desktop app yet."
+      },
+      {
         "id": "editor-share-map",
         "label": "Share a level as a map",
         "description": "Saves the level you pick as one .openrac-map file in your levels folder's shared-maps. It holds your edits and your own models and textures, no game data, so you can send it to anyone: they add it in Mods and their own disc fills in the rest. Name the level in OpenRAC Editor first (Planet Name).",
@@ -535,7 +563,7 @@
       {
         "id": "editor-import-map",
         "label": "Add a shared map",
-        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc. Your own levels stay as they are. Open it in OpenRAC Editor and press Play Level.",
+        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc, and adds it to your mods as a new planet the ship can fly to. Your own levels stay as they are. Adding the same map again updates it.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -546,9 +574,11 @@
           "import",
           "{path}",
           "{projects}",
+          "--planet",
+          "{data}/overrides",
           "--anywhere"
         ],
-        "output": "{projects}",
+        "output": "{data}/overrides",
         "cwd": ".",
         "requires": [
           "disc",
@@ -786,6 +816,34 @@
         "todo": "Not run on a Europe v1.00 disc yet (none in the test machine). Its files, pack note and Play were checked with the Europe v2.00 disc read as this version (test_openrac_editor), whose table of contents and level headers have the same layout."
       },
       {
+        "id": "editor-new-planet",
+        "label": "Add as a new planet",
+        "description": "Packs the level you pick and adds it to your mods as a new planet the ship can fly to. The original planet stays as it is. Name the planet in OpenRAC Editor first (Project > Project Settings > OpenRAC > Planet). Adding it again updates the same planet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "planet",
+          "{disc}",
+          "{projects}/level_{level}",
+          "{data}/overrides",
+          "--anywhere"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/MAP_MODDING.md",
+        "todo": "Same as the PAL entry; the port's ship menu hooks exist for this disc too. Not run from the desktop app yet."
+      },
+      {
         "id": "editor-share-map",
         "label": "Share a level as a map",
         "description": "Saves the level you pick as one .openrac-map file in your levels folder's shared-maps. It holds your edits and your own models and textures, no game data, so you can send it to anyone: they add it in Mods and their own disc fills in the rest. Name the level in OpenRAC Editor first (Planet Name).",
@@ -816,7 +874,7 @@
       {
         "id": "editor-import-map",
         "label": "Add a shared map",
-        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc. Your own levels stay as they are. Open it in OpenRAC Editor and press Play Level.",
+        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc, and adds it to your mods as a new planet the ship can fly to. Your own levels stay as they are. Adding the same map again updates it.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -827,9 +885,11 @@
           "import",
           "{path}",
           "{projects}",
+          "--planet",
+          "{data}/overrides",
           "--anywhere"
         ],
-        "output": "{projects}",
+        "output": "{data}/overrides",
         "cwd": ".",
         "requires": [
           "disc",
@@ -1065,6 +1125,34 @@
         "todo": "Not run on a Japan disc yet (none in the test machine). Its files, pack note and Play were checked with the Europe v2.00 disc read as this version (test_openrac_editor), whose table of contents and level headers have the same layout."
       },
       {
+        "id": "editor-new-planet",
+        "label": "Add as a new planet",
+        "description": "Packs the level you pick and adds it to your mods as a new planet the ship can fly to. The original planet stays as it is. Name the planet in OpenRAC Editor first (Project > Project Settings > OpenRAC > Planet). Adding it again updates the same planet.",
+        "kind": "edit",
+        "area": "editor",
+        "state": "unverified",
+        "program": "{python}",
+        "args": [
+          "{editor_tools}/openrac_editor.py",
+          "planet",
+          "{disc}",
+          "{projects}/level_{level}",
+          "{data}/overrides",
+          "--anywhere"
+        ],
+        "output": "{data}/overrides",
+        "cwd": ".",
+        "requires": [
+          "disc",
+          "python",
+          "artifact",
+          "editor"
+        ],
+        "artifact": "{projects}/level_{level}/project.godot",
+        "docs": "docs/MAP_MODDING.md",
+        "todo": "Same as the PAL entry; the port's ship menu hooks exist for this disc too. Not run from the desktop app yet."
+      },
+      {
         "id": "editor-share-map",
         "label": "Share a level as a map",
         "description": "Saves the level you pick as one .openrac-map file in your levels folder's shared-maps. It holds your edits and your own models and textures, no game data, so you can send it to anyone: they add it in Mods and their own disc fills in the rest. Name the level in OpenRAC Editor first (Planet Name).",
@@ -1095,7 +1183,7 @@
       {
         "id": "editor-import-map",
         "label": "Add a shared map",
-        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc. Your own levels stay as they are. Open it in OpenRAC Editor and press Play Level.",
+        "description": "Makes a project of a shared map (.openrac-map) beside your levels, from your own disc, and adds it to your mods as a new planet the ship can fly to. Your own levels stay as they are. Adding the same map again updates it.",
         "kind": "edit",
         "area": "editor",
         "state": "unverified",
@@ -1106,9 +1194,11 @@
           "import",
           "{path}",
           "{projects}",
+          "--planet",
+          "{data}/overrides",
           "--anywhere"
         ],
-        "output": "{projects}",
+        "output": "{data}/overrides",
         "cwd": ".",
         "requires": [
           "disc",
