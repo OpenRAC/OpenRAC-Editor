@@ -28,6 +28,8 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 - Author your terrain with the [model/terrain workflow](https://github.com/OpenRAC/OpenRAC/blob/develop/extractor/MODDING.md), placing the
   result at `levels/level_NN/terrain.glb`. Imported GLB children are not ordinary
   editable OpenRAC Editor nodes: edit the mesh in your modeling tool, then import it again.
+  Do not name your own meshes `Terrain_NNN`: the game hides a mesh with that name
+  whenever it hides its own terrain piece NNN. Pack warns when one does.
 - Edit or generate collision with the Collision dock. Visible geometry alone
   does not make a floor. Keep terrain, collision, paths and cameras aligned.
 - Place **Ratchet** where the player should arrive and set his heading. The
@@ -212,14 +214,14 @@ In practice, memory and frame time become the useful limits well before that.
 
 ### The quick way
 
-1. In the editor, open **Project > Project Settings**, then **OpenRAC > Planet**, and type
-   the planet's **Name** (what the ship's menu shows; one line, at most 40 characters).
-   Save the scene and the project.
+1. In the editor, click the level (the top object in the **Level** list). Its **Properties**
+   start with **Planet Name**: type what the ship's menu shows (one line, at most 40
+   characters) and press Enter.
 2. In the launcher, **Mods > Level editor**, pick the level and press **Add as a new
    planet**. It packs the level, exports it and adds it to your mods in one step.
 3. Turn on **Mods** and play (section 4).
 
-The first add gives the planet an id (**OpenRAC > Planet > Id**). Keep it: adding again
+The first add gives the planet an id (`planet/id` in the project's `project.godot`). Keep it: adding again
 updates the same planet instead of adding a second one. **Export the levels again**
 keeps the name and id. The same step from a shell, in your OpenRAC checkout:
 

@@ -4,10 +4,10 @@ installed in one step, as the launcher's "Add as a new planet" runs it:
     openrac_editor.py planet ISO PROJECT OVERRIDES
 
 PROJECT is one level's project (a project per level, --split). Its planet's name is in its
-project.godot ([openrac] planet/name), set in the editor (Project > Project Settings > OpenRAC >
-Planet). The first export gives the planet an id (planet/id), kept in project.godot, so the next
-export updates the same planet instead of adding another. The level is the template: its program
-and classes run the new planet, and the original planet stays as it is.
+project.godot ([openrac] planet/name), set in the editor (the level's Properties, Planet Name).
+The first export gives the planet an id (planet/id), kept in project.godot, so the next export
+updates the same planet instead of adding another. The level is the template: its program and
+classes run the new planet, and the original planet stays as it is.
 """
 
 from __future__ import annotations
@@ -131,8 +131,8 @@ def planet_name(project: Path) -> str:
     """The planet's name, checked: what the ship computer shows."""
     name = settings(project).get(NAME, "").strip()
     if not name:
-        raise PlanetError("Name your planet first: in the editor, Project > Project Settings > OpenRAC > "
-                          "Planet > Name, then save", UNNAMED)
+        raise PlanetError("Name your planet first: in the editor, click the level (the top object in the "
+                          "Level list) and type its Planet Name in Properties", UNNAMED)
     if len(name) > MOST_NAME or any(ord(c) < 32 for c in name):
         raise PlanetError(f"The planet's name must be one line of at most {MOST_NAME} characters", UNNAMED)
     # The ship computer draws the name's bytes with the game's font, which has plain ASCII only: a

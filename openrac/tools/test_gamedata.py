@@ -374,9 +374,22 @@ class GameData(unittest.TestCase):
         self.assertEqual((changes, problems), (["GrindPath_0000: points, flag"], []))
         grind, = gd.read_grind_paths(out)
         self.assertEqual(grind["words"][0], 0)
-        self.assertEqual(grind["points"][1], (20.0, 0.0, 1.0, 10.0))
+        self.assertEqual(grind["points"], [(0.0, 0.0, 1.0, 20.0), (20.0, 0.0, 1.0, 20.0)])
         centre, radius = grind["sphere"][:3], grind["sphere"][3]
         self.assertTrue(all(math.dist(centre, p[:3]) <= radius for p in grind["points"]))
+
+    def test_an_added_grind_path_gets_its_lengths(self):
+        # The game walks a rail by each point's length to the next (sample_path): with the -1 of a
+        # new point Ratchet never catches it.
+        text = self.text + ('\n[sub_resource type="Curve3D" id="rail"]\n_data = {\n"points": PackedVector3Array('
+                            '0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 3, 4, 0),'
+                            '\n"tilts": PackedFloat32Array(0, 0, 0)\n}\npoint_count = 3\n'
+                            '\n[node name="MyRail" type="Path3D" parent="Game/GrindPaths"]\ncurve = SubResource("rail")\n')
+        out, changes, problems = self.pack(text)
+        self.assertEqual((changes, problems), (["MyRail: added as GrindPath_0001"], []))
+        rail = gd.read_grind_paths(out)[1]["points"]
+        self.assertEqual([p[3] for p in rail], [3.0, 4.0, 5.0])
+        self.assertEqual(gd.read_grind_paths(out)[0], gd.read_grind_paths(self.g)[0])
 
     def test_a_camera_and_a_sound(self):
         text = edit(self.text, "Camera_0001", "transform", "Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 5, 6)")

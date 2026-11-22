@@ -547,7 +547,7 @@ and packed back like the mobys ([gamedata.py](../openrac/tools/gamedata.py); the
 | `Game/Sounds/Sound_NNNN` | the record's matrix, `rc1_class`, `rc1_m_class`, `rc1_range`, pvars (hidden) | edited in place |
 | `Game/Volumes/Cuboids/Cuboid_NNNN`, `Spheres`, `Cylinders`, `Pills` | the unit shape through the record's matrix, translucent (hidden until you show `Volumes`) | moved, turned, scaled, added |
 | `Game/Paths/Path_NNNN` | a `Path3D`: the points in its curve, `rc1_w` each point's fourth float | points moved, added or removed; paths added; records cannot be deleted |
-| `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` | the same |
+| `Game/GrindPaths/GrindPath_NNNN` | as paths, with `rc1_bounding_sphere` (x, y, z, r) and `rc1_flag` (1: the rail loops) | the same; pack sets each point's fourth float to the length to the next point, as the game needs |
 
 `rc1_background` is the colour the game clears the frame to before it draws the sky (SetBackgroundColor). It is not a sky tint: it shows only where the sky's shells leave gaps or are see-through. In 15 of the 19 levels the sky's first shell is an opaque dome coloured per vertex (Novalis, Kerwan, Pokitaru and most others), which hides the background completely; there the sky's colour is that dome's, part of the sky model. The background shows in Rilgar and Umbris, and below the horizon in Orxon and Quartu. `rc1_background` and `rc1_fog_colour` take red, green and blue from 0 to 255. The editor's sky panorama is baked over the background when the level is extracted, so an edit shows in the game, not in the editor's sky until the next extraction.
 

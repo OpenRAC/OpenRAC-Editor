@@ -99,6 +99,17 @@ class StaticAssets(unittest.TestCase):
                     static_assets.import_asset(source, project, 2, f'Bridge{n}', [n, 0, 0])
             self.assertEqual(len(list((project / '.openrac-backups').glob('level_02-*.tscn'))), 3)
 
+    def test_pruning_leaves_other_files_alone(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project, level, scene, source = fixture(Path(tmp))
+            mine = project / '.openrac-backups' / 'level_02-before-museum.tscn'
+            mine.parent.mkdir()
+            mine.write_text('mine')
+            with mock.patch.object(static_assets, 'BACKUPS_KEPT', 2):
+                for n in range(4):
+                    static_assets.import_asset(source, project, 2, f'Bridge{n}', [n, 0, 0])
+            self.assertTrue(mine.is_file())
+
     def test_group_transforms_mirroring_and_collision_agree(self):
         with tempfile.TemporaryDirectory() as tmp:
             project, level, scene, source = fixture(Path(tmp))

@@ -18,7 +18,7 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
 	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed",
-	"check_and_play"]
+	"check_and_play", "model_from_outside"]
 
 ## The dock's narrowest sensible width at 100%: a dock column a person has not widened (narrow()
 ## gives it at the editor's display scale).
@@ -1141,6 +1141,9 @@ func check_and_play() -> void:
 	var level: Dictionary = play.this_level()
 	check("this level is found", String(level.get("project", "")) != "" and level.get("version") == "ntsc", level)
 	check("without the launcher it says how", String(play.command_for("check", level)).begins_with("Open the level from the launcher"))
+	check("the game sits beside the states program", play.game_beside("/home/my-states/openrac-rac1-pal-states")
+		== "/home/my-states/openrac-rac1-pal" and play.game_beside("C:\\my-states\\openrac-rac1-pal-states.exe")
+		== "C:\\my-states\\openrac-rac1-pal.exe" and play.game_beside("") == "")
 	check("not a level: nothing to pack", String(play.command_for("play", {})).begins_with("This isn't a Ratchet & Clank level"))
 	play.show_result(1, PackedStringArray(["openrac-progress: pack 1/1", "openrac-problem: Vendor_0000: a mirrored object (a negative scale) cannot be packed",
 		"Some edits cannot be packed yet: fix them and play again."]))
@@ -1156,10 +1159,90 @@ func check_and_play() -> void:
 	EditorInterface.get_selection().clear()
 
 
+## Add Model in the Collision panel takes a model from anywhere on the computer: there is no file
+## panel to bring one into the project, so it is copied under res://models, imported and placed.
+func model_from_outside() -> void:
+	var collision: EditorPlugin = null
+
+	for node in EditorInterface.get_base_control().find_children("*", "", true, false):
+		var script: Script = node.get_script()
+
+		if script != null and String(script.resource_path).ends_with("openrac_collision/dock.gd"):
+			collision = node.plugin
+
+	check("the Collision panel is there", collision != null)
+
+	if collision == null:
+		return
+
+	# The panel edits a level with its collision layer; this hand-made level has none, so it gets one.
+	var layer := Node3D.new()
+	layer.name = "Collision"
+	layer.set_meta("rc1_collision", true)
+	game().add_child(layer)
+	collision.open_scene(scene())
+	var outside: String = ProjectSettings.globalize_path("res://").get_base_dir().get_base_dir().path_join("my models")
+	# As the extractor writes models: the texture in ../textures, out of the model's own folder.
+	DirAccess.make_dir_recursive_absolute(outside.path_join("rocks"))
+	DirAccess.make_dir_recursive_absolute(outside.path_join("textures"))
+	DirAccess.copy_absolute(ProjectSettings.globalize_path("res://levels/level_05/ties/tie_1000.glb"),
+		outside.path_join("rocks/Big Rock.glb"))
+	DirAccess.copy_absolute(ProjectSettings.globalize_path("res://levels/level_05/textures/t.png"),
+		outside.path_join("textures/t.png"))
+	collision.handle_static_model_selected(outside.path_join("rocks/Big Rock.glb"))
+	var placed: Node = null
+
+	for _i in range(600):
+		await frame()
+		placed = game().get_node_or_null("StaticAssets/Big Rock")
+
+		if placed != null:
+			break
+
+	check("the model is copied into the project, its texture beside it", FileAccess.file_exists("res://models/Big_Rock/Big Rock.glb")
+		and FileAccess.file_exists("res://models/Big_Rock/t.png"),
+		collision.dock.report_label.text)
+	check("and placed as static scenery", placed != null and placed.scene_file_path == "res://models/Big_Rock/Big Rock.glb",
+		placed.scene_file_path if placed != null else "not placed")
+	check("as one undo step", history()[-1] == "Add Model", history())
+	await undo()
+	check("Ctrl+Z takes it away", game().get_node_or_null("StaticAssets/Big Rock") == null)
+	game().remove_child(layer)
+	layer.free()
+	collision.open_scene(scene())
+
+
 func planet_settings() -> void:
 	for key in ["openrac/planet/name", "openrac/planet/id"]:
 		check("%s is a project setting" % key, ProjectSettings.has_setting(key))
 		check("%s starts empty" % key, String(ProjectSettings.get_setting(key, "x")).is_empty())
+
+	# The editor has no Project Settings window: the level's Properties name the planet.
+	EditorInterface.edit_node(EditorInterface.get_edited_scene_root())
+	await frames(3)
+	var field: LineEdit = null
+
+	for node in EditorInterface.get_inspector().find_children("*", "LineEdit", true, false):
+		if node.placeholder_text.begins_with("Letters, digits"):
+			field = node
+
+	check("the level's Properties show Planet Name", field != null)
+
+	if field == null:
+		return
+
+	field.text = "Open Museum"
+	field.text_submitted.emit(field.text)
+	check("typing a name saves it", String(ProjectSettings.get_setting("openrac/planet/name")) == "Open Museum")
+	field.text = "Łódź"
+	field.text_submitted.emit(field.text)
+	check("a name the game's font can't draw is refused", String(ProjectSettings.get_setting("openrac/planet/name")) == "Open Museum")
+	var said: bool = field.get_parent().find_children("*", "Label", true, false).any(
+		func(label: Label) -> bool: return label.visible and label.text.contains("plain letters"))
+	check("and the section says why", said)
+	ProjectSettings.set_setting("openrac/planet/name", "")
+	ProjectSettings.save()
+	EditorInterface.edit_node(null)
 
 
 ## CONTROL's sizes that should follow the editor's scale.

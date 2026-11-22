@@ -37,6 +37,7 @@ LEVEL = """[gd_scene format=3]
 [ext_resource type="PackedScene" path="res://levels/level_05/mobys/moby_11.tscn" id="moby_11"]
 
 [node name="Level" type="Node3D"]
+metadata/rc1_level = 5
 
 [node name="Game" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0)
@@ -67,7 +68,7 @@ STRESS_LEVELS = 12
 STRESS_MOBYS = 40
 
 # How many scenarios test_editor_e2e.gd runs.
-SCENARIOS = 34
+SCENARIOS = 35
 
 XVFB_RUN = shutil.which("xvfb-run")
 

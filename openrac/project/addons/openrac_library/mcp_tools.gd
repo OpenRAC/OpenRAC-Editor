@@ -10,6 +10,7 @@ extends RefCounted
 const Library = preload("library.gd")
 const Play = preload("play.gd")
 const BehaviourInspector = preload("behaviour_inspector.gd")
+const PlanetInspector = preload("planet_inspector.gd")
 const LevelFaces = preload("../openrac_collision/level_faces.gd")
 
 ## At most this many mobys in one answer of moby_list.
@@ -24,6 +25,7 @@ var disc_assets: Array = []
 ## The level collision for ground_at, by the scene it was read from.
 var faces: LevelFaces
 var faces_scene: String = ""
+var faces_fingerprint: int = 0
 
 
 func register(on: Object, owner: EditorPlugin) -> void:
@@ -219,26 +221,16 @@ func level_play(_args: Dictionary) -> Variant:
 
 
 func planet_get(_args: Dictionary) -> Dictionary:
+	PlanetInspector.sync_id()
 	return {"name": String(ProjectSettings.get_setting("openrac/planet/name", "")),
 		"id": String(ProjectSettings.get_setting("openrac/planet/id", ""))}
 
 
 func planet_set(args: Dictionary) -> Variant:
-	var name: String = String(args.get("name", "")).strip_edges()
+	var problem: String = PlanetInspector.save_name(String(args.get("name", "")))
 
-	if name.is_empty() or name.length() > 40:
-		return fail("A planet's name is 1 to 40 characters.")
-
-	for i in name.length():
-		var c: int = name.unicode_at(i)
-
-		if c < 32 or c > 126:
-			return fail("The game's font has plain letters A-Z, digits, spaces and punctuation only: \"%s\" is not one." % name[i])
-
-	ProjectSettings.set_setting("openrac/planet/name", name)
-
-	if ProjectSettings.save() != OK:
-		return fail("project.godot could not be saved.")
+	if not problem.is_empty():
+		return fail(problem)
 
 	return planet_get({})
 
@@ -257,7 +249,11 @@ func planet_add(_args: Dictionary) -> Variant:
 	EditorInterface.save_all_scenes()
 	var args: PackedStringArray = ["-u", tools.path_join("openrac_editor.py"), "planet", "remembered",
 		ProjectSettings.globalize_path("res://").trim_suffix("/"), overrides, "--anywhere"]
-	var job: String = server.job_run_process("Add as a new planet", python, args, parsed.bind("planet"))
+	# The first add writes the planet's id into project.godot: the editor takes it at once.
+	var done := func(code: int, lines: PackedStringArray) -> Dictionary:
+		PlanetInspector.sync_id()
+		return parsed(code, lines, "planet")
+	var job: String = server.job_run_process("Add as a new planet", python, args, done)
 	return {"job": job, "state": "running", "next": "job_wait with this id"}
 
 
@@ -286,12 +282,19 @@ static func class_of(node: Node) -> int:
 	return file.trim_prefix("moby_").to_int() if file.begins_with("moby_") and file.trim_prefix("moby_").is_valid_int() else -1
 
 
-## A node's place in the game's coordinates: [x, y, z], heading in degrees, size.
+## A node's place in the game's coordinates: [x, y, z], heading in degrees, size (1 = its class's own).
 func game_place(node: Node3D) -> Dictionary:
 	var local: Transform3D = game().global_transform.affine_inverse() * node.global_transform
 	var front: Vector3 = local.basis.x
 	return {"position": [snappedf(local.origin.x, 0.001), snappedf(local.origin.y, 0.001), snappedf(local.origin.z, 0.001)],
-		"yaw": snappedf(rad_to_deg(atan2(front.y, front.x)), 0.01), "scale": snappedf(local.basis.get_scale().x, 0.0001)}
+		"yaw": snappedf(rad_to_deg(atan2(front.y, front.x)), 0.01),
+		"scale": snappedf(local.basis.get_scale().x / class_scale(node), 0.0001)}
+
+
+## The size NODE has at "scale" 1: an imported class's node carries its class's scale itself (an
+## own class's scene has it inside).
+static func class_scale(node: Node) -> float:
+	return maxf(float(node.get_meta("rc1_foreign_class_scale", 1.0)), 0.0001)
 
 
 static func vector(value: Variant) -> Variant:
@@ -477,30 +480,52 @@ func moby_add(args: Dictionary) -> Variant:
 	if mode == "auto":
 		mode = "own" if full else ("import" if Library.import_refusal(asset, here).is_empty() else "look")
 
+	if mode not in ["own", "look", "import", "skin"]:
+		return fail("mode is auto, own, import, look or skin.")
+
+	if mode == "own" and not full:
+		return fail("This level has no class %d of its own: use mode import or look." % number)
+
 	var job: String = server.job_create("Add %s" % asset["name"])
-	plugin.last_result = {}
 
-	match mode:
-		"own":
-			if not full:
-				server.job_finish(job, {}, true)
-				return fail("This level has no class %d of its own: use mode import or look." % number)
+	# The editor brings one asset in at a time: a second add waits for the first, not fails.
+	if plugin.waiting_for_import:
+		add_when_free.call_deferred(job, mode, asset, place, int(args.get("host_class", -1)))
+		return {"job": job, "state": "running", "note": "Waiting for the last asset to come in; job_wait for the node."}
 
-			plugin.add_in_view(asset, place, job)
-		"look":
-			plugin.add_in_view(asset, place, job)
-		"import":
-			plugin.add_foreign(asset, place, job)
-		"skin":
-			plugin.add_as(asset, int(args.get("host_class", -1)), place, job)
-		_:
-			server.job_finish(job, {}, true)
-			return fail("mode is auto, own, import, look or skin.")
+	start_add(job, mode, asset, place, int(args.get("host_class", -1)))
 
 	if server.job_running(job):
 		return {"job": job, "state": "running", "note": "The editor is importing the class's files; job_wait for the node."}
 
 	return plugin.last_result
+
+
+## Adds ASSET once the asset being brought in now is in, looking every quarter second up to TRIES
+## times (a minute), finishing JOB. A timer's signal, not an await: nothing waits once the tools are off.
+func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int, tries: int = 240) -> void:
+	# The plugin was switched off meanwhile: its server is gone with it.
+	if server == null or plugin == null or not is_instance_valid(plugin) or plugin.dock == null:
+		return
+
+	if not plugin.waiting_for_import:
+		start_add(job, mode, asset, place, host_class)
+	elif tries <= 0:
+		server.job_finish(job, fail("The last asset is still coming in: try again."), true)
+	else:
+		plugin.get_tree().create_timer(0.25).timeout.connect(add_when_free.bind(job, mode, asset, place, host_class, tries - 1))
+
+
+func start_add(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:
+	plugin.last_result = {}
+
+	match mode:
+		"own", "look":
+			plugin.add_in_view(asset, place, job)
+		"import":
+			plugin.add_foreign(asset, place, job)
+		"skin":
+			plugin.add_as(asset, host_class, place, job)
 
 
 func moby_set(args: Dictionary) -> Variant:
@@ -516,7 +541,7 @@ func moby_set(args: Dictionary) -> Variant:
 
 	if position != null or args.has("yaw") or args.has("scale"):
 		var local: Transform3D = game().global_transform.affine_inverse() * node.global_transform
-		var size: float = float(args.get("scale", place["scale"]))
+		var size: float = float(args.get("scale", place["scale"])) * class_scale(node)
 		var yaw: float = deg_to_rad(float(args.get("yaw", place["yaw"])))
 		var turned := Transform3D(Basis(Vector3(0, 0, 1), yaw).scaled(Vector3(size, size, size)),
 			position if position != null else local.origin)
@@ -569,7 +594,9 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No node %s." % path)
 
-		found.append(node)
+		# Named twice (or by path and spawn number): deleted once.
+		if not found.has(node):
+			found.append(node)
 
 	for id in Array(args.get("spawn_ids", [])):
 		var node: Node = find_moby({"spawn_id": int(id)})
@@ -577,11 +604,15 @@ func moby_remove(args: Dictionary) -> Variant:
 		if node == null:
 			return fail("No moby with spawn number %d." % int(id))
 
-		found.append(node)
+		if not found.has(node):
+			found.append(node)
 
 	if found.is_empty():
 		return fail("Name the mobys: nodes or spawn_ids.")
 
+	# The undo puts them back first to last, each at its own place: in their order, so a later
+	# place is never past the end.
+	found.sort_custom(func(a: Node, b: Node) -> bool: return a.get_index() < b.get_index())
 	var undo_redo: EditorUndoRedoManager = plugin.get_undo_redo()
 	undo_redo.create_action("Delete %d objects (AI)" % found.size(), UndoRedo.MERGE_DISABLE, root())
 
@@ -641,7 +672,9 @@ func ground_at(args: Dictionary) -> Dictionary:
 	if at == null or root() == null:
 		return fail("Give position [x, y, z] in an open level.")
 
-	if faces == null or faces_scene != root().scene_file_path:
+	# Read again after a collision edit too (the fingerprint changes), not only for another scene.
+	if faces == null or faces_scene != root().scene_file_path or not is_instance_valid(faces.game) \
+			or not is_instance_valid(faces.layer) or faces.game != game() or faces.fingerprint() != faces_fingerprint:
 		faces = LevelFaces.new()
 
 		if not faces.load_level(root()):
@@ -650,6 +683,7 @@ func ground_at(args: Dictionary) -> Dictionary:
 
 		faces.make_buckets()
 		faces_scene = root().scene_file_path
+		faces_fingerprint = faces.fingerprint()
 
 	# From just above the point (so a floor above it is not taken), or from the height asked.
 	var from := Vector3(at.x, at.y, float(args.get("from_height", at.z + 2.0)))
