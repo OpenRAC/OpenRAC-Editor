@@ -43,7 +43,7 @@ neighbouring rocks together. The pictures above are Pokitaru's; another level na
 rounded tops), `creepers` (0.42) the share of walls under creepers, and `tiles` a kind's own picture
 size, e.g. `{"wall": 5}`. `"uv": "wrap"` wraps the walls' pictures round each rock (no seams
 where a box projection changes axis); `smooth_passes` (2) evens out lone triangles of one picture
-in another; `lip_top_area` (3) is how much top a lip needs above it. `bake-light --ambient 0.2`
+in another; `lip_top_area` (3) is how much top a lip needs above it, and `min_top_area` (0) how much top a 3-unit cell needs to get grass at all (small ledges stay rock, no scattered green stripes). `bake-light --ambient 0.2`
 keeps walls in shade from going black. Each rock is only worked out inside its own box, so one recipe can hold a
 whole archipelago.
 

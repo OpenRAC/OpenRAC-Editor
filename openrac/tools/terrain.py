@@ -1024,7 +1024,13 @@ def auto_texture(t, recipe, args):
     kind = np.full(len(centre), "wall", dtype=object)
     kind[creep] = "creeper"
     kind[lip] = "lip"
-    kind[nz > flat] = "top"
+    top = nz > flat
+    small = recipe.get("min_top_area", 0.0)   # a ledge with less top than this per cell stays rock
+    if small:
+        cells = np.floor(centre[:, :2] / cell).astype(np.int64)
+        tiny = np.array([top_area.get((int(a), int(b)), (0, 0.0))[1] < small for a, b in cells])
+        top &= ~tiny
+    kind[top] = "top"
     kind = smooth_kinds(p.faces, kind, ("top", "lip", "wall", "creeper"), recipe.get("smooth_passes", 2))
     kind[nz < -0.35] = "under"
     if sea is not None:
