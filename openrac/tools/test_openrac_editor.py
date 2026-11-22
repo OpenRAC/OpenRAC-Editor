@@ -226,6 +226,22 @@ class CheckAndPlay(unittest.TestCase):
             with self.assertRaisesRegex(FormatError, "no longer at"):
                 oe.remembered_disc(level)
 
+    def test_a_macos_build_plays_its_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            release = Path(tmp) / "release"
+            bundle = release / "apps" / "openrac-rac1-ntsc" / "Ratchet & Clank (NTSC).app" / "Contents"
+            (bundle / "MacOS").mkdir(parents=True)
+            (bundle / "Info.plist").write_text(
+                '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>'
+                "<key>CFBundleExecutable</key><string>Ratchet &amp; Clank (NTSC)</string></dict></plist>\n")
+            program = bundle / "MacOS" / "Ratchet & Clank (NTSC)"
+            game = release / "openrac-rac1-ntsc"
+            self.assertEqual(oe.game_program(game), game)
+            program.write_bytes(b"x")
+            self.assertEqual(oe.game_program(game), program)
+            game.write_bytes(b"x")
+            self.assertEqual(oe.game_program(game), game)
+
     @unittest.skipUnless(os.environ.get("OPENRAC_RAC1_PAL_DISC"), "set OPENRAC_RAC1_PAL_DISC")
     def test_check_lists_a_refused_edit_and_play_starts_the_game(self):
         import argparse
