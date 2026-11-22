@@ -40,7 +40,12 @@ class Editor:
     def __init__(self, root: Path):
         self.project = level_project(root / "levels", "rac1", "ntsc", 5, "Ratchet & Clank: Rilgar (USA)",
                                      {11: ("vendor", 0.25), 12: ("robot", 0.5)}, [1000])
-        (self.project / "levels" / "level_05" / "level_05.tscn").write_text(LEVEL)
+        # The level places a robot too, far off (a class it loads but never places comes as a look).
+        (self.project / "levels" / "level_05" / "level_05.tscn").write_text(
+            LEVEL.replace('[node name="Level"', '[ext_resource type="PackedScene" '
+                          'path="res://levels/level_05/mobys/moby_12.tscn" id="moby_12"]\n\n[node name="Level"', 1)
+            + '\n[node name="Robot_0001" parent="Game/Mobys" instance=ExtResource("moby_12")]\n'
+            "transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 60, 60, 0)\nmetadata/rc1_index = 1\n")
         self.port = free_port()
         folder = root / "config" / "openrac_editor"
         folder.mkdir(parents=True)
