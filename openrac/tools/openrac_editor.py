@@ -501,7 +501,7 @@ def play_plugins(data: Path, runtime: Path = RUNTIME) -> Path | None:
         pass
     mods = [m for m in mods if m.get("id") != RUNTIME_ID] + [{"id": RUNTIME_ID, "enabled": True}]
     play = folder / PLAY_LIST
-    play.write_text(json.dumps({"format": 1, "mods": mods}, indent=2) + "\n", encoding="utf-8")
+    play.write_text(json.dumps({"format": 1, "mods": mods}, indent=2) + "\n", encoding="utf-8", newline="\n")
     return play
 
 
