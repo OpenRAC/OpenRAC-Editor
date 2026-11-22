@@ -1186,7 +1186,8 @@ def pack(disc, survey: dict, project: Path, out: Path,
                     raise ValueError(f"class {class_id}: this level has it already; remove rc1_foreign_level")
                 if disc.version.key not in foreign_classes.DISCS:
                     raise ValueError(f"class {class_id}: imports need a Ratchet & Clank 1 disc")
-                foreign_classes.check(info["id"], there, class_id)
+                # Own logic only: a class with a simple move never runs its code (set pieces are fine).
+                foreign_classes.check(info["id"], there, class_id, own_logic=class_id not in acting)
                 if there not in sources:     # each level read once, for all its classes
                     source = next((i for i in survey["levels"] if i["id"] == there), None)
                     if source is None:

@@ -2,9 +2,12 @@
 moby gets a group of its own for each, of the copies of that group's mobys (pack.py), as a
 fleet turret's zone or a trooper's alert groups.
 
-    groups.py write GEN LIBRARIES      the table again, from the port's generated C of a build
+    groups.py write GEN LIBRARIES [DECOMP]
+                                       the table again, from the port's generated C of a build
                                        (port/build/<preset>/games/rac1-ntsc/gen) and the version's
-                                       libraries.tsv (its "The update of class N" hooks)
+                                       libraries.tsv (its "The update of class N" hooks); with
+                                       rac1-decomp's checkout (OpenRAC's games/rac1/decomp) also
+                                       the updates no hook names (spawns.roles)
 
 The game keeps no list of them, so they are read from its code: each place that takes a group
 from the group table (its members walked as moby indices) is followed back, through locals and
@@ -142,7 +145,7 @@ def assigned(body: str, name: str) -> list[str]:
     return out
 
 
-def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
+def write(gen: Path, libraries: Path, path: Path = TABLE, decomp: Path | None = None) -> int:
     found = spawns.functions(gen)
     sinks: list[tuple[str, str]] = []
     # The group tables (one a level): a table whose entry, read into a local, is walked as a
@@ -163,7 +166,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     reads = trace(found, sinks)
     offsets = measure(gen, found, reads)
     rows: dict[tuple[int, int], set[tuple[int, int]]] = {}
-    for function, level, class_id in spawns.hooks(libraries):
+    for function, level, class_id in spawns.updates(libraries, decomp):
         words = set()
         for f in spawns.closure(found, function):
             words |= offsets.get(f, set())
@@ -297,6 +300,6 @@ def place(expr: str) -> tuple[str | None, str]:
 if __name__ == "__main__":
     DEBUG = "--debug" in sys.argv
     sys.argv = [a for a in sys.argv if a != "--debug"]
-    if len(sys.argv) != 4 or sys.argv[1] != "write":
+    if len(sys.argv) not in (4, 5) or sys.argv[1] != "write":
         sys.exit(__doc__)
-    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]))} rows")
+    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]), decomp=Path(sys.argv[4]) if len(sys.argv) == 5 else None)} rows")

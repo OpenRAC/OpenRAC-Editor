@@ -1,9 +1,12 @@
 """The moby classes a class's update can make (rac1_spawns.tsv): an imported class brings those its
 new level lacks (pack.py, foreign_classes.py), as a turret brings its shots.
 
-    spawns.py write GEN LIBRARIES      the table again, from the port's generated C of a build
+    spawns.py write GEN LIBRARIES [DECOMP]
+                                       the table again, from the port's generated C of a build
                                        (port/build/<preset>/games/rac1-ntsc/gen) and the version's
-                                       libraries.tsv (its "The update of class N" hooks)
+                                       libraries.tsv (its "The update of class N" hooks); with
+                                       rac1-decomp's checkout (OpenRAC's games/rac1/decomp) also
+                                       the updates no hook names (config/overlays/names.tsv)
 
 The table is read from the game's code, so it is the same for every disc: each class's update
 and every function it calls, and theirs, and each CreateMoby call there with a class number
@@ -117,6 +120,47 @@ def hooks(libraries: Path) -> list[tuple[str, int, int]]:
     return out
 
 
+def roles(decomp: Path) -> list[tuple[str, int, int]]:
+    """(function, level or -1, class) of each update rac1-decomp names (config/overlays/names.tsv,
+    "UpdateMoby_<class>:<levels>", PAL names), as rac1-ntsc's names (config/overlays/us_map.tsv)."""
+    us: dict[tuple[str, str], str] = {}
+    for line in (decomp / "config/overlays/us_map.tsv").read_text(encoding="utf-8").splitlines():
+        cells = line.split("\t")
+        if len(cells) >= 4 and not line.startswith("#") and cells[3] != "-":
+            us.setdefault((cells[0], cells[3]), cells[1].lower())
+    role = re.compile(r"UpdateMoby_(\d+):([\d/]+)")
+    out = []
+    for line in (decomp / "config/overlays/names.tsv").read_text(encoding="utf-8").splitlines():
+        if line.startswith("#") or "\t" not in line:
+            continue
+        name, cells = line.split("\t", 1)
+        own = re.fullmatch(r"func_L(\d\d)_[0-9A-F]{8}", name)
+        for class_id, levels in role.findall(cells):
+            if own is None:   # the executable's
+                address = us.get(("boot", name))
+                if address:
+                    out.append((f"FUN_{address}", -1, int(class_id)))
+            elif own.group(1) == "00":   # the code every level shares
+                address = us.get(("level_00", name))
+                if address:
+                    out.append((f"FUN_L00_{address}", -1, int(class_id)))
+            else:
+                address = us.get((f"level_{own.group(1)}", name))
+                if address:
+                    out.append((f"FUN_L{own.group(1)}_{address}", int(own.group(1)), int(class_id)))
+    return out
+
+
+def updates(libraries: Path, decomp: Path | None = None) -> list[tuple[str, int, int]]:
+    """(function, level or -1, class) of every class update: the hooks LIBRARIES names, and with
+    rac1-decomp's checkout DECOMP the ones no hook names (roles), so no class is left out."""
+    out = hooks(libraries)
+    if decomp is not None:
+        named = {(c, lv) for _, lv, c in out}
+        out += [u for u in roles(decomp) if (u[2], u[1]) not in named]
+    return out
+
+
 def closure(found: dict[str, Function], function: str) -> set[str]:
     """FUNCTION's host C (its __game body when wrapped) and every function it calls, and theirs."""
     start = next((n for n in (f"game_{function}__game", f"game_{function}") if n in found), None)
@@ -131,8 +175,8 @@ def closure(found: dict[str, Function], function: str) -> set[str]:
     return seen
 
 
-def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
-    """The table from GEN and LIBRARIES; returns its rows."""
+def write(gen: Path, libraries: Path, path: Path = TABLE, decomp: Path | None = None) -> int:
+    """The table from GEN and LIBRARIES (and DECOMP's update names); returns its rows."""
     literal = re.compile(r"^\(int\)\((\d+)\)$")
     found = functions(gen)
     params = {name: f.params for name, f in found.items()}
@@ -169,7 +213,7 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
     for name, text in bodies.items():
         makes[name].update(int(n) for n in becomes.findall(text))
     rows: dict[tuple[int, int], set[int]] = {}
-    for function, level, class_id in hooks(libraries):
+    for function, level, class_id in updates(libraries, decomp):
         made = set().union(*(makes.get(f, set()) for f in closure(found, function))) - {class_id}
         if made:   # level -1: the update every level shares (level 0's code)
             rows.setdefault((class_id, level), set()).update(made)
@@ -180,6 +224,6 @@ def write(gen: Path, libraries: Path, path: Path = TABLE) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4 or sys.argv[1] != "write":
+    if len(sys.argv) not in (4, 5) or sys.argv[1] != "write":
         sys.exit(__doc__)
-    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]))} rows")
+    print(f"{write(Path(sys.argv[2]), Path(sys.argv[3]), decomp=Path(sys.argv[4]) if len(sys.argv) == 5 else None)} rows")

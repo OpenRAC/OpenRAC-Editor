@@ -54,6 +54,8 @@ class Donor:
 SET_PIECES = {
     (1843, 17): "this ship gets its path from the fleet turret (class 347); place the turret, it brings its ships",
     (1319, 11): "this ship gets its path from the oil tanker (class 1264); place the tanker, it brings its ships",
+    (654, 16): "it plays one of Kalebo III's scenes and points the camera at that level's cameras; give it simple logic",
+    (1130, 8): "its talk runs Batalia's own menus, which loop on another level; give it simple logic (talk)",
 }
 
 # The engine's 224 moby class slots (resident_class_id_by_slot) less two: after the level's classes
@@ -209,9 +211,9 @@ def class_blob(level, class_id: int) -> bytes:
     raise ValueError(f"level {level.id:02} has no class {class_id}")
 
 
-def check(here: int, there: int, class_id: int) -> None:
+def check(here: int, there: int, class_id: int, own_logic: bool = True) -> None:
     """ValueError when CLASS_ID cannot come from level THERE into level HERE."""
-    if (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
+    if own_logic and (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
         raise ValueError(f"class {class_id}: {SET_PIECES[(class_id, there)]}")
     if not 0 <= there < LEVELS:
         raise ValueError(f"class {class_id}: there is no level {there}")
