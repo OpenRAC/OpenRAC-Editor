@@ -233,7 +233,9 @@ your scenes and, in the background, packs into your packed levels folder (as the
 does) and starts the game on this level with your edits, movies skipped. Every disc of the game:
 Europe, Europe v1.00, USA and Japan. When the game can't take an edit, such as a mirrored object or
 a value out of range, it lists each one instead: click one to select its node, fix it and play
-again. Once the game is up the button says Game Started and its window comes to the front (on a
+again. The game starts straight in the level, and with the editor's own mod (editor-runtime, carried in
+the editor's download) on, so cutscenes and simple moves play: Play copies it into the game's
+mods folder and turns it on for that run only, leaving your own mod list as it is. Once the game is up the button says Game Started and its window comes to the front (on a
 Mac it draws with Vulkan through MoltenVK, as the launcher does by default). A game that closes within a few seconds
 is an error, shown with the last lines it wrote; its whole output is in `game.log` beside the packed
 levels folder. (The MCP tools can also check without playing: `level_check`.)

@@ -466,7 +466,53 @@ def check_or_play(args) -> int:
     # --window as the launcher's Play has it: without it the game runs with no window at all.
     command = [str(game), "--data", str(args.data), "--window", "--levels", str(args.levels),
                "--mods", str(result["dest"]), "--level", str(number), "--skip-movies"]
+    plugins = play_plugins(Path(args.data))
+    if plugins is not None:
+        command += ["--plugins", str(plugins)]
     return start_game(game, command, Path(result["dest"]).parent / "game.log")
+
+
+# The editor's own mod, which plays what a pack carries besides placements (cutscenes, simple moves
+# and the objects made for them): mods/editor-runtime, built into the editor's archive.
+RUNTIME_ID = "editor-runtime"
+RUNTIME = Path(__file__).resolve().parent.parent / "mods" / RUNTIME_ID
+# The mod list a Play uses: the player's own (plugins.json) with the editor's mod on.
+PLAY_LIST = "editor-play.json"
+
+
+def play_plugins(data: Path, runtime: Path = RUNTIME) -> Path | None:
+    """The mod list for a Play: the editor's mod brought up to date in the game's mods folder
+    (DATA/plugins, where the launcher keeps the player's), and a list beside the player's
+    plugins.json, which it leaves as it is, with that mod on. None when this editor carries no
+    built mod (a checkout, not a download)."""
+    if not (runtime / "openrac-mod.json").is_file():
+        return None
+    folder = data / "plugins"
+    installed = folder / RUNTIME_ID
+    if not same_tree(runtime, installed):
+        if installed.exists():
+            shutil.rmtree(installed)
+        shutil.copytree(runtime, installed)
+    mods: list = []
+    try:
+        listed = json.loads((folder / "plugins.json").read_text(encoding="utf-8"))
+        mods = [m for m in listed.get("mods", []) if isinstance(m, dict)]
+    except (OSError, ValueError, AttributeError):
+        pass
+    mods = [m for m in mods if m.get("id") != RUNTIME_ID] + [{"id": RUNTIME_ID, "enabled": True}]
+    play = folder / PLAY_LIST
+    play.write_text(json.dumps({"format": 1, "mods": mods}, indent=2) + "\n", encoding="utf-8")
+    return play
+
+
+def same_tree(a: Path, b: Path) -> bool:
+    """Whether folders A and B hold the same files, byte for byte."""
+    if not b.is_dir():
+        return False
+    files = sorted(p.relative_to(a) for p in a.rglob("*") if p.is_file())
+    if files != sorted(p.relative_to(b) for p in b.rglob("*") if p.is_file()):
+        return False
+    return all((a / f).read_bytes() == (b / f).read_bytes() for f in files)
 
 
 # How long Play watches the game it started: one that ends sooner did not start.
@@ -474,9 +520,12 @@ GAME_START_SECONDS = 4.0
 
 
 def game_environment() -> dict:
-    """The game's environment as the launcher gives it by default: on macOS the Vulkan renderer,
-    through the bundle's MoltenVK (the launcher's default there; its OpenGL is not)."""
+    """The game's environment for a Play: straight into the level, and as the launcher gives it by
+    default, on macOS the Vulkan renderer through the bundle's MoltenVK."""
     env = dict(os.environ)
+    # Straight into the --level from the title, as the port's tests start it (rac1/host/boot.c);
+    # without it --level only takes effect on New Game.
+    env["OPENRAC_DIRECT"] = "1"
     if sys.platform == "darwin":
         env.setdefault("OPENRAC_GL_API", "vulkan")
     return env

@@ -261,6 +261,31 @@ class CheckAndPlay(unittest.TestCase):
             self.assertIn("openrac-started", out.getvalue())
             time.sleep(2.5)  # it ends, and lets go of its log (Windows cannot delete an open file)
 
+    def test_play_starts_straight_in_the_level(self):
+        with mock.patch.dict(oe.os.environ, {}, clear=True):
+            self.assertEqual(oe.game_environment()["OPENRAC_DIRECT"], "1")
+
+    def test_play_turns_the_editors_mod_on_and_keeps_the_players(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp) / "editor" / "mods" / "editor-runtime"
+            (runtime / "lib").mkdir(parents=True)
+            (runtime / "openrac-mod.json").write_text('{"id": "editor-runtime"}')
+            (runtime / "lib" / "editor_runtime.so").write_bytes(b"v1")
+            data = Path(tmp) / "data"
+            self.assertIsNone(oe.play_plugins(data, Path(tmp) / "nothing"))
+            (data / "plugins").mkdir(parents=True)
+            players = '{"format": 1, "mods": [{"id": "lock-strafe", "enabled": true}, {"id": "editor-runtime", "enabled": false}]}'
+            (data / "plugins" / "plugins.json").write_text(players)
+            play = oe.play_plugins(data, runtime)
+            self.assertEqual(play.parent, data / "plugins")
+            self.assertEqual(json.loads(play.read_text())["mods"],
+                             [{"id": "lock-strafe", "enabled": True}, {"id": "editor-runtime", "enabled": True}])
+            self.assertEqual((data / "plugins" / "plugins.json").read_text(), players)  # the player's list stays
+            self.assertEqual((data / "plugins" / "editor-runtime" / "lib" / "editor_runtime.so").read_bytes(), b"v1")
+            (runtime / "lib" / "editor_runtime.so").write_bytes(b"v2")  # a newer editor
+            oe.play_plugins(data, runtime)
+            self.assertEqual((data / "plugins" / "editor-runtime" / "lib" / "editor_runtime.so").read_bytes(), b"v2")
+
     def test_on_a_mac_the_game_draws_with_vulkan_like_the_launcher(self):
         with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {}, clear=True):
             self.assertEqual(oe.game_environment()["OPENRAC_GL_API"], "vulkan")
