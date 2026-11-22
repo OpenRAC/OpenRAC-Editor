@@ -34,9 +34,16 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	# In a scroll, so the panel never needs more height than its column has (it shares it with
+	# Properties above).
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(scroll)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	add_child(box)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(box)
 
 	active_check = CheckButton.new()
 	active_check.text = "Brush on (click the ground in the 3D view)"
