@@ -473,8 +473,8 @@ GAME_START_SECONDS = 4.0
 
 
 def game_environment() -> dict:
-    """The game's environment as the launcher gives it by default: on macOS its renderer is Metal
-    (Vulkan through the bundle's MoltenVK), the launcher's default there."""
+    """The game's environment as the launcher gives it by default: on macOS the Vulkan renderer,
+    through the bundle's MoltenVK (the launcher's default there; its OpenGL is not)."""
     env = dict(os.environ)
     if sys.platform == "darwin":
         env.setdefault("OPENRAC_GL_API", "vulkan")

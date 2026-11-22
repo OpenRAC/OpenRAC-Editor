@@ -234,7 +234,7 @@ does) and starts the game on this level with your edits, movies skipped. Every d
 Europe, Europe v1.00, USA and Japan. When the game can't take an edit, such as a mirrored object or
 a value out of range, it lists each one instead: click one to select its node, fix it and play
 again. Once the game is up the button says Game Started and its window comes to the front (on a
-Mac it draws with Metal, as the launcher does by default). A game that closes within a few seconds
+Mac it draws with Vulkan through MoltenVK, as the launcher does by default). A game that closes within a few seconds
 is an error, shown with the last lines it wrote; its whole output is in `game.log` beside the packed
 levels folder. (The MCP tools can also check without playing: `level_check`.)
 

@@ -259,7 +259,7 @@ class CheckAndPlay(unittest.TestCase):
                 self.assertEqual(oe.start_game(Path(sys.executable), command, Path(tmp) / "game.log"), 0)
             self.assertIn("openrac-started", out.getvalue())
 
-    def test_on_a_mac_the_game_draws_with_metal_like_the_launcher(self):
+    def test_on_a_mac_the_game_draws_with_vulkan_like_the_launcher(self):
         with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {}, clear=True):
             self.assertEqual(oe.game_environment()["OPENRAC_GL_API"], "vulkan")
         with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {"OPENRAC_GL_API": "desktop"}):
