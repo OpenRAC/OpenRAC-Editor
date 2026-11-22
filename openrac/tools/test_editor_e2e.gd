@@ -407,6 +407,24 @@ func filters() -> void:
 	dock.refill()
 	check("from other levels: every level's importable mobys", names().has("red_ship_1") and names().has("codebot_slot")
 		and dock.shown.all(func(asset: Dictionary) -> bool: return Library.import_refusal(asset, dock.here).is_empty()), names())
+	# A class its level never places (the game's code makes it) cannot bring its actions.
+	var ship: Array = dock.shown.filter(func(asset: Dictionary) -> bool: return asset["name"] == "red_ship_1")
+	if not ship.is_empty():
+		var dir: String = ship[0]["dir"]
+		var scene: String = dir.path_join("level_%02d.tscn" % int(ship[0]["level"]))
+		var was: String = FileAccess.get_file_as_string(scene)
+		var file := FileAccess.open(scene, FileAccess.WRITE)
+		file.store_string('[gd_scene format=3]\n\n[ext_resource type="PackedScene" path="res://levels/level_03/mobys/moby_75.tscn" id="1"]\n\n[node name="Level" type="Node3D"]\n')
+		file.close()
+		Library.placed_cache.clear()
+		var codebot: Array = dock.shown.filter(func(asset: Dictionary) -> bool: return asset["name"] == "codebot_slot")
+		check("a placed class still comes with its actions", Library.import_refusal(ship[0], dock.here).is_empty(), Library.import_refusal(ship[0], dock.here))
+		check("a class never placed is refused, saying why", not codebot.is_empty() and Library.import_refusal(codebot[0], dock.here).contains("never placed"),
+			Library.import_refusal(codebot[0], dock.here) if not codebot.is_empty() else names())
+		file = FileAccess.open(scene, FileAccess.WRITE)
+		file.store_string(was)
+		file.close()
+		Library.placed_cache.clear()
 	dock.filter.select(dock.filter.get_item_index(Dock.SHOW_OTHER_GAMES))
 	dock.refill()
 	check("other games: every other game's", not dock.shown.is_empty() and dock.shown.all(func(asset: Dictionary) -> bool: return asset["game"] != "rac1"), names().slice(0, 5))

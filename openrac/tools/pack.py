@@ -1129,7 +1129,9 @@ def pack(disc, survey: dict, project: Path, out: Path,
                 source_gameplay, source_level = sources[there]
                 found = foreign_classes.donor(there, source_gameplay, class_id)
                 if found is None:
-                    raise ValueError(f"class {class_id}: level {there:02} has no moby of it to copy")
+                    raise ValueError(f"class {class_id}: level {there:02} never places one (the game makes it from "
+                                     "its own code), so its actions can't come; delete it and add it as "
+                                     "scenery (Add) or use it in a cutscene")
                 blobs[class_id] = (there, foreign_classes.class_blob(source_level, class_id))
                 donors[class_id] = [found]
                 owner[class_id] = class_id
