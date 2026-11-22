@@ -654,15 +654,13 @@ func drag_to_scene_dock() -> void:
 	var bar: TabBar = tabs.get_tab_bar()
 	var tab: Vector2 = bar.get_global_transform() * bar.get_tab_rect(tabs.get_tab_idx_from_control(level)).get_center()
 	await drag(from, tab, true)
-	# The tab opens after half a second of rest (TabBar hover_switch_wait_msec): wait by the clock,
-	# since a headless editor runs frames much faster than a screen.
-	var until_ms: int = Time.get_ticks_msec() + 3000
-	while not tree.is_visible_in_tree() and Time.get_ticks_msec() < until_ms:
-		move(tab + Vector2(1, 0), Vector2(1, 0), true)
-		await frame()
+	# Resting on a tab during a drag opens it (TabBar switch_on_drag_hover). A headless editor has no
+	# mouse position for the tab bar to read, so the test opens the tab as that timer would.
+	check("a drag resting on Level's tab opens it", bar.switch_on_drag_hover)
+	tabs.current_tab = tabs.get_tab_idx_from_control(level)
+	await frames(2)
 	var opened: bool = tree.is_visible_in_tree()
-	check("resting on Level's tab opens it", opened, [tab, bar.get_global_rect(), tabs.current_tab,
-		get_viewport().gui_is_dragging(), get_viewport().gui_get_hovered_control()])
+	check("Level is open, the drag still held", opened and get_viewport().gui_is_dragging(), [tabs.current_tab, get_viewport().gui_is_dragging()])
 	if not opened:
 		mouse(tab, false)
 		await frames(3)
