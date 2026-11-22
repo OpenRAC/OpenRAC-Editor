@@ -1206,7 +1206,7 @@ def main(argv=None):
                 "x": args.at[0], "y": args.at[1], "z0": args.at[2], "z1": args.at[2] + args.height, "radius": args.radius,
                 "undercut": args.undercut, "bulge": args.bulge, "taper": args.taper, "roughness": args.roughness,
                 "layering": args.layering, "layer": args.layer, "yaw": args.yaw, "warp": args.warp, "stretch": args.stretch, "seed": args.seed})
-        rpath.write_text(json.dumps(recipe, indent=1) + "\n", encoding="utf-8")
+        rpath.write_text(json.dumps(recipe, indent=1) + "\n", encoding="utf-8", newline="\n")
         result = {"rocks": len(recipe["rocks"]), "recipe": str(rpath)}
     else:
         t = Terrain(path)
