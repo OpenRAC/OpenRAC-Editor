@@ -211,9 +211,9 @@ def class_blob(level, class_id: int) -> bytes:
     raise ValueError(f"level {level.id:02} has no class {class_id}")
 
 
-def check(here: int, there: int, class_id: int) -> None:
+def check(here: int, there: int, class_id: int, own_logic: bool = True) -> None:
     """ValueError when CLASS_ID cannot come from level THERE into level HERE."""
-    if (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
+    if own_logic and (class_id, there) in SET_PIECES and not os.environ.get("OPENRAC_PACK_SET_PIECES"):   # (testing them)
         raise ValueError(f"class {class_id}: {SET_PIECES[(class_id, there)]}")
     if not 0 <= there < LEVELS:
         raise ValueError(f"class {class_id}: there is no level {there}")

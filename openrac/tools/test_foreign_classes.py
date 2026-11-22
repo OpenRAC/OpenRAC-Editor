@@ -80,6 +80,11 @@ class ForeignClasses(unittest.TestCase):
         with self.assertRaises(ValueError):
             foreign_classes.check(3, 19, 909)
 
+    def test_a_set_piece_is_refused_only_with_its_own_logic(self):
+        with self.assertRaises(ValueError):
+            foreign_classes.check(0, 8, 1130)
+        foreign_classes.check(0, 8, 1130, own_logic=False)    # a simple move: its code never runs
+
     def test_the_moby_takes_after_its_levels_moby_with_its_own_pvars(self):
         data = gameplay([{"x": 1.0}, {"x": 2.0}])
         record = dict(zip(FIELDS, RECORD.unpack(gameplay([{"class_id": 909, "group": 4, "spawn_id": 77}])[0x110:0x110 + 0x78])))
