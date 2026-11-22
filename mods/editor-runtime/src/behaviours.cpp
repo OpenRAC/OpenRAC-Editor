@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // The behaviour presets of editor-runtime: simple behaviours given in OpenRAC Editor to mobys of a level (spin,
-// bob, patrol, orbit, face the hero, follow the hero), played through the port's mod interface only.
+// bob, patrol, orbit, face the hero, follow the hero, wander), played through the port's mod interface only.
 // It reads <pack>/level_NN/behaviours.json when a level loads (docs/BEHAVIOUR_FORMAT.md), drives
-// each moby named there (its own update no longer runs) and poses it every tick.
+// each moby named there (its own update no longer runs) and poses it every tick; one of another level's
+// class brought for its look (an entry with a class in place of a spawn id) it makes, driven from the start.
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <filesystem>
@@ -37,7 +39,7 @@ struct Run {
     int slot = -1;        // its slot while driven
     bool driven = false;
     bool gone = false;    // killed, or another mod drives it: left alone until the level loads again
-    bool seq_set = false;
+    int seq = -1;         // the sequence it was last set to play
     std::uint32_t ticks = 0;
     State state;
 };
@@ -75,7 +77,7 @@ std::vector<Behaviour> read_level(int level) {
         if (auto b = behaviour_of(entry)) {
             out.push_back(*b);
         } else {
-            log(OPENRAC_LOG_WARN, std::format("level_{:02d}: a behaviour with no spawn id or an unknown preset \"{}\", left out",
+            log(OPENRAC_LOG_WARN, std::format("level_{:02d}: a behaviour with no spawn id or class, or an unknown preset \"{}\", left out",
                                               level, entry["preset"].string()));
         }
     }
@@ -99,15 +101,77 @@ int list_mobys(std::map<int, int>& by_uid) {
 
 V3 v3(const float f[3]) { return {f[0], f[1], f[2]}; }
 
+// Moves R one tick and poses its moby M (as the game has it now) there, with the animation it plays
+// standing or moving.
+void pose_run(Run& r, const openrac_moby& m, const V3* hero) {
+    const double dt = 1.0 / kTicksPerSecond;
+    const V3 was = r.state.position;
+    step(r.def, r.state, r.ticks * dt, dt, hero);
+    const double moved = std::hypot(r.state.position.x - was.x, r.state.position.y - was.y);
+    ++r.ticks;
+    openrac_moby pose = m;
+    pose.size = sizeof(pose);
+    std::memcpy(pose.position, &r.state.position, sizeof(float) * 3);
+    std::memcpy(pose.rotation, &r.state.rotation, sizeof(float) * 3);
+    pose.scale = r.def.oclass >= 0 ? r.def.scale : 0;  // a placed one keeps its own
+    // Its animation goes on as it plays, or starts the sequence it was given: the walking one
+    // while it moves, the standing one when it stops.
+    pose.anim_speed = 1;
+    const int seq = sequence_for(r.def, moved > 1e-4);
+    if (seq >= 0 && seq != r.seq) {
+        pose.seq = static_cast<std::uint32_t>(seq);
+        pose.frame = pose.next_frame = 0;
+        pose.anim_time = 0;
+        r.seq = seq;
+    }
+    g_api->moby_pose(g_mod, r.slot, &pose);
+}
+
+// Makes R's moby (another level's class brought for its look): driven from the start, so its
+// class's code never runs. False when the port cannot make it.
+bool make(Run& r) {
+    openrac_moby made{};
+    made.size = sizeof(made);
+    std::memcpy(made.position, r.def.position, sizeof(made.position));
+    std::memcpy(made.rotation, r.def.rotation, sizeof(made.rotation));
+    made.scale = r.def.scale;
+    made.anim_speed = 1;
+    const int slot = API_HAS(moby_spawn) ? g_api->moby_spawn(g_mod, r.def.oclass, &made) : -1;
+    if (slot < 0) {
+        log(OPENRAC_LOG_WARN, std::format("class {}: could not be made (not loaded, or no room)", r.def.oclass));
+        return false;
+    }
+    r.slot = slot;
+    r.driven = true;
+    r.state = start(v3(r.def.position), v3(r.def.rotation), static_cast<std::uint32_t>(r.def.oclass) + 7u);
+    return true;
+}
+
 void tick() {
     std::map<int, int> by_uid;
-    list_mobys(by_uid);
+    const int count = list_mobys(by_uid);
     openrac_pose hero{};
     hero.size = sizeof(hero);
     const bool has_hero = g_api->hero_pose(&hero) == OPENRAC_HOOK_OK;
     const V3 hero_at = v3(hero.position);
+    const V3* hero_ptr = has_hero ? &hero_at : nullptr;
     for (Run& r : g_level.runs) {
         if (r.gone) continue;
+        if (r.def.oclass >= 0) {
+            if (!r.driven && !make(r)) {
+                r.gone = true;
+                continue;
+            }
+            // Its moby as the game has it now (its animation's frame), or a fresh one just made.
+            openrac_moby m{};
+            m.size = sizeof(m);
+            m.slot = r.slot;
+            for (int i = 0; i < count; ++i) {
+                if (g_list[static_cast<std::size_t>(i)].slot == r.slot) m = g_list[static_cast<std::size_t>(i)];
+            }
+            pose_run(r, m, hero_ptr);
+            continue;
+        }
         const auto it = by_uid.find(r.def.spawn_id);
         if (it == by_uid.end()) {
             // Not there (yet, or no more): a driven one that went is let go.
@@ -126,28 +190,12 @@ void tick() {
             }
             r.driven = true;
             r.slot = m.slot;
-            r.state = start(v3(m.position), v3(m.rotation));
+            r.state = start(v3(m.position), v3(m.rotation), static_cast<std::uint32_t>(r.def.spawn_id) + 1u);
         } else if (m.slot != r.slot) {
             r.gone = true;
             continue;
         }
-        const double dt = 1.0 / kTicksPerSecond;
-        step(r.def, r.state, r.ticks * dt, dt, has_hero ? &hero_at : nullptr);
-        ++r.ticks;
-        openrac_moby pose = m;
-        pose.size = sizeof(pose);
-        std::memcpy(pose.position, &r.state.position, sizeof(float) * 3);
-        std::memcpy(pose.rotation, &r.state.rotation, sizeof(float) * 3);
-        pose.scale = 0;  // its own
-        // Its animation goes on as it plays, or starts the sequence it was given.
-        pose.anim_speed = 1;
-        if (r.def.sequence >= 0 && !r.seq_set) {
-            pose.seq = static_cast<std::uint32_t>(r.def.sequence);
-            pose.frame = pose.next_frame = 0;
-            pose.anim_time = 0;
-            r.seq_set = true;
-        }
-        g_api->moby_pose(g_mod, r.slot, &pose);
+        pose_run(r, m, hero_ptr);
     }
 }
 

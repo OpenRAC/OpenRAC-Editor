@@ -463,7 +463,7 @@ func prepare(asset: Dictionary) -> String:
 # =============================================================================
 
 ## Adds ASSET in front of the 3D view's camera, as an undoable edit.
-func add_in_view(asset: Dictionary, place: Variant = null, job: String = "") -> void:
+func add_in_view(asset: Dictionary, place: Variant = null, job: String = "", behaviour: String = "") -> void:
 	active_job = job
 	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
@@ -478,7 +478,7 @@ func add_in_view(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	if path.is_empty():
 		return
 
-	if not ready_to_place(path, add_in_view.bind(asset, place, job)):
+	if not ready_to_place(path, add_in_view.bind(asset, place, job, behaviour)):
 		return
 
 	var scene := ResourceLoader.load(path) as PackedScene
@@ -505,6 +505,10 @@ func add_in_view(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	undo_redo.add_do_property(node, "owner", root)
 	undo_redo.add_do_property(node, "global_transform", placement(game, asset, node, camera, at, place))
 	add_metadata(undo_redo, node, asset, path)
+
+	if not behaviour.is_empty():
+		undo_redo.add_do_method(node, "set_meta", "rc1_behaviour", behaviour)
+
 	undo_redo.add_do_reference(node)
 	undo_redo.add_undo_method(group, "remove_child", node)
 
@@ -519,6 +523,23 @@ func add_in_view(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	EditorInterface.get_selection().add_node(node)
 	last_added = node
 	report(placed_report(asset, node))
+
+
+## Adds ASSET with the simple move BEHAVIOUR (behaviour_inspector.gd PRESETS) in place of its own
+## logic: an object of this level as it is, another level's brought in for its look and moved by the
+## editor-runtime mod. Undoable.
+func add_simple(asset: Dictionary, behaviour: String, place: Variant = null, job: String = "") -> void:
+	var refusal: String = Library.simple_refusal(asset, here())
+
+	if not refusal.is_empty():
+		active_job = job
+		report(refusal, true)
+		return
+
+	if Library.status(asset, here()) == Library.FULL:
+		add_in_view(asset, place, job, behaviour)
+	else:
+		add_foreign(asset, place, job, behaviour)
 
 
 ## Adds ASSET's model, as it is (animated), on the logic of HOST_CLASS, a moby class this level
@@ -606,7 +627,7 @@ func add_as(asset: Dictionary, host_class: int, place: Variant = null, job: Stri
 ## Adds ASSET, a moby of another level of this disc, with its own class and logic: a moby of its
 ## class under Game/Mobys with rc1_foreign_level, which editor/foreign_classes.py packs and the
 ## port runs in its own level's program. Undoable.
-func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> void:
+func add_foreign(asset: Dictionary, place: Variant = null, job: String = "", behaviour: String = "") -> void:
 	active_job = job
 	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
@@ -616,7 +637,8 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> 
 		report("Open a level first.", true)
 		return
 
-	var refusal: String = Library.import_refusal(asset, here())
+	# With a simple move its class's code never runs, so a class the game only makes from code comes too.
+	var refusal: String = Library.import_refusal(asset, here()) if behaviour.is_empty() else Library.simple_refusal(asset, here())
 
 	if not refusal.is_empty():
 		report(refusal, true)
@@ -627,7 +649,7 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	var path: String = Library.prepare(asset, here(), error)
 	dock.importing = false
 
-	if not path.is_empty() and not ready_to_place(path, add_foreign.bind(asset, place, job)):
+	if not path.is_empty() and not ready_to_place(path, add_foreign.bind(asset, place, job, behaviour)):
 		return
 
 	var scene := ResourceLoader.load(path) as PackedScene if not path.is_empty() else null
@@ -648,7 +670,7 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> 
 
 	node.name = free_name(group, base_name(asset))
 	var undo_redo := get_undo_redo()
-	undo_redo.create_action("Add %s with its actions" % asset["name"], UndoRedo.MERGE_DISABLE, root)
+	undo_redo.create_action(("Add %s with its actions" if behaviour.is_empty() else "Add %s with a simple move") % asset["name"], UndoRedo.MERGE_DISABLE, root)
 
 	if make_group:
 		undo_redo.add_do_method(game, "add_child", group)
@@ -663,6 +685,9 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	undo_redo.add_do_property(node, "scale", Vector3(scale, scale, scale))
 	undo_redo.add_do_method(node, "set_meta", "rc1_foreign_level", int(asset["level"]))
 	undo_redo.add_do_method(node, "set_meta", "rc1_foreign_class_scale", scale)
+
+	if not behaviour.is_empty():
+		undo_redo.add_do_method(node, "set_meta", "rc1_behaviour", behaviour)
 	undo_redo.add_do_reference(node)
 	undo_redo.add_undo_method(group, "remove_child", node)
 
@@ -675,8 +700,9 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "") -> 
 	EditorInterface.get_selection().clear()
 	EditorInterface.get_selection().add_node(node)
 	last_added = node
-	report("Added %s with its actions from %s. Then Play Level." % [
-		node.name, asset["level_name"] if not String(asset["level_name"]).is_empty() else "level %02d" % int(asset["level"])])
+	var from: String = asset["level_name"] if not String(asset["level_name"]).is_empty() else "level %02d" % int(asset["level"])
+	report(("Added %s with its actions from %s. Then Play Level." % [node.name, from]) if behaviour.is_empty() else
+		("Added %s from %s with a simple move: pick its animations in the Inspector. Then Play Level." % [node.name, from]))
 
 
 ## The group ASSET goes in under GAME; a new, parentless Node3D for a static group not made yet.

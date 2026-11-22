@@ -69,7 +69,8 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		"position": prop("array", "[x, y, z] in the game's coordinates. Default: in front of the 3D view."),
 		"yaw": prop("number", "Heading in degrees about the game's up (default 0)."),
 		"on_ground": prop("boolean", "Put it on the floor under the position (default false)."),
-		"mode": prop("string", "auto (default), own, import, look or skin."),
+		"mode": prop("string", "auto (default), own, import, look, skin or simple (a simple move in place of its logic: behaviour)."),
+		"behaviour": prop("string", "For mode simple: spin, bob, patrol, orbit, face_hero, follow or wander."),
 		"host_class": prop("integer", "For mode skin: the class of this level whose logic it runs.")}, ["class"], moby_add)
 	add("moby_set", "Changes a moby: position, heading, scale, its behaviour preset and numbers, its pvars "
 		+ "(rc1_pv_<name>), its group. One undo step.", {
@@ -77,7 +78,7 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		"spawn_id": prop("integer", "The moby's spawn number."),
 		"position": prop("array", "[x, y, z]."), "yaw": prop("number", "Heading in degrees."),
 		"scale": prop("number", "Size, 1 = the class's own."),
-		"behaviour": prop("string", "spin, bob, patrol, orbit, face_hero, follow, or \"\" for its own logic."),
+		"behaviour": prop("string", "spin, bob, patrol, orbit, face_hero, follow, wander, or \"\" for its own logic."),
 		"behaviour_numbers": prop("object", "The preset's numbers, e.g. {\"speed\": 90} (behaviour_list)."),
 		"pvars": prop("object", "Named pvars and values, e.g. {\"moveSpeed\": 6}."),
 		"group": prop("integer", "The moby's group (-1 for none).")}, [], moby_set)
@@ -480,8 +481,19 @@ func moby_add(args: Dictionary) -> Variant:
 	if mode == "auto":
 		mode = "own" if full else ("import" if Library.import_refusal(asset, here).is_empty() else "look")
 
-	if mode not in ["own", "look", "import", "skin"]:
-		return fail("mode is auto, own, import, look or skin.")
+	if mode not in ["own", "look", "import", "skin", "simple"]:
+		return fail("mode is auto, own, import, look, skin or simple.")
+
+	var behaviour: String = String(args.get("behaviour", ""))
+
+	if mode == "simple":
+		if not BehaviourInspector.PRESETS.has(behaviour):
+			return fail("mode simple needs behaviour: one of %s." % ", ".join(BehaviourInspector.PRESETS.keys()))
+
+		var why: String = Library.simple_refusal(asset, here)
+
+		if not why.is_empty():
+			return fail(why)
 
 	if mode == "own" and not full:
 		return fail("This level has no class %d of its own: use mode import or look." % number)
@@ -490,10 +502,10 @@ func moby_add(args: Dictionary) -> Variant:
 
 	# The editor brings one asset in at a time: a second add waits for the first, not fails.
 	if plugin.waiting_for_import:
-		add_when_free.call_deferred(job, mode, asset, place, int(args.get("host_class", -1)))
+		add_when_free.call_deferred(job, mode, asset, place, int(args.get("host_class", -1)), behaviour)
 		return {"job": job, "state": "running", "note": "Waiting for the last asset to come in; job_wait for the node."}
 
-	start_add(job, mode, asset, place, int(args.get("host_class", -1)))
+	start_add(job, mode, asset, place, int(args.get("host_class", -1)), behaviour)
 
 	if server.job_running(job):
 		return {"job": job, "state": "running", "note": "The editor is importing the class's files; job_wait for the node."}
@@ -503,20 +515,20 @@ func moby_add(args: Dictionary) -> Variant:
 
 ## Adds ASSET once the asset being brought in now is in, looking every quarter second up to TRIES
 ## times (a minute), finishing JOB. A timer's signal, not an await: nothing waits once the tools are off.
-func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int, tries: int = 240) -> void:
+func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int, behaviour: String = "", tries: int = 240) -> void:
 	# The plugin was switched off meanwhile: its server is gone with it.
 	if server == null or plugin == null or not is_instance_valid(plugin) or plugin.dock == null:
 		return
 
 	if not plugin.waiting_for_import:
-		start_add(job, mode, asset, place, host_class)
+		start_add(job, mode, asset, place, host_class, behaviour)
 	elif tries <= 0:
 		server.job_finish(job, fail("The last asset is still coming in: try again."), true)
 	else:
-		plugin.get_tree().create_timer(0.25).timeout.connect(add_when_free.bind(job, mode, asset, place, host_class, tries - 1))
+		plugin.get_tree().create_timer(0.25).timeout.connect(add_when_free.bind(job, mode, asset, place, host_class, behaviour, tries - 1))
 
 
-func start_add(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:
+func start_add(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int, behaviour: String = "") -> void:
 	plugin.last_result = {}
 
 	match mode:
@@ -526,6 +538,8 @@ func start_add(job: String, mode: String, asset: Dictionary, place: Variant, hos
 			plugin.add_foreign(asset, place, job)
 		"skin":
 			plugin.add_as(asset, host_class, place, job)
+		"simple":
+			plugin.add_simple(asset, behaviour, place, job)
 
 
 func moby_set(args: Dictionary) -> Variant:

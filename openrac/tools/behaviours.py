@@ -6,6 +6,10 @@ the preset says, from where it is placed. Pack writes them beside the level's pl
 
     <out>/level_NN/behaviours.json   {"format": 1, "mobys": [{"spawn_id", "preset", <numbers>}]}
 
+A moby of another level's class that has a move is not placed: the mod makes it, so its entry has
+"class", "position", "rotation" (radians) and "scale" in place of "spawn_id", and the class comes
+for its look and animations only (its code never runs).
+
 The presets and their numbers (metadata rc1_behaviour_<name>; a missing one takes its default):
 
     spin       speed (degrees a second; below 0 the other way)
@@ -15,8 +19,11 @@ The presets and their numbers (metadata rc1_behaviour_<name>; a missing one take
     face_hero  speed (degrees a second it turns)
     follow     speed (units a second), distance (how near the hero it stops), range (how near the
                hero must be; 0: always)
+    wander     radius (units round where it stands), speed (units a second), pause (seconds it
+               stands at each place)
 
-and for each, sequence: the class's animation it plays (-1: its own). The mod clamps each number.
+and for each, sequence: the class's animation it plays standing (-1: its own), and
+walk_sequence: the one it plays while it moves (-1: the standing one). The mod clamps each number.
 """
 
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
@@ -33,6 +40,7 @@ PRESETS: dict[str, dict[str, float]] = {
     "orbit": {"radius": 4.0, "speed": 45.0},
     "face_hero": {"speed": 180.0},
     "follow": {"speed": 4.0, "distance": 3.0, "range": 30.0},
+    "wander": {"radius": 8.0, "speed": 3.0, "pause": 2.0},
 }
 
 
@@ -60,19 +68,34 @@ def entry(node: dict) -> dict:
         if number != number or number in (float("inf"), float("-inf")):
             raise ValueError(f"rc1_behaviour_{key} must be a number, not {value!r}")
         out[key] = number
-    sequence = node["meta"].get("behaviour_sequence", -1)
-    try:
-        out["sequence"] = int(float(sequence))
-    except (TypeError, ValueError):
-        raise ValueError(f"rc1_behaviour_sequence must be a number, not {sequence!r}") from None
+    for key in ("sequence", "walk_sequence"):
+        value = node["meta"].get(f"behaviour_{key}", -1)
+        try:
+            out[key] = int(float(value))
+        except (TypeError, ValueError):
+            raise ValueError(f"rc1_behaviour_{key} must be a number, not {value!r}") from None
+    if out["walk_sequence"] < 0:
+        del out["walk_sequence"]    # none: the standing one all the time
     return out
 
 
-def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int]) -> tuple[list[str], list[str]]:
-    """Writes the scene's behaviours into OUT (the packed level's folder): what was done and what not."""
+def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int],
+                     made: dict[str, dict] | None = None) -> tuple[list[str], list[str]]:
+    """Writes the scene's behaviours into OUT (the packed level's folder): what was done and what not.
+    MADE: the mobys the mod makes (another level's class brought for its look), by node name: their
+    class, position, rotation and scale, written in place of a spawn id."""
     changes, problems, entries = [], [], []
+    made = made or {}
     for node in given(text_of_scene):
         name = node["name"]
+        if name in made:
+            try:
+                entries.append({**made[name], **entry(node)})
+            except ValueError as error:
+                problems.append(f"{name}: behaviour not used: {error}")
+                continue
+            changes.append(f"{name}: made by the mod, behaviour {entries[-1]['preset']}")
+            continue
         spawn_id = spawn_ids.get(name, -1)
         if not 0 <= spawn_id < 0xFFFF:
             problems.append(f"{name}: no spawn id, so its behaviour is not used")

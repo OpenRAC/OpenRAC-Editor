@@ -8,6 +8,7 @@ extends EditorDock
 
 const Library = preload("library.gd")
 const AssetList = preload("asset_list.gd")
+const BehaviourInspector = preload("behaviour_inspector.gd")
 
 ## The filter's choices.
 const SHOW_ALL: int = 0
@@ -73,6 +74,8 @@ var report: Label
 var add_button: Button
 var as_button: Button
 var own_button: Button
+var simple_button: Button
+var simple_menu: PopupMenu
 var refresh_button: Button
 var details: RichTextLabel
 ## What the list says when it has no assets to show.
@@ -210,6 +213,17 @@ func _init() -> void:
 		func() -> void: with_selected(func(asset: Dictionary) -> void: plugin.add_in_view(asset)))
 	own_button = action_button(buttons, "Add With Its Actions",
 		func() -> void: with_selected(func(asset: Dictionary) -> void: plugin.add_foreign(asset)))
+	simple_button = action_button(buttons, "Add With a Simple Move", show_moves)
+	simple_menu = PopupMenu.new()
+	var moves: Array = BehaviourInspector.LABELS.keys()
+
+	for i in range(moves.size()):
+		simple_menu.add_item(BehaviourInspector.LABELS[moves[i]], i)
+		simple_menu.set_item_metadata(i, moves[i])
+
+	simple_menu.id_pressed.connect(func(id: int) -> void:
+		with_selected(func(asset: Dictionary) -> void: plugin.add_simple(asset, String(simple_menu.get_item_metadata(id)))))
+	add_child(simple_menu)
 	as_button = action_button(buttons, "Add as Another Type", show_classes)
 	classes_menu = PopupMenu.new()
 	classes_menu.id_pressed.connect(func(id: int) -> void:
@@ -258,6 +272,7 @@ func _notification(what: int) -> void:
 	refresh_button.icon = get_theme_icon("Reload", "EditorIcons")
 	add_button.icon = get_theme_icon("Add", "EditorIcons")
 	own_button.icon = get_theme_icon("Script", "EditorIcons")
+	simple_button.icon = get_theme_icon("ToolMove", "EditorIcons")
 	as_button.icon = get_theme_icon("Skeleton3D", "EditorIcons")
 	placeholder = waiting_picture(get_theme_color("font_disabled_color", "Editor"), list.fixed_icon_size.x)
 	# The editor's own font size already follows its scale and its font size setting.
@@ -276,7 +291,7 @@ func show_selected() -> void:
 
 	if asset.is_empty():
 		details.text = "[color=#%s]Pick an asset.[/color]" % LOOK_COLOUR.darkened(0.3).to_html(false)
-		for button in [add_button, own_button, as_button]:
+		for button in [add_button, own_button, simple_button, as_button]:
 			button.disabled = true
 			button.tooltip_text = "Pick an asset first."
 		return
@@ -295,6 +310,10 @@ func show_selected() -> void:
 	own_button.disabled = not refusal.is_empty()
 	own_button.tooltip_text = (refusal if not refusal.is_empty() else
 		"Brings it from its level with what it needs. May slow the game a little.")
+	var simple: String = Library.simple_refusal(asset, here)
+	simple_button.disabled = not simple.is_empty()
+	simple_button.tooltip_text = (simple if not simple.is_empty() else
+		"Walks, patrols, follows Ratchet and more, in place of its own logic, playing its own animations.")
 	as_button.disabled = not can_add_as(asset)
 	as_button.tooltip_text = ("Pick a type of this level: it acts like that type and looks like this."
 		if can_add_as(asset) else "Only for objects this level doesn't have.")
@@ -596,6 +615,12 @@ func show_classes() -> void:
 	classes_menu.position = Vector2i(as_button.get_screen_position() + Vector2(0, as_button.size.y))
 	classes_menu.max_size = Vector2i(roundi(px(400.0)), roundi(px(500.0)))
 	classes_menu.popup()
+
+
+## The simple moves, under their button.
+func show_moves() -> void:
+	simple_menu.position = Vector2i(simple_button.get_screen_position() + Vector2(0, simple_button.size.y))
+	simple_menu.popup()
 
 
 func add(index: int) -> void:

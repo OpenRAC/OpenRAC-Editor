@@ -7,6 +7,7 @@ extends EditorPlugin
 
 const Library = preload("res://addons/openrac_library/library.gd")
 const Dock = preload("res://addons/openrac_library/dock.gd")
+const BehaviourInspector = preload("res://addons/openrac_library/behaviour_inspector.gd")
 
 ## A run that has not finished by then (a scenario stopped on a script error) is written as it
 ## stands and the editor quits.
@@ -14,7 +15,7 @@ const MOST_SECONDS: float = 120.0
 
 ## Each a method below, run in this order.
 const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typing", "filters", "planet_and_tree",
-	"details", "add_full", "add_look", "own_logic_after_pick", "class_logic", "drag_to_view", "drag_to_scene_dock",
+	"details", "add_full", "add_look", "own_logic_after_pick", "simple_move", "class_logic", "drag_to_view", "drag_to_scene_dock",
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
 	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed",
@@ -345,7 +346,7 @@ func dock_lists() -> void:
 	check("planets listed once each", planets[0] == "Every planet" and unique.size() == planets.size()
 		and planets.has("Kerwan") and planets.has("Rilgar") and planets.has("Veldin") and planets.has("Blarg Station"), planets)
 	check("this level's own at first", dock.shown.size() == 2 and dock.shown.all(func(asset: Dictionary) -> bool: return int(asset["level"]) == 5), names())
-	check("nothing picked: buttons off", dock.add_button.disabled and dock.own_button.disabled and dock.as_button.disabled)
+	check("nothing picked: buttons off", dock.add_button.disabled and dock.own_button.disabled and dock.simple_button.disabled and dock.as_button.disabled)
 
 
 func names() -> Array:
@@ -421,6 +422,8 @@ func filters() -> void:
 		Library.placed_cache.clear()
 		var codebot: Array = dock.shown.filter(func(asset: Dictionary) -> bool: return asset["name"] == "codebot_slot")
 		check("a placed class still comes with its actions", Library.import_refusal(ship[0], dock.here).is_empty(), Library.import_refusal(ship[0], dock.here))
+		check("a class never placed still takes a simple move", not codebot.is_empty() and Library.simple_refusal(codebot[0], dock.here).is_empty(),
+			Library.simple_refusal(codebot[0], dock.here) if not codebot.is_empty() else names())
 		check("a class never placed is refused, saying why", not codebot.is_empty() and Library.import_refusal(codebot[0], dock.here).contains("never placed"),
 			Library.import_refusal(codebot[0], dock.here) if not codebot.is_empty() else names())
 		file = FileAccess.open(scene, FileAccess.WRITE)
@@ -516,6 +519,7 @@ func details() -> void:
 	check("the game's own: added with its logic", not dock.add_button.disabled and dock.add_button.text == "Add" and dock.add_button.tooltip_text.begins_with("The game's own"), dock.add_button.tooltip_text)
 	check("the game's own: no import", dock.own_button.disabled and dock.own_button.tooltip_text == "This level has this type already.", dock.own_button.tooltip_text)
 	check("the game's own: no other class's logic", dock.as_button.disabled)
+	check("the game's own: a simple move", not dock.simple_button.disabled)
 	check("details name it", dock.details.text.contains(String(full.get("name", "?"))), dock.details.text)
 	await pick("red_ship_1")
 	check("another level's moby: import and class logic", not dock.own_button.disabled and not dock.as_button.disabled
@@ -524,9 +528,11 @@ func details() -> void:
 	var pal: Dictionary = await pick("turret_gaspar_2")
 	check("another disc's: no import", not pal.is_empty() and dock.own_button.disabled
 		and dock.own_button.tooltip_text == "Only between levels of the same disc.", [pal.get("name"), dock.own_button.tooltip_text])
+	check("another disc's: no simple move", dock.simple_button.disabled and dock.simple_button.tooltip_text == "Only between levels of the same disc.", dock.simple_button.tooltip_text)
 	await pick("682")
 	check("a tie: no logic of its own", dock.own_button.disabled and dock.own_button.tooltip_text == "Only objects can act on their own.")
 	check("a tie: no class logic", dock.as_button.disabled)
+	check("a tie: no simple move", dock.simple_button.disabled and dock.simple_button.tooltip_text == "Only objects can move.", dock.simple_button.tooltip_text)
 	reset_dock()
 
 
@@ -589,6 +595,32 @@ func own_logic_after_pick() -> void:
 	check("standing", foreign.size() == 1 and standing(foreign[0]))
 	check("one undo step", history()[-1].ends_with("with its actions"), history())
 	check("the report says own logic", dock.report.text.contains("with its actions"), dock.report.text)
+
+
+## "Add With a Simple Move": its menu of moves; another level's moby comes for its look with the move,
+## this level's own as it is with the move.
+func simple_move() -> void:
+	reset_dock()
+	await pick("red_ship_1")
+	await press(dock.simple_button)
+	await frame()
+	check("the moves menu opens", dock.simple_menu.visible and dock.simple_menu.item_count == BehaviourInspector.LABELS.size(), dock.simple_menu.item_count)
+	var patrol: int = BehaviourInspector.LABELS.keys().find("patrol")
+	dock.simple_menu.hide()
+	var moving: Callable = func(move: String) -> Array:
+		return children_of("Mobys").filter(func(node: Node) -> bool: return String(node.get_meta("rc1_behaviour", "")) == move)
+	dock.simple_menu.id_pressed.emit(patrol)
+	await until(func() -> bool: return not moving.call("patrol").is_empty(), 600)
+	var ship: Array = moving.call("patrol")
+	check("another level's: under Mobys with the move", ship.size() == 1 and ship[0].has_meta("rc1_foreign_level"), ship)
+	check("one undo step", history()[-1].ends_with("with a simple move"), history())
+	check("the report says simple move", dock.report.text.contains("simple move"), dock.report.text)
+	await pick("vendor")
+	dock.simple_menu.id_pressed.emit(BehaviourInspector.LABELS.keys().find("wander"))
+	await until(func() -> bool: return not moving.call("wander").is_empty(), 300)
+	var vendor: Array = moving.call("wander")
+	check("this level's own: as it is, with the move", vendor.size() == 1 and not vendor[0].has_meta("rc1_foreign_level")
+		and vendor[0].scene_file_path.ends_with("moby_11.tscn"), vendor)
 
 
 func class_logic() -> void:
@@ -824,7 +856,7 @@ func no_level() -> void:
 	check("no level here", dock.here.is_empty())
 	check("the list says what to do", dock.note.visible and dock.note.text == "Open a level, search, or pick a level above.", dock.note.text)
 	await pick("red_ship_1")
-	check("no button works", dock.add_button.disabled and dock.own_button.disabled and dock.as_button.disabled)
+	check("no button works", dock.add_button.disabled and dock.own_button.disabled and dock.simple_button.disabled and dock.as_button.disabled)
 	var files: int = DirAccess.get_files_at("res://library/rac1/ntsc/level_03/ties").size() if DirAccess.dir_exists_absolute("res://library/rac1/ntsc/level_03/ties") else 0
 	check("a drag carries nothing", dock.list._get_drag_data(dock.list.get_local_mouse_position()) == null and dock.report.text == "Open a level first.", dock.report.text)
 	await click(item_centre(0), true)
@@ -1087,7 +1119,7 @@ func layout() -> void:
 	check("a long report fits a narrow dock", dock.get_combined_minimum_size().x <= narrow(), dock.get_combined_minimum_size().x)
 	var hidden: Array = []
 
-	for button in [dock.add_button, dock.own_button, dock.as_button]:
+	for button in [dock.add_button, dock.own_button, dock.simple_button, dock.as_button]:
 		if not dock.get_global_rect().grow(1).encloses(button.get_global_rect()) or button.size.x < 1:
 			hidden.append(button.text)
 

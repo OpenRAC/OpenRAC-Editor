@@ -297,6 +297,31 @@ static func import_refusal(asset: Dictionary, here: Dictionary) -> String:
 	return ""
 
 
+## Why ASSET cannot come into the level HERE with a simple move of the editor (walk, patrol, follow
+## Ratchet...) in place of its own logic, or "" when it can: any object of this level, and any object
+## of another level of the disc, made by the game even (its class's code never runs then).
+static func simple_refusal(asset: Dictionary, here: Dictionary) -> String:
+	if asset.is_empty() or here.is_empty():
+		return "Open a level first."
+
+	if asset["kind"] != "mobys":
+		return "Only objects can move."
+
+	if status(asset, here) == FULL:
+		return ""
+
+	if asset["game"] != "rac1" or here["game"] != "rac1":
+		return "Only for Ratchet & Clank levels for now."
+
+	if asset["disc"] != here["disc"]:
+		return "Only between levels of the same disc."
+
+	if int(asset["level"]) < 0 or int(asset["level"]) >= 19 or int(here["level"]) < 0 or int(here["level"]) >= 19:
+		return "Only between the game's own levels."
+
+	return ""
+
+
 ## Each level folder's placed moby classes, by its scene's time: {dir: [time, {class: true}]}.
 static var placed_cache: Dictionary = {}
 

@@ -9,8 +9,10 @@ has editor parts and the mod is off.
   one when its trigger happens. Start skips a cutscene that allows it. Format:
   [docs/CUTSCENE_FORMAT.md](../../docs/CUTSCENE_FORMAT.md).
 - **Behaviours** (`src/behaviours.cpp`): simple movements set in a moby's Inspector (spin, bob,
-  patrol, orbit, face the hero, follow the hero), from `level_NN/behaviours.json`. Each moby named
-  there is driven (its own update stops) and posed every tick. Format:
+  patrol, orbit, face the hero, follow the hero, wander), with a standing and a moving
+  animation, from `level_NN/behaviours.json`. Each moby named there is driven (its own update
+  stops) and posed every tick; one of another level's class added for its look is made by the
+  mod. Format:
   [docs/BEHAVIOUR_FORMAT.md](../../docs/BEHAVIOUR_FORMAT.md).
 
 It uses only the port's mod interface (1.15; SDK 1.15.1 for the field of view, the hidden HUD, the

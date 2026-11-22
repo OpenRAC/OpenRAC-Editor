@@ -286,6 +286,17 @@ class Placement(unittest.TestCase):
             for a, b in zip(m, again):
                 self.assertAlmostEqual(a, b, places=6)
 
+    def test_a_moby_made_by_the_mod_is_at_its_place_at_its_class_size(self):
+        from mobys import matrix
+        from pack import made_by_mod, scene_transform
+        node = {"class_id": 1249, "transform": scene_transform(matrix((170.0, 136.4, 60.5), (0.0, 0.0, 0.5), 3.0)),
+                "meta": {"foreign_class_scale": 1.5}}
+        made = made_by_mod(node)
+        self.assertEqual(made["class"], 1249)
+        for got, want in zip(made["position"] + made["rotation"], (170.0, 136.4, 60.5, 0.0, 0.0, 0.5)):
+            self.assertAlmostEqual(got, want, places=4)
+        self.assertAlmostEqual(made["scale"], 2.0, places=5)
+
     def test_uneven_scale_is_refused(self):
         from formats import FormatError
         with self.assertRaises(FormatError):

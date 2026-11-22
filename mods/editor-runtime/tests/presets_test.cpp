@@ -143,6 +143,44 @@ void test_hero() {
     CHECK(s.position.x == 0);
 }
 
+void test_wander() {
+    // Stays within its radius of where it started, stands still between walks, and wanders the
+    // same way for the same seed.
+    const Behaviour b = read(R"({"spawn_id": 1, "preset": "wander", "radius": 5, "speed": 3, "pause": 1})");
+    CHECK(near(b.radius, 5) && near(b.speed, 3) && near(b.pause, 1));
+    const Behaviour plain = read(R"({"spawn_id": 1, "preset": "wander"})");
+    CHECK(near(plain.radius, 8) && near(plain.speed, 3) && near(plain.pause, 2));
+    State s = start({10, 20, 3}, {}, 7);
+    State again = start({10, 20, 3}, {}, 7);
+    const double dt = 1.0 / 60;
+    double farthest = 0;
+    int still = 0, moving = 0;
+    for (int i = 0; i < 60 * 30; ++i) {
+        const V3 was = s.position;
+        step(b, s, i * dt, dt, nullptr);
+        step(b, again, i * dt, dt, nullptr);
+        const double moved = std::hypot(s.position.x - was.x, s.position.y - was.y);
+        (moved > 1e-4 ? moving : still)++;
+        CHECK(moved <= 3 * dt + 1e-4);
+        farthest = std::fmax(farthest, std::hypot(s.position.x - 10, s.position.y - 20));
+        CHECK(near(s.position.z, 3));
+    }
+    CHECK(farthest <= 5.001 && farthest > 1);
+    CHECK(still > 60 && moving > 60);
+    CHECK(s.position.x == again.position.x && s.position.y == again.position.y);
+    State other = start({10, 20, 3}, {}, 8);
+    for (int i = 0; i < 60 * 5; ++i) step(b, other, i * dt, dt, nullptr);
+    CHECK(other.position.x != s.position.x || other.position.y != s.position.y);
+}
+
+void test_sequences() {
+    const Behaviour b = read(R"({"spawn_id": 1, "preset": "patrol", "sequence": 2, "walk_sequence": 5})");
+    CHECK(sequence_for(b, false) == 2 && sequence_for(b, true) == 5);
+    const Behaviour one = read(R"({"spawn_id": 1, "preset": "patrol", "sequence": 2})");
+    CHECK(sequence_for(one, true) == 2);
+    CHECK(read(R"({"spawn_id": 1, "preset": "patrol", "walk_sequence": 300})").walk_sequence == -1);
+}
+
 }  // namespace
 
 int main() {
@@ -152,6 +190,8 @@ int main() {
     test_patrol();
     test_orbit();
     test_hero();
+    test_wander();
+    test_sequences();
     std::printf("%d checks, %d failed\n", g_checks, g_failures);
     return g_failures == 0 ? 0 : 1;
 }
