@@ -30,7 +30,10 @@ import sys
 import time
 from pathlib import Path
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    raise SystemExit("The terrain tools need numpy: python3 -m pip install numpy")
 
 BACKUPS = ".terrain-backups"
 RECIPE = "terrain-rocks.json"
