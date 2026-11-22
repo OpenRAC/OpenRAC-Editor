@@ -46,16 +46,22 @@ func _ready() -> void:
 	scroll.add_child(box)
 
 	active_check = CheckButton.new()
-	active_check.text = "Brush on (click the ground in the 3D view)"
+	active_check.text = "Brush on"
+	active_check.tooltip_text = "While it is on, a click on the ground in the 3D view uses the brush."
+	active_check.clip_text = true
 	box.add_child(active_check)
 
 	mode_list = OptionButton.new()
+	mode_list.fit_to_longest_item = false
+	mode_list.clip_text = true
 	for m in MODES:
 		mode_list.add_item(m[0])
 	mode_list.item_selected.connect(func(_i): update_rows())
 	box.add_child(labelled("Brush", mode_list))
 
 	picture_list = OptionButton.new()
+	picture_list.fit_to_longest_item = false
+	picture_list.clip_text = true
 	box.add_child(labelled("Picture", picture_list))
 
 	size_box = number(10.0, 1.0, 200.0, 0.5)
@@ -63,7 +69,7 @@ func _ready() -> void:
 	strength_box = number(1.0, 0.05, 20.0, 0.05)
 	box.add_child(labelled("Strength", strength_box))
 	tile_box = number(3.0, 0.5, 32.0, 0.5)
-	box.add_child(labelled("Picture every (units)", tile_box))
+	box.add_child(labelled("Tile size", tile_box))
 
 	var row := HFlowContainer.new()
 	box.add_child(row)
@@ -91,7 +97,12 @@ static func labelled(text: String, control: Control) -> Control:
 	var row := HBoxContainer.new()
 	var label := Label.new()
 	label.text = text
-	label.custom_minimum_size.x = 120
+	# No width of its own beyond the column's: the panel shares it with Properties and Voices.
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_stretch_ratio = 0.8
+	label.clip_text = true
+	label.tooltip_text = text
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_child(label)
 	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(control)
