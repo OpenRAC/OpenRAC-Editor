@@ -310,6 +310,7 @@ class CheckAndPlay(unittest.TestCase):
             command = popen.call_args.args[0]
             self.assertEqual(command[0], str(game.resolve()))
             self.assertEqual(command[command.index("--level") + 1], "0")
+            self.assertIn("--window", command)  # without it the game has no window
             self.assertEqual(command[command.index("--mods") + 1], str((Path(tmp) / "packed").resolve()))
             self.assertTrue((Path(tmp) / "packed" / "packed.json").is_file())
             self.assertIn("openrac-started", out.getvalue())
