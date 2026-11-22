@@ -497,7 +497,7 @@ def start_game(game: Path, command: list[str], log: Path) -> int:
                                        cwd=cwd, env=game_environment(), **options)
         except OSError as exc:
             raise FormatError(f"the game could not be started ({game}): {exc.strerror or exc}",
-                              code="game-not-started") from exc
+                              code="internal") from exc
     until = time.monotonic() + GAME_START_SECONDS
     while process.poll() is None and time.monotonic() < until:
         time.sleep(0.1)
@@ -506,7 +506,7 @@ def start_game(game: Path, command: list[str], log: Path) -> int:
         lines = log.read_text(encoding="utf-8", errors="replace").splitlines() if log.is_file() else []
         said = "\n".join(line for line in lines[-12:] if line.strip())
         raise FormatError(f"the game closed right away (exit code {code}). Its last words, in {log}:\n"
-                          + (said or "(nothing)"), code="game-closed")
+                          + (said or "(nothing)"), code="internal")
     bundle = next((p for p in game.parents if p.suffix == ".app"), None)
     if sys.platform == "darwin" and bundle is not None:
         # Started by a program rather than the Finder, a Mac app opens behind the editor.
