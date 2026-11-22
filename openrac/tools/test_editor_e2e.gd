@@ -655,7 +655,12 @@ func drag_to_scene_dock() -> void:
 	var opened: bool = await until(func() -> bool:
 		move(tab + Vector2(1, 0), Vector2(1, 0), true)
 		return tree.is_visible_in_tree(), 180)
-	check("resting on Level's tab opens it", opened)
+	check("resting on Level's tab opens it", opened, [tab, bar.get_global_rect(), bar.get_hovered_tab(), tabs.current_tab,
+		get_viewport().gui_is_dragging(), get_viewport().gui_get_hovered_control()])
+	if not opened:
+		mouse(tab, false)
+		await frames(3)
+		return
 	tree.scroll_to_item(tree.get_root(), true)
 	await frame()
 	var row: Vector2 = tree.get_global_transform() * tree.get_item_area_rect(tree.get_root()).get_center()
