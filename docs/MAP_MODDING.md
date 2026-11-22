@@ -28,6 +28,8 @@ accessible. Do not change `--template-level` to 19 or 20 to request a new slot.
 - Author your terrain with the [model/terrain workflow](https://github.com/OpenRAC/OpenRAC/blob/develop/extractor/MODDING.md), placing the
   result at `levels/level_NN/terrain.glb`. Imported GLB children are not ordinary
   editable OpenRAC Editor nodes: edit the mesh in your modeling tool, then import it again.
+  Do not name your own meshes `Terrain_NNN`: the game hides a mesh with that name
+  whenever it hides its own terrain piece NNN. Pack warns when one does.
 - Edit or generate collision with the Collision dock. Visible geometry alone
   does not make a floor. Keep terrain, collision, paths and cameras aligned.
 - Place **Ratchet** where the player should arrive and set his heading. The
