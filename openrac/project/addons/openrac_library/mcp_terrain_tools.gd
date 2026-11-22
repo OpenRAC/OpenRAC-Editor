@@ -54,7 +54,12 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		"region": prop("array", "Only [x0, y0, x1, y1]; default: the terrain's middle 96%."),
 		"strength": prop("number", "Overall brightness (default 1)."),
 		"ambient": prop("number", "Light added everywhere, so no wall in shade goes black (default 0; 0.2 is soft)."),
-		"ao": prop("integer", "Sky directions for the occlusion (default 24; more is smoother, slower).")}, [], terrain_bake_light)
+		"ao": prop("integer", "Sky directions for the occlusion (default 24; more is smoother, slower)."),
+		"models": prop("array", "Model glbs (res:// paths) baked with the terrain: each shades the others."),
+		"subdivide": prop("number", "With models: split their faces to this size first, so walls and floors show shadows (2 is good)."),
+		"glow": prop("number", "With models: vertices brighter than this keep their colour (flames, lamps; 0.9)."),
+		"lights": prop("array", "Point lights: [{at: [x, y, z], colour: [r, g, b], radius}], blocked by what stands between.")},
+		[], terrain_bake_light)
 	add("terrain_rock_add", "Adds a rock to the terrain's rock recipe (terrain-rocks.json): a mesh shape with a "
 		+ "narrow foot (undercut), a bulging shoulder, a rounded top and layers, like Pokitaru's islands. "
 		+ "terrain_build makes the mesh.", {"at": prop("array", "Its foot [x, y, z] (under the sea for an island)."),
@@ -228,6 +233,21 @@ func terrain_bake_light(args: Dictionary) -> Variant:
 		extra.append_array(["--ambient", str(float(args["ambient"]))])
 	if args.has("ao"):
 		extra.append_array(["--ao", str(int(args["ao"]))])
+	if args.get("models") is Array and not (args["models"] as Array).is_empty():
+		extra.append("--models")
+		for m in args["models"]:
+			extra.append(ProjectSettings.globalize_path(str(m)))
+	for key in ["subdivide", "glow"]:
+		if args.has(key):
+			extra.append_array(["--" + key, str(float(args[key]))])
+	if args.get("lights") is Array and not (args["lights"] as Array).is_empty():
+		var file := ProjectSettings.globalize_path("user://terrain_lights.json")
+		var f := FileAccess.open(file, FileAccess.WRITE)
+		if f == null:
+			return fail("Cannot write the lights' file.")
+		f.store_string(JSON.stringify(args["lights"]))
+		f.close()
+		extra.append_array(["--lights", file])
 	return run("bake-light", extra, "Bake terrain light")
 
 

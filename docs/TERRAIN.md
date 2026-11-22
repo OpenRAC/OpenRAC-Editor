@@ -47,6 +47,26 @@ in another; `lip_top_area` (3) is how much top a lip needs above it. `bake-light
 keeps walls in shade from going black. Each rock is only worked out inside its own box, so one recipe can hold a
 whole archipelago.
 
+## Baked light for the whole scene
+
+`bake-light` can light your own models with the terrain, in one bake, so they shade each other
+(the house shades its deck, the deck its stilts, a cliff the house) and torches light both:
+
+```
+terrain.py bake-light terrain.glb --models models/house.glb models/props.glb \
+    --subdivide 2.2 --glow 0.9 --model-tint 0.5 --keep-tint --lights lights.json --ambient 0.2
+```
+
+- `--subdivide S` splits the models' faces to S units first: vertex light needs vertices, so a
+  big wall gets the shadow of a roof only when it is split.
+- `--glow G` keeps vertices brighter than G as they are (flames, lamp glass, glowing signs).
+- `--model-tint T` sets the models' colour under the light (the port draws model colours at half
+  the terrain's scale: 0.5 matches it).
+- `lights.json`: `[{"at": [x, y, z], "colour": [1.5, 1.0, 0.5], "radius": 9}]`. Each falls off to
+  nothing at its radius and is blocked by anything between it and the surface.
+
+Baked light never flickers: it is the same every frame, at no cost in the game.
+
 ## Good to know
 
 - Pokitaru, measured: 54 triangles per 100 m², 17% flat, 30% walls, 25% overhangs, light spread

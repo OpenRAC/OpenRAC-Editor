@@ -88,6 +88,12 @@ class Terrain:
         self.materials = j.get("materials", [])
         self.textures = j.get("textures", [])
         self.images = j.get("images", [])
+        # Pictures stored in the glb itself: their bytes are kept and written back on save.
+        self.image_bytes = {}
+        for i, im in enumerate(self.images):
+            if "bufferView" in im:
+                v = j["bufferViews"][im["bufferView"]]
+                self.image_bytes[i] = bytes(blob[v.get("byteOffset", 0):v.get("byteOffset", 0) + v["byteLength"]])
         self.samplers = j.get("samplers", [])
         self.nodes = []   # [name, translation, [Prim]]
         for node in j.get("nodes", []):
@@ -168,9 +174,20 @@ class Terrain:
             if tr:
                 node["translation"] = list(tr)
             nodes.append(node)
+        images = []
+        for i, im in enumerate(self.images):
+            im = dict(im)
+            if i in getattr(self, "image_bytes", {}):
+                while len(blob) % 4:
+                    blob.append(0)
+                data = self.image_bytes[i]
+                views.append({"buffer": 0, "byteOffset": len(blob), "byteLength": len(data)})
+                blob.extend(data)
+                im["bufferView"] = len(views) - 1
+            images.append(im)
         j = dict(self.json)
         j.update({"scene": 0, "scenes": [{"nodes": list(range(len(nodes)))}], "nodes": nodes, "meshes": meshes,
-                  "materials": self.materials, "textures": self.textures, "images": self.images,
+                  "materials": self.materials, "textures": self.textures, "images": images,
                   "accessors": accessors, "bufferViews": views, "buffers": [{"byteLength": len(blob)}]})
         if self.samplers:
             j["samplers"] = self.samplers
@@ -573,14 +590,23 @@ def hemisphere(count, seed=3):
     return np.array(out)
 
 
-def bake_light(t, args):
+def all_prims(ts):
+    for t in ts:
+        yield from t.prims()
+
+
+def bake_light(t, args, others=()):
+    """Sun with shadows, sky occlusion, bounce and point lights into the vertex colours of T and
+    OTHERS (models baked with the terrain: each shades the others). A primitive's KEEP mask (a
+    numpy bool per vertex, set by the caller) marks glowing vertices left as they are."""
+    ts = [t] + list(others)
     rng = np.random.default_rng(1)
     sun_az, sun_el = args.sun
     sun = np.array([math.cos(math.radians(sun_el)) * math.cos(math.radians(sun_az)),
                     math.cos(math.radians(sun_el)) * math.sin(math.radians(sun_az)), math.sin(math.radians(sun_el))])
     tris = []
     verts, norms = [], []
-    for name, off, p in t.prims():
+    for name, off, p in all_prims(ts):
         P = p.pos + off
         tris.append(P[p.faces])
         recompute_normals(p) if "NORMAL" not in p.attrs else None
@@ -618,23 +644,152 @@ def bake_light(t, args):
              + sky_col[None] * (sky_open * (0.55 + 0.45 * np.clip(N[:, 2], 0, 1)))[:, None]
              + bounce_col[None] * (np.clip(-N[:, 2], 0, 1) * 0.5 + 0.15)[:, None] * sky_open[:, None])
     light = light + getattr(args, "ambient", 0.0)       # a floor, so no wall goes black
+    lights = getattr(args, "lights", None) or []
+    if lights:
+        light = light + point_lights(V, N, occ, lights, args.cell)
     light = np.clip(light * args.strength, 0, 2)
     k = 0
-    for name, off, p in t.prims():
+    for name, off, p in all_prims(ts):
         n = len(p.pos)
         col = p.attrs["COLOR_0"]
         new = light[k:k + n]
         if args.keep_tint:
             new = new * np.clip(col[:, :3], 0, 2)
         col = np.concatenate([new, col[:, 3:4]], 1)
-        if not args.region:
-            p.attrs["COLOR_0"] = col
-        else:
-            m = inside[k:k + n]
-            p.attrs["COLOR_0"][m] = col[m]
+        m = inside[k:k + n] if args.region else np.ones(n, bool)
+        keep = getattr(p, "keep", None)
+        if keep is not None:
+            m = m & ~keep
+        p.attrs["COLOR_0"][m] = col[m]
         k += n
     return {"vertices": int(inside.sum()), "in_shadow": round(float((shadow[inside] > 0.5).mean()), 2) if inside.any() else 0,
-            "mean_ao": round(float(ao[inside].mean()), 2) if inside.any() else 0, "region": [round(v, 1) for v in region]}
+            "mean_ao": round(float(ao[inside].mean()), 2) if inside.any() else 0, "region": [round(v, 1) for v in region],
+            "lights": len(lights)}
+
+
+def bake_models(t, args):
+    """bake-light with its --models (subdivided, glowing parts kept, tinted) and --lights."""
+    if isinstance(getattr(args, "lights", None), str):
+        args.lights = json.loads(Path(args.lights).read_text(encoding="utf-8"))
+    models = []
+    for m in getattr(args, "models", None) or []:
+        backup(m)
+        mt = Terrain(m)
+        for name, off, p in mt.prims():
+            if args.glow:
+                p.keep = p.attrs["COLOR_0"][:, :3].max(1) > args.glow
+            if args.subdivide:
+                subdivide(p, args.subdivide)
+            if args.model_tint:
+                c = p.attrs["COLOR_0"]
+                k = getattr(p, "keep", np.zeros(len(c), bool))
+                c[~k, :3] = args.model_tint
+        models.append(mt)
+    result = bake_light(t, args, models)
+    for mt in models:
+        mt.save()
+    result["models"] = [str(m.path) for m in models]
+    return result
+
+
+def point_lights(V, N, occ, lights, cell):
+    """Warm pools of light from LIGHTS ({"at": [x, y, z], "colour": [r, g, b], "radius": r}): falling
+    off to nothing at the radius, blocked by whatever stands between (a voxel grid of OCC)."""
+    out = np.zeros((len(V), 3))
+    if not lights:
+        return out
+    vox = max(cell * 0.8, 0.35)
+    at = np.array([l["at"] for l in lights], float)
+    rad = np.array([l.get("radius", 8.0) for l in lights], float)
+    lo = at.min(0) - rad.max() - 1
+    hi = at.max(0) + rad.max() + 1
+    m = np.all((occ >= lo) & (occ <= hi), axis=1)
+    key = np.floor((occ[m] - lo) / vox).astype(np.int64)
+    dims = np.floor((hi - lo) / vox).astype(np.int64) + 2
+    solid = np.unique((key[:, 0] * dims[1] + key[:, 1]) * dims[2] + key[:, 2])
+
+    def blocked(q):
+        k = np.floor((q - lo) / vox).astype(np.int64)
+        flat = (k[:, 0] * dims[1] + k[:, 1]) * dims[2] + k[:, 2]
+        i = np.searchsorted(solid, flat)
+        i = np.clip(i, 0, len(solid) - 1)
+        return solid[i] == flat if len(solid) else np.zeros(len(q), bool)
+
+    for l, c, r in zip(at, lights, rad):
+        d = l - V
+        dist = np.linalg.norm(d, axis=1)
+        near = np.nonzero((dist < r) & (dist > 1e-3))[0]
+        if not len(near):
+            continue
+        L = d[near] / dist[near, None]
+        facing = np.clip((N[near] * L).sum(1), 0, 1) * 0.8 + 0.2
+        fall = (1 - dist[near] / r) ** 2
+        vis = np.ones(len(near))
+        start = V[near] + N[near] * vox * 1.2
+        span = l - start
+        length = np.linalg.norm(span, axis=1)
+        steps = int(np.ceil(length.max() / vox)) if len(length) else 0
+        for t in np.linspace(0.0, 1.0, max(steps, 2))[:-1]:
+            if t * length.max() < vox * 0.5:
+                continue
+            q = start + span * t
+            vis *= ~(blocked(q) & (length * (1 - t) > vox * 1.5))
+        out[near] += np.array(c.get("colour", [1.6, 1.1, 0.6]))[None] * (fall * facing * vis)[:, None]
+    return out
+
+
+def subdivide(p, size):
+    """Splits P's triangles into pieces no longer than SIZE on a side (so vertex light shows
+    shadows on big walls and floors). Attributes are blended linearly."""
+    F = p.faces
+    P = p.pos
+    a, b, c = P[F[:, 0]], P[F[:, 1]], P[F[:, 2]]
+    longest = np.max([np.linalg.norm(b - a, axis=1), np.linalg.norm(c - b, axis=1), np.linalg.norm(a - c, axis=1)], 0)
+    n = np.clip(np.ceil(longest / size), 1, 24).astype(int)
+    keep = n == 1
+    new_attrs = {k: [v] for k, v in p.attrs.items()}
+    new_faces = [F[keep]]
+    mask = getattr(p, "keep", None)
+    new_keep = [mask] if mask is not None else None
+    base = len(P)
+    for level in np.unique(n[~keep]):
+        sel = np.nonzero(n == level)[0]
+        # Barycentric grid of the level: points (i, j) with i + j <= level.
+        pts = [(i, j) for i in range(level + 1) for j in range(level + 1 - i)]
+        index = {q: k for k, q in enumerate(pts)}
+        w = np.array([[1 - (i + j) / level, i / level, j / level] for i, j in pts])
+        tri = []
+        for i in range(level):
+            for j in range(level - i):
+                tri.append((index[(i, j)], index[(i + 1, j)], index[(i, j + 1)]))
+                if i + j < level - 1:
+                    tri.append((index[(i + 1, j)], index[(i + 1, j + 1)], index[(i, j + 1)]))
+        tri = np.array(tri)
+        for k, v in p.attrs.items():
+            corners = v[F[sel]]                               # (T, 3, k)
+            new_attrs[k].append(np.einsum("pc,tck->tpk", w, corners).reshape(-1, v.shape[1]))
+        offs = base + np.arange(len(sel))[:, None, None] * len(pts)
+        new_faces.append((tri[None] + offs).reshape(-1, 3))
+        if new_keep is not None:      # a new vertex glows when its face's first corner does
+            new_keep.append(np.repeat(mask[F[sel, 0]], len(pts)))
+        base += len(sel) * len(pts)
+    p.attrs = {k: np.concatenate(v) for k, v in new_attrs.items()}
+    if "NORMAL" in p.attrs:
+        nn = p.attrs["NORMAL"]
+        p.attrs["NORMAL"] = nn / np.maximum(np.linalg.norm(nn, axis=1), 1e-9)[:, None]
+    p.faces = np.concatenate(new_faces)
+    if new_keep is not None:
+        p.keep = np.concatenate(new_keep)
+    # Drop the corners only the split faces used.
+    used = np.zeros(len(p.pos), bool)
+    used[p.faces.ravel()] = True
+    remap = np.cumsum(used) - 1
+    p.attrs = {k: v[used] for k, v in p.attrs.items()}
+    p.faces = remap[p.faces]
+    if new_keep is not None:
+        p.keep = p.keep[used]
+    return int(len(p.faces))
+
 
 
 # ---------------------------------------------------------------- rocks: density field to mesh
@@ -1016,6 +1171,11 @@ def main(argv=None):
     s.add_argument("--sky-colour", type=float, nargs=3, default=[0.42, 0.5, 0.62])
     s.add_argument("--bounce-colour", type=float, nargs=3, default=[0.22, 0.2, 0.12])
     s.add_argument("--keep-tint", action="store_true", help="multiply by the colours there now instead of replacing them")
+    s.add_argument("--models", nargs="*", default=[], help="model glbs baked with the terrain (each shades the others)")
+    s.add_argument("--model-tint", type=float, default=0.0, help="with --models: their light times this (0: as the terrain)")
+    s.add_argument("--subdivide", type=float, default=0.0, help="with --models: split their faces to this size first")
+    s.add_argument("--glow", type=float, default=0.0, help="with --models: vertices brighter than this keep their colour")
+    s.add_argument("--lights", help="a json list of point lights: {\"at\": [x, y, z], \"colour\": [r, g, b], \"radius\": r}")
     s = sub.add_parser("rock-add"); s.add_argument("terrain")
     s.add_argument("--at", type=float, nargs=3, required=True, metavar=("X", "Y", "Z_FOOT"))
     s.add_argument("--radius", type=float, required=True); s.add_argument("--height", type=float, required=True)
@@ -1057,7 +1217,7 @@ def main(argv=None):
             elif args.op == "sculpt":
                 result = sculpt(t, args)
             elif args.op == "bake-light":
-                result = bake_light(t, args)
+                result = bake_models(t, args)
             elif args.op == "build":
                 recipe, _ = read_recipe(path)
                 result = build(t, recipe, args)

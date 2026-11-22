@@ -85,6 +85,43 @@ class TerrainTest(unittest.TestCase):
         self.assertGreater(s["in_shadow"], 0.05)
         self.assertGreater(s["light_spread"], 0.2)
 
+    def test_subdivide_keeps_the_shape_and_the_glow(self):
+        t = terrain.Terrain(self.path)
+        p = next(t.prims())[2]
+        p.keep = np.zeros(len(p.pos), bool)
+        p.keep[0] = True
+        area = lambda q: np.linalg.norm(np.cross(q.pos[q.faces[:, 1]] - q.pos[q.faces[:, 0]],
+                                                 q.pos[q.faces[:, 2]] - q.pos[q.faces[:, 0]]), axis=1).sum() / 2
+        before = area(p)
+        terrain.subdivide(p, 0.6)
+        self.assertGreater(len(p.faces), 800 * 9)
+        self.assertAlmostEqual(area(p), before, places=3)
+        self.assertEqual(len(p.keep), len(p.pos))
+        self.assertTrue(p.keep.any())
+
+    def test_model_baked_with_a_point_light_and_its_shadow(self):
+        # A wall model over the ground: the ground behind it from the lamp stays dark, the lamp's
+        # side is lit, and the lamp's own glowing face keeps its colour.
+        model = Path(self.dir.name) / "wall.glb"
+        flat_terrain(model, size=4, step=4.0)
+        m = terrain.Terrain(model)
+        p = next(m.prims())[2]
+        P = p.pos.copy()
+        p.attrs["POSITION"] = np.stack([P[:, 0] + 18, np.full(len(P), 20.0), P[:, 1]], 1)
+        p.attrs["NORMAL"] = np.tile([0, -1.0, 0], (len(P), 1))
+        p.attrs["COLOR_0"][:] = [1.5, 1.5, 1.5, 1]
+        m.save()
+        lights = Path(self.dir.name) / "lights.json"
+        lights.write_text(json.dumps([{"at": [20, 17, 1.5], "colour": [2, 2, 2], "radius": 9}]))
+        terrain.main(["bake-light", str(self.path), "--models", str(model), "--lights", str(lights), "--glow", "1.2",
+                      "--sun", "0", "-89", "--ao", "4", "--cell", "0.5"])
+        t, m = terrain.Terrain(self.path), terrain.Terrain(model)
+        P = np.concatenate([q.pos for _, _, q in t.prims()]); C = np.concatenate([q.attrs["COLOR_0"] for _, _, q in t.prims()])
+        lit = C[np.argmin(np.linalg.norm(P - [20, 16, 0], axis=1)), 0]
+        hidden = C[np.argmin(np.linalg.norm(P - [20, 24, 0], axis=1)), 0]
+        self.assertGreater(lit, hidden + 0.3)
+        self.assertTrue(np.allclose(next(m.prims())[2].attrs["COLOR_0"][:, :3], 1.5))
+
 
 if __name__ == "__main__":
     unittest.main()
