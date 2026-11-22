@@ -263,7 +263,7 @@ func handle_scene_changed(root: Node) -> void:
 		show_skins(root)
 		stand_up_lying.call_deferred()
 		Callable(DrawDistance, "apply_edited").call_deferred()
-		view_hero.call_deferred(root)
+		view_hero.call_deferred(root.get_instance_id(), 2)
 
 
 ## The 3D view's camera as the editor starts a scene it has no saved view for: at the world's middle.
@@ -272,12 +272,19 @@ const FIRST_VIEW_DISTANCE: float = 4.0
 ## A level opened for the first time shows the empty world's middle (0, 0, 0), often far from
 ## anything. Then the view goes to the hero's start, a little behind and above. A level with a saved
 ## view keeps it.
-func view_hero(root: Node) -> void:
-	# The editor puts back a saved view after the scene change: wait for it.
-	await get_tree().process_frame
-	await get_tree().process_frame
+func view_hero(root_id: int, frames: int) -> void:
+	# The editor puts back a saved view after the scene change: wait for it. A signal, not an await,
+	# so nothing is left waiting when the plugin is switched off meanwhile.
+	if not is_inside_tree():
+		return
 
-	if root == null or not is_instance_valid(root) or root != EditorInterface.get_edited_scene_root():
+	if frames > 0:
+		get_tree().process_frame.connect(view_hero.bind(root_id, frames - 1), CONNECT_ONE_SHOT)
+		return
+
+	var root: Node = instance_from_id(root_id) as Node
+
+	if root == null or root != EditorInterface.get_edited_scene_root():
 		return
 
 	var mobys: Node = root.get_node_or_null("Game/Mobys")
