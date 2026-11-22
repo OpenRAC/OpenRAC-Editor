@@ -42,7 +42,9 @@ func _initialize() -> void:
 		"class_label": Library.class_label("res://levels/level_05/mobys/moby_10.tscn", 10),"place": {"game": place["game"], "disc": place["disc"]}, "levels": levels,
 		"status": status, "names": names, "full_path": Library.prepare(full_asset, here, errors),
 		"look_path": Library.prepare(look_asset, here, errors), "errors": errors,
-		"turns": turns()}
+		"turns": turns(),
+		"made_only": [Library.made_only(full_asset, here),
+			Library.made_only(full_asset.merged({"dir": here["dir"], "level": here["level"]}, true), here)]}
 	var file := FileAccess.open(out, FileAccess.WRITE)
 	file.store_string(JSON.stringify(result))
 	file.close()

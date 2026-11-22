@@ -222,7 +222,9 @@ per level, so it is only written when `games/rac1/decomp` is in the checkout.
 To place more, drag one from the **Assets** dock: the mobys, ties and shrubs of
 every level you have read, of every disc and game. A class this level has comes
 in as the game's own, with its logic; anything else as static scenery
-([MAP_MODDING.md](MAP_MODDING.md#the-assets-dock)). A moby's Inspector also has a
+([MAP_MODDING.md](MAP_MODDING.md#the-assets-dock)). A class this level loads but never places
+starts from a moby of it in another level; one no level places (the game makes it from its code,
+like a cutscene's ship) comes as scenery, or moves with a simple move. A moby's Inspector also has a
 **Behaviour** section (spin, bob, patrol, orbit, face or follow the hero), which
 the editor-runtime mod plays.
 

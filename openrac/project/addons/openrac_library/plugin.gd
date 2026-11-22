@@ -465,6 +465,13 @@ func prepare(asset: Dictionary) -> String:
 ## Adds ASSET in front of the 3D view's camera, as an undoable edit.
 func add_in_view(asset: Dictionary, place: Variant = null, job: String = "", behaviour: String = "") -> void:
 	active_job = job
+
+	# A class the game only makes from its code has no moby to start its logic from: scenery, unless
+	# it gets a simple move (the editor-runtime mod makes it).
+	if behaviour.is_empty() and Library.made_only(asset, here()):
+		asset = asset.duplicate()
+		asset["look"] = true
+
 	last_added = null
 	var root: Node = EditorInterface.get_edited_scene_root()
 	var game: Node3D = root.get_node_or_null("Game") as Node3D if root != null else null

@@ -259,7 +259,7 @@ static func read_class_scene(asset: Dictionary, text: String) -> void:
 
 ## What placing ASSET does in the level HERE (here_of()): FULL or LOOK.
 static func status(asset: Dictionary, here: Dictionary) -> String:
-	if here.is_empty() or asset["game"] != here["game"]:
+	if here.is_empty() or asset["game"] != here["game"] or asset.get("look", false):
 		return LOOK
 
 	var classes: Dictionary = here["classes"].get(asset["kind"], {})
@@ -320,6 +320,56 @@ static func simple_refusal(asset: Dictionary, here: Dictionary) -> String:
 		return "Only between the game's own levels."
 
 	return ""
+
+
+## True for a moby class this level loads that neither this level nor ASSET's own level places
+## (the game makes it from its code: a ship of a cutscene, Clank's backpack): pack.py has no moby
+## to start its own logic from, so Add puts it in as scenery, and a simple move still works.
+static func made_only(asset: Dictionary, here: Dictionary) -> bool:
+	if asset.is_empty() or asset["kind"] != "mobys" or status(asset, here) != FULL:
+		return false
+
+	var class_id: int = int(asset["class"])
+	var mine: Variant = original_classes(String(here["dir"]), int(here["level"]))
+
+	if mine == null or mine.has(class_id):
+		return false
+
+	if String(asset["dir"]) == String(here["dir"]) or int(asset["level"]) == int(here["level"]):
+		return true
+
+	var theirs: Variant = placed_classes(String(asset["dir"]), int(asset["level"]))
+	return theirs is Dictionary and not theirs.has(class_id)
+
+
+## The moby classes the disc places in the level at DIR (its scene's mobys with rc1_index, the
+## extractor's; not those added since), or null without its scene.
+static func original_classes(dir: String, level: int) -> Variant:
+	var scene: String = dir.path_join("level_%02d.tscn" % level)
+	if not FileAccess.file_exists(scene):
+		return null
+
+	var time: int = FileAccess.get_modified_time(scene)
+	var key: String = "original:" + dir
+
+	if placed_cache.has(key) and placed_cache[key][0] == time:
+		return placed_cache[key][1]
+
+	var text: String = FileAccess.get_file_as_string(scene)
+	var by_id: Dictionary = {}
+
+	for hit in RegEx.create_from_string("\\[ext_resource[^\\]]*mobys/moby_(\\d+)\\.tscn\"[^\\]]*id=\"([^\"]+)\"").search_all(text):
+		by_id[hit.get_string(2)] = hit.get_string(1).to_int()
+
+	var found: Dictionary = {}
+	var node := RegEx.create_from_string("\\[node [^\\]]*parent=\"Game/Mobys\" instance=ExtResource\\(\"([^\"]+)\"\\)\\]((?:(?!\\n\\[)[\\s\\S])*)")
+
+	for hit in node.search_all(text):
+		if by_id.has(hit.get_string(1)) and hit.get_string(2).contains("metadata/rc1_index"):
+			found[by_id[hit.get_string(1)]] = true
+
+	placed_cache[key] = [time, found]
+	return found
 
 
 ## Each level folder's placed moby classes, by its scene's time: {dir: [time, {class: true}]}.
