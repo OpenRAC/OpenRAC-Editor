@@ -50,7 +50,7 @@ MOST_NAME = 40
 
 
 def settings(project: Path) -> dict[str, str]:
-    """The [openrac] planet/* settings of PROJECT's project.godot, as strings."""
+    """The [openrac] planet/* and map/* settings of PROJECT's project.godot, as strings."""
     found: dict[str, str] = {}
     section = ""
     lines = iter((project / "project.godot").read_text(encoding="utf-8").splitlines())
@@ -63,7 +63,7 @@ def settings(project: Path) -> dict[str, str]:
             # Godot writes a string's new lines as they are: its value goes on to its closing quote.
             while value.startswith('"') and not closed(value):
                 value += "\n" + next(lines, '"')
-            if section == SECTION and key.strip().startswith("planet/"):
+            if section == SECTION and key.strip().startswith(("planet/", "map/")):
                 found[key.strip()] = godot_string(value.strip())
     return found
 
@@ -172,8 +172,6 @@ def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
     from pack import pack
     if not (project / "project.godot").is_file():
         raise PlanetError(f"{project} is not a level project (open the level in the editor first)", NO_PROJECT)
-    if disc.version.key != "pal":
-        raise PlanetError("New planets work with the European disc (SCES_509.16) for now")
     name = planet_name(project)
     level = level_of(project)
     ident = planet_id(project, name)

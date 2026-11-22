@@ -14,6 +14,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
+import games
 import overrides
 
 
@@ -25,7 +26,7 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
     if out.exists():
         raise overrides.PackError(f"{out} already exists; choose a new export folder")
     note = overrides.read_json(packed / overrides.PACKED)
-    if note.get("game", "rac1") != "rac1" or note.get("version") not in ("pal", "ntsc"):
+    if note.get("game", "rac1") != "rac1" or not games.known("rac1", note.get("version")):
         raise overrides.PackError("Pack this project's Ratchet & Clank level first (openrac_editor.py pack)")
     manifest = {"format": overrides.DESTINATION_PACK_FORMAT if destination else overrides.MAP_PACK_FORMAT,
                 "game": "rac1", "version": note["version"], "name": name,

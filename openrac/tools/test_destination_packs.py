@@ -106,8 +106,11 @@ class DestinationPacks(unittest.TestCase):
             replacement, _, _ = overrides.add(r / 'updated', r / 'installed')
             self.assertEqual(replacement, installed)
             self.assertEqual(len(overrides.load_state(r / 'installed')['packs']), 1)
+            # Every Ratchet & Clank disc has the ship's destinations; an unknown one does not.
             result['version'] = 'ntsc'
-            with self.assertRaisesRegex(overrides.PackError, 'PAL'):
+            overrides.map_settings(result)
+            result['version'] = 'pal2'
+            with self.assertRaisesRegex(overrides.PackError, 'disc version'):
                 overrides.map_settings(result)
 
 

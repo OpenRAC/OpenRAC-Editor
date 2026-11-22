@@ -25,8 +25,8 @@ On the launcher's **Mods** page, for the disc you set up:
 3. **Pack your edited levels**: what differs from the disc becomes the
    game's level data, in the packed folder. `changes.txt` there says, level by
    level, what was packed and what could not be, and why.
-4. **Play with your edits**: the game reads your packed levels in place of the
-   disc's.
+4. **Play Level** in OpenRAC Editor: it packs and starts the game on your level.
+   With Mods on, the launcher's Play reads your packed levels too.
 
 From a shell, the same steps:
 
@@ -34,7 +34,7 @@ From a shell, the same steps:
 python3 <editor>/openrac/tools/openrac_editor.py projects baserom/SCES_509.16.iso assets/levels/rac1/pal --split
 <editor>/openrac-editor.x86_64 --path assets/levels/rac1/pal/level_03 -e
 python3 <editor>/openrac/tools/openrac_editor.py pack baserom/SCES_509.16.iso assets/levels/rac1/pal assets/packed/rac1/pal
-# then the port with --mods assets/packed/rac1/pal (the launcher's Play with your edits)
+# then the port with --mods assets/packed/rac1/pal (Play Level in the editor)
 ```
 
 The NTSC-U disc works the same way (`SCUS_971.99.iso`, `rac1/ntsc`). A packed
