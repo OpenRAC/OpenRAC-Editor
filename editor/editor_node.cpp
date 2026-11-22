@@ -5507,7 +5507,7 @@ void EditorNode::_copy_warning(const String &p_str) {
 }
 
 // OpenRAC Editor: raised when the default arrangement of panels changes, so saved levels take it.
-static constexpr int OPENRAC_PANELS_VERSION = 1;
+static constexpr int OPENRAC_PANELS_VERSION = 2;
 
 void EditorNode::_save_editor_layout() {
 	if (!load_editor_layout_done) {
@@ -7968,7 +7968,7 @@ EditorNode::EditorNode() {
 	default_layout->set_value(docks_section, "dock_4_selected_tab_idx", 0);
 	default_layout->set_value(docks_section, "dock_5", InspectorDock::get_singleton()->get_effective_layout_key());
 	default_layout->set_value(docks_section, "dock_5_selected_tab_idx", 0);
-	default_layout->set_value(docks_section, "dock_6", "Collision,Voices");
+	default_layout->set_value(docks_section, "dock_6", "Collision,Voices,Terrain");
 	default_layout->set_value(docks_section, "dock_6_selected_tab_idx", 0);
 
 	int hsplits[] = { 0, dock_hsize, -dock_hsize, 0 };

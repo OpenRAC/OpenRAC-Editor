@@ -9,6 +9,7 @@ for the game. They read the disc with OpenRAC's extractor (openrac_root.py finds
                                                      (ISO "remembered": the disc the projects came from)
   openrac_editor.py check LEVEL_PROJECT              what of the edits cannot be packed (the disc it was read from)
   openrac_editor.py play LEVEL_PROJECT --packed ...  packed, then the game started on that level
+  openrac_editor.py terrain OP TERRAIN ...           a terrain mesh sculpted, painted, lit (terrain_tools.py)
 
 Ratchet & Clank's levels are packed back; Going Commando's, Up Your Arsenal's and Deadlocked's open
 to look at and to make texture and model packs from (early access). OUT is a new directory under
@@ -586,6 +587,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["terrain"]:
+        import terrain_tools as terrain
+        sys.exit(terrain.main(sys.argv[2:]))
     if sys.argv[1:2] == ["open"]:
         sys.exit(open_editor(sys.argv[2:]))
     if sys.argv[1:] == ["--worker"]:

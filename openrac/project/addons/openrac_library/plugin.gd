@@ -21,6 +21,7 @@ const ForeignInspector = preload("foreign_inspector.gd")
 const PlanetInspector = preload("planet_inspector.gd")
 const Play = preload("play.gd")
 const VoicesDock = preload("voices_dock.gd")
+const TerrainDock = preload("terrain_dock.gd")
 const DrawDistance = preload("draw_distance.gd")
 
 ## The groups under Game, by kind, for an asset the level has.
@@ -39,6 +40,8 @@ var foreign_inspector: ForeignInspector
 var play: Play
 ## The Voices dock (voices_dock.gd): the characters' lines in AI voices.
 var voices: VoicesDock
+## The Terrain panel (terrain_dock.gd): brushes for the ground, light bake, rocks.
+var terrain: TerrainDock
 ## The Planet Name section of the level (planet_inspector.gd).
 var planet_inspector: PlanetInspector
 
@@ -72,6 +75,9 @@ func _enter_tree() -> void:
 	add_dock(dock)
 	voices = VoicesDock.new()
 	add_dock(voices)
+	terrain = TerrainDock.new()
+	add_dock(terrain)
+	set_input_event_forwarding_always_enabled()
 	behaviour_inspector = BehaviourInspector.new()
 	behaviour_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(behaviour_inspector)
@@ -102,9 +108,11 @@ func register_mcp() -> void:
 	level_tools.register(mcp, self)
 	var cutscene_tools: RefCounted = preload("mcp_cutscene_tools.gd").new()
 	cutscene_tools.register(mcp, self)
+	var terrain_tools: RefCounted = preload("mcp_terrain_tools.gd").new()
+	terrain_tools.register(mcp, self)
 	var knowledge: RefCounted = preload("mcp_knowledge.gd").new()
 	knowledge.register(mcp, level_tools)
-	mcp_tools = [level_tools, cutscene_tools, knowledge]
+	mcp_tools = [level_tools, cutscene_tools, terrain_tools, knowledge]
 
 
 ## The level as a new planet (openrac/tools/planet.py, the launcher's "Add as a new planet"): its
@@ -147,6 +155,19 @@ func _exit_tree() -> void:
 	remove_dock(voices)
 	voices.queue_free()
 	voices = null
+	remove_dock(terrain)
+	terrain.queue_free()
+	terrain = null
+
+
+## A left click in the 3D view goes to the Terrain panel's brush while it is on.
+func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
+	if terrain == null or not event is InputEventMouseButton:
+		return AFTER_GUI_INPUT_PASS
+	var click := event as InputEventMouseButton
+	if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
+		return AFTER_GUI_INPUT_PASS
+	return AFTER_GUI_INPUT_STOP if terrain.handle_click(camera, click.position) else AFTER_GUI_INPUT_PASS
 
 
 ## Whether PATH is imported and can be placed now. When the editor is still bringing it in (a new

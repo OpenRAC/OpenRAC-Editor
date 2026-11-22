@@ -72,11 +72,16 @@ x and y across, z up, headings in degrees):
 | `cutscene_write`, `cutscene_add` | Write a whole cutscene, or add shots, actors, lines, sounds and events to one |
 | `cutscene_check` | What the game would not take or would skip |
 | `cutscene_frame` | A picture of a moment through the cutscene's camera (a job; needs the editor's window) |
+| `terrain_info`, `terrain_textures` | The terrain's numbers next to Pokitaru's, with advice; the ground pictures to paint with ([TERRAIN.md](TERRAIN.md)) |
+| `terrain_sculpt`, `terrain_paint`, `terrain_uv` | Brushes on the terrain mesh: raise, lower, smooth, roughen, flatten; a picture per face; box-mapped pictures (jobs) |
+| `terrain_rock_add`, `terrain_rocks_clear`, `terrain_build` | Rocks with overhangs from a recipe, built into the terrain node `Rocks` (a job) |
+| `terrain_bake_light`, `terrain_undo` | Sun, shadows and sky light baked into the ground's colours (a job); back to before the last terrain change |
 
 Every change made with `node_set`, `node_create`, `node_delete`, `node_reparent` and
 `node_duplicate` is one step in the editor's history, so you see it and can undo it.
 `node_call` and `run_gdscript` are not undoable. The level's tools are undoable too, each one
-step (`undo` takes `steps`).
+step (`undo` takes `steps`). The terrain tools change `terrain.glb` itself: each keeps a backup
+first, and `terrain_undo` takes the last one back.
 
 ## Jobs
 

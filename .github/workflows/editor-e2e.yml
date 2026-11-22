@@ -70,6 +70,9 @@ jobs:
           localedef -i en_US -f CP1252 "$RUNNER_TEMP/locale/en_US.CP1252"
           { echo "LOCPATH=$RUNNER_TEMP/locale"; echo "LC_ALL=en_US.CP1252"; echo "PYTHONUTF8=0"; } >> "$GITHUB_ENV"
 
+      - name: numpy, for the terrain tools
+        run: python -m pip install -q numpy
+
       - name: The editor's tools
         working-directory: openrac/tools
         shell: bash
@@ -101,7 +104,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends build-essential pkg-config
-          python -m pip install -q scons
+          python -m pip install -q scons numpy
 
       # One cache per commit, restored from the newest one, so only changed files compile.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
