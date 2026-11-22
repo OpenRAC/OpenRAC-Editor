@@ -18,7 +18,7 @@ on:
         default: nickyyOO/OpenRAC
       openrac-ref:
         description: Its branch or tag
-        default: feature/editor-asset-library
+        default: feature/editor-new-planet
 
 permissions:
   contents: read
@@ -55,7 +55,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
-          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-new-planet' }}
           path: openrac-game
           persist-credentials: false
 
@@ -92,7 +92,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.openrac-repository || 'nickyyOO/OpenRAC' }}
-          ref: ${{ inputs.openrac-ref || 'feature/editor-asset-library' }}
+          ref: ${{ inputs.openrac-ref || 'feature/editor-new-planet' }}
           path: openrac-game
           persist-credentials: false
 
