@@ -80,6 +80,8 @@ func run() -> void:
 			if not only.is_empty() and not only.has(name):
 				continue
 			scenario = name
+			# Assets shares its tabs with Level: a scenario that opened Level leaves the dock hidden.
+			show_dock()
 			var began: int = Time.get_ticks_msec()
 			await call(name)
 			times[name] = Time.get_ticks_msec() - began
@@ -642,26 +644,53 @@ func drag_to_view() -> void:
 
 
 ## Onto the Scene dock's root row: Godot drops it at the root's origin, lying; the dock moves it in
-## front of the camera, standing.
+## front of the camera, standing. Assets is a tab beside Level, so the drag first rests on Level's tab
+## until it opens.
 func drag_to_scene_dock() -> void:
 	reset_dock()
 	await pick("red_ship_1")
 	var tree: Tree = null
+	var level: Control = EditorInterface.get_base_control().find_children("*", "SceneTreeDock", true, false).front()
 
-	for node in EditorInterface.get_base_control().find_children("*", "SceneTreeEditor", true, false):
-		tree = node.find_children("*", "Tree", true, false)[0] if not node.find_children("*", "Tree", true, false).is_empty() else null
-		if tree != null and tree.is_visible_in_tree():
+	for node in level.find_children("*", "SceneTreeEditor", true, false):
+		var trees: Array = node.find_children("*", "Tree", true, false)
+		tree = trees[0] if not trees.is_empty() else null
+		if tree != null:
 			break
 
 	if tree == null or tree.get_root() == null:
 		check("the Scene dock is there", false)
 		return
 
+	var from: Vector2 = item_centre(0)
+	var count: int = children_of("StaticAssets").size()
+	var tabs: TabContainer = level.get_parent() as TabContainer
+	check("Assets is a tab beside Level", tabs != null and tabs == (dock.get_parent() as TabContainer), [level.get_parent(), dock.get_parent()])
+	if tabs == null or tabs.get_tab_idx_from_control(level) < 0:
+		return
+
+	var bar: TabBar = tabs.get_tab_bar()
+	var tab: Vector2 = bar.get_global_transform() * bar.get_tab_rect(tabs.get_tab_idx_from_control(level)).get_center()
+	await drag(from, tab, true)
+	# Resting on a tab during a drag opens it (TabBar switch_on_drag_hover). A headless editor has no
+	# mouse position for the tab bar to read, so the test opens the tab as that timer would.
+	check("a drag resting on Level's tab opens it", bar.switch_on_drag_hover)
+	tabs.current_tab = tabs.get_tab_idx_from_control(level)
+	await frames(2)
+	var opened: bool = tree.is_visible_in_tree()
+	check("Level is open, the drag still held", opened and get_viewport().gui_is_dragging(), [tabs.current_tab, get_viewport().gui_is_dragging()])
+	if not opened:
+		mouse(tab, false)
+		await frames(3)
+		return
 	tree.scroll_to_item(tree.get_root(), true)
 	await frame()
 	var row: Vector2 = tree.get_global_transform() * tree.get_item_area_rect(tree.get_root()).get_center()
-	var count: int = children_of("StaticAssets").size()
-	await drag(item_centre(0), row)
+	for i in range(1, 6):
+		move(tab.lerp(row, i / 5.0), (row - tab) / 5.0, true)
+		await frame()
+	mouse(row, false)
+	await frames(3)
 	await until(func() -> bool: return children_of("StaticAssets").size() == count + 1, 120)
 	await frames(2)
 	var node: Node3D = children_of("StaticAssets").back() if children_of("StaticAssets").size() == count + 1 else null

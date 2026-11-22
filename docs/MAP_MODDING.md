@@ -52,7 +52,7 @@ keeping them visible at runtime.
 
 ### The Assets dock
 
-The **Assets** dock (bottom left) lists the mobys, ties and shrubs of every
+The **Assets** dock (a tab beside Level, on the left) lists the mobys, ties and shrubs of every
 level you have read, from every disc and game. It looks beside this project
 (`assets/levels/<game>/<disc>/`, or `active/<game>/data/levels/<disc>` in an
 installed copy) and in the folders of the project setting

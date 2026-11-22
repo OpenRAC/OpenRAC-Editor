@@ -84,7 +84,7 @@ var legend: VBoxContainer
 
 func _init() -> void:
 	title = "Assets"
-	default_slot = EditorDock.DOCK_SLOT_LEFT_BR
+	default_slot = EditorDock.DOCK_SLOT_LEFT_UR  # a tab beside Level
 	# Wide enough for two columns of assets and a button's label on one line or two, never wider:
 	# the dock's long labels wrap instead.
 	custom_minimum_size.x = px(250.0)

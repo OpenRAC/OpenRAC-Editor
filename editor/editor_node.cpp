@@ -5507,7 +5507,7 @@ void EditorNode::_copy_warning(const String &p_str) {
 }
 
 // OpenRAC Editor: raised when the default arrangement of panels changes, so saved levels take it.
-static constexpr int OPENRAC_PANELS_VERSION = 2;
+static constexpr int OPENRAC_PANELS_VERSION = 3;
 
 void EditorNode::_save_editor_layout() {
 	if (!load_editor_layout_done) {
@@ -7959,13 +7959,11 @@ EditorNode::EditorNode() {
 	const String docks_section = "docks";
 	default_layout.instantiate();
 	// Dock numbers are based on DockSlot enum value + 1.
-	// OpenRAC Editor: each panel where it is used. Left: the Level list (and its History) above the
-	// Assets to add from. Right: Properties, the whole height it needs, then Collision and Voices.
-	// Bottom (closed until needed): Cutscene, Keys, Messages.
-	default_layout->set_value(docks_section, "dock_3", SceneTreeDock::get_singleton()->get_effective_layout_key() + "," + history_dock->get_effective_layout_key());
+	// OpenRAC Editor: each panel where it is used. Left, the whole height: the Level list with the
+	// Assets to add from and its History as tabs beside it. Right: Properties, the whole height it
+	// needs, then Collision, Voices and Terrain. Bottom (closed until needed): Cutscene, Keys, Messages.
+	default_layout->set_value(docks_section, "dock_3", SceneTreeDock::get_singleton()->get_effective_layout_key() + ",Assets," + history_dock->get_effective_layout_key());
 	default_layout->set_value(docks_section, "dock_3_selected_tab_idx", 0);
-	default_layout->set_value(docks_section, "dock_4", "Assets");
-	default_layout->set_value(docks_section, "dock_4_selected_tab_idx", 0);
 	default_layout->set_value(docks_section, "dock_5", InspectorDock::get_singleton()->get_effective_layout_key());
 	default_layout->set_value(docks_section, "dock_5_selected_tab_idx", 0);
 	default_layout->set_value(docks_section, "dock_6", "Collision,Voices,Terrain");
