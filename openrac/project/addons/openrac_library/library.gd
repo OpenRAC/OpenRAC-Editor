@@ -287,7 +287,41 @@ static func import_refusal(asset: Dictionary, here: Dictionary) -> String:
 	if int(asset["level"]) < 0 or int(asset["level"]) >= 19 or int(here["level"]) < 0 or int(here["level"]) >= 19:
 		return "Only between the game's own levels."
 
+	var placed: Variant = placed_classes(String(asset["dir"]), int(asset["level"]))
+
+	if placed is Dictionary and not placed.has(int(asset["class"])):
+		return ("%s is never placed on %s: the game makes it from its own code (a cutscene or a fight), "
+			+ "so its actions can't come with it. Add it as scenery, or use it in a cutscene.") % [
+			asset["name"], asset["level_name"] if not String(asset["level_name"]).is_empty() else "its level"]
+
 	return ""
+
+
+## Each level folder's placed moby classes, by its scene's time: {dir: [time, {class: true}]}.
+static var placed_cache: Dictionary = {}
+
+
+## The moby classes placed in the level at DIR (its scene's moby_<class>.tscn resources), or null
+## without its scene. pack copies an imported class's start from such a moby, so a class only the
+## game's code makes cannot come.
+static func placed_classes(dir: String, level: int) -> Variant:
+	var scene: String = dir.path_join("level_%02d.tscn" % level)
+	if not FileAccess.file_exists(scene):
+		return null
+
+	var time: int = FileAccess.get_modified_time(scene)
+
+	if placed_cache.has(dir) and placed_cache[dir][0] == time:
+		return placed_cache[dir][1]
+
+	var found: Dictionary = {}
+	var pattern := RegEx.create_from_string("\\[ext_resource[^\\]]*mobys/moby_(\\d+)\\.tscn")
+
+	for hit in pattern.search_all(FileAccess.get_file_as_string(scene)):
+		found[hit.get_string(1).to_int()] = true
+
+	placed_cache[dir] = [time, found]
+	return found
 
 
 ## The level the edited scene is: {"game", "disc", "level", "dir" (res://), "classes": {kind:

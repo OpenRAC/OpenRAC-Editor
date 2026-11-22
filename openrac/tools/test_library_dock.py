@@ -86,8 +86,12 @@ def level_project(root: Path, game: str, disc: str, number: int, title: str, mob
         (level / folder).mkdir(parents=True, exist_ok=True)
     (project / "project.godot").write_text(f'config_version=5\n\n[application]\n\nconfig/name="{title}"\n')
     (level / "level.json").write_text(json.dumps({"level": number, "version": disc}))
+    # Each class placed once, as its class scene (what the Assets dock reads as placed).
+    placed = "".join(f'[ext_resource type="PackedScene" path="res://levels/level_{number:02}/mobys/moby_{c}.tscn" '
+                     f'id="moby_{c}"]\n' for c in mobys)
     (level / f"level_{number:02}.tscn").write_text(
-        '[gd_scene format=3]\n\n[node name="Level" type="Node3D"]\n\n[node name="Game" type="Node3D" parent="."]\n')
+        f'[gd_scene format=3]\n\n{placed}\n[node name="Level" type="Node3D"]\n\n'
+        '[node name="Game" type="Node3D" parent="."]\n')
     (level / "textures" / "t.png").write_bytes(png())
     for number_, (name, scale) in mobys.items():
         (level / "mobys" / f"moby_{number_}.glb").write_bytes(glb(skinned=True))
