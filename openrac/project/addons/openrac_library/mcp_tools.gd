@@ -501,21 +501,19 @@ func moby_add(args: Dictionary) -> Variant:
 	return plugin.last_result
 
 
-## Adds ASSET once the asset being brought in now is in (up to a minute), finishing JOB.
-func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:
-	for _i in range(240):
-		# The plugin was switched off meanwhile: its server is gone with it.
-		if server == null or plugin == null or not is_instance_valid(plugin) or plugin.dock == null:
-			return
+## Adds ASSET once the asset being brought in now is in, looking every quarter second up to TRIES
+## times (a minute), finishing JOB. A timer's signal, not an await: nothing waits once the tools are off.
+func add_when_free(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int, tries: int = 240) -> void:
+	# The plugin was switched off meanwhile: its server is gone with it.
+	if server == null or plugin == null or not is_instance_valid(plugin) or plugin.dock == null:
+		return
 
-		if not plugin.waiting_for_import:
-			start_add(job, mode, asset, place, host_class)
-			return
-
-		await plugin.get_tree().create_timer(0.25).timeout
-
-	if server != null:
+	if not plugin.waiting_for_import:
+		start_add(job, mode, asset, place, host_class)
+	elif tries <= 0:
 		server.job_finish(job, fail("The last asset is still coming in: try again."), true)
+	else:
+		plugin.get_tree().create_timer(0.25).timeout.connect(add_when_free.bind(job, mode, asset, place, host_class, tries - 1))
 
 
 func start_add(job: String, mode: String, asset: Dictionary, place: Variant, host_class: int) -> void:

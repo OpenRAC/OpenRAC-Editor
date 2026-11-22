@@ -198,21 +198,23 @@ func handle_static_model_selected(path: String) -> void:
 		return
 	is_bringing_model = true
 	dock.show_report("Bringing %s in; it's placed when ready." % path.get_file())
+	EditorInterface.get_resource_filesystem().scan()
+	wait_for_model(copied[0], path.get_file(), 240)
+
+
+## Places the model at TARGET once the editor has imported it, looking again every quarter second
+## up to TRIES times. A timer's signal, not an await: nothing is left waiting when the plugin is off.
+func wait_for_model(target: String, name: String, tries: int) -> void:
 	var filesystem := EditorInterface.get_resource_filesystem()
-	filesystem.scan()
-	var target: String = copied[0]
-	for _i in range(240):
-		await get_tree().create_timer(0.25).timeout
-		if dock == null:    # the plugin was switched off meanwhile
-			is_bringing_model = false
-			return
-		if ResourceLoader.exists(target) and not filesystem.is_scanning() \
-				and not filesystem.get_file_type(target).is_empty():
-			is_bringing_model = false
-			place_model(target)
-			return
-	is_bringing_model = false
-	dock.show_report("Couldn't load %s." % path.get_file())
+	if ResourceLoader.exists(target) and not filesystem.is_scanning() and not filesystem.get_file_type(target).is_empty():
+		is_bringing_model = false
+		place_model(target)
+		return
+	if tries <= 0:
+		is_bringing_model = false
+		dock.show_report("Couldn't load %s." % name)
+		return
+	get_tree().create_timer(0.25).timeout.connect(wait_for_model.bind(target, name, tries - 1))
 
 
 ## Copies the model file at PATH (outside the project) into a folder of its own under res://models,
