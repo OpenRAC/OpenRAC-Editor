@@ -20,6 +20,7 @@ import argparse
 from concurrent.futures import as_completed
 import json
 from pathlib import Path
+import plistlib
 import shutil
 import struct
 import subprocess
@@ -404,6 +405,27 @@ def level_number(level_project: Path) -> int:
     return found[0]
 
 
+def game_program(game: Path) -> Path:
+    """The program a port build made at GAME. Windows adds .exe; a macOS build is an application
+    bundle <folder>/apps/<name>/<title>.app (OpenRAC port/cmake/MacApp.cmake) whose program is its
+    CFBundleExecutable, and an installed launcher carries only the bundle, not the build's link."""
+    if game.is_file():
+        return game
+    if game.with_suffix(".exe").is_file():
+        return game.with_suffix(".exe")
+    apps = game.parent / "apps" / game.name
+    for bundle in sorted(apps.glob("*.app")) if apps.is_dir() else []:
+        try:
+            with open(bundle / "Contents" / "Info.plist", "rb") as f:
+                name = plistlib.load(f).get("CFBundleExecutable")
+        except (OSError, plistlib.InvalidFileException):
+            continue
+        program = bundle / "Contents" / "MacOS" / str(name)
+        if name and program.is_file():
+            return program
+    return game
+
+
 def check_or_play(args) -> int:
     """`check LEVEL_PROJECT` and `play LEVEL_PROJECT ...`: every level of the projects folder
     LEVEL_PROJECT is in packed (check: into a folder that is thrown away), each edit that cannot be
@@ -436,9 +458,7 @@ def check_or_play(args) -> int:
     if getattr(args, "no_start", False):
         print(f"Packed into {result['dest']}.")
         return 0
-    game = args.game.resolve()
-    if not game.is_file() and game.with_suffix(".exe").is_file():
-        game = game.with_suffix(".exe")
+    game = game_program(args.game.resolve())
     if not game.is_file():
         raise FormatError(f"no game program at {game}: build the port (or start it from the launcher)",
                           code="file-missing")
