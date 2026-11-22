@@ -564,6 +564,10 @@ def occluded(points, normals, occ_pts, d, region, cell, bias):
         raise SystemExit("bake region too big for this cell size: give --region or a larger --cell")
     depth = splat_depth(occ_pts, M, lo, cell, shape)
     q = (points + normals * bias) @ M.T
+    # Slope-scaled bias: a face the light grazes changes depth fast from cell to cell, and its
+    # neighbour cells would shade it (blotches on roofs and slopes).
+    c = np.clip(normals @ -(d / np.linalg.norm(d)), 0.15, 1.0)
+    slack = bias + cell * 1.5 * np.sqrt(1 - c * c) / c
     f = (q[:, :2] - lo) / cell
     i0 = np.floor(f).astype(np.int64)
     shade = np.zeros(len(points))
@@ -572,7 +576,7 @@ def occluded(points, normals, occ_pts, d, region, cell, bias):
         for dy in (-1, 0, 1):
             ii = np.clip(i0[:, 0] + dx, 0, shape[0] - 1)
             jj = np.clip(i0[:, 1] + dy, 0, shape[1] - 1)
-            shade += depth[ii, jj] < q[:, 2] - bias
+            shade += depth[ii, jj] < q[:, 2] - slack
             n += 1
     return shade / n
 
