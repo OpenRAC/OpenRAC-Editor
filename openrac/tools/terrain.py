@@ -617,6 +617,7 @@ def bake_light(t, args):
     light = (sun_col[None] * (lit_sun * (1 - shadow))[:, None]
              + sky_col[None] * (sky_open * (0.55 + 0.45 * np.clip(N[:, 2], 0, 1)))[:, None]
              + bounce_col[None] * (np.clip(-N[:, 2], 0, 1) * 0.5 + 0.15)[:, None] * sky_open[:, None])
+    light = light + getattr(args, "ambient", 0.0)       # a floor, so no wall goes black
     light = np.clip(light * args.strength, 0, 2)
     k = 0
     for name, off, p in t.prims():
@@ -842,14 +843,17 @@ def auto_texture(t, recipe, args):
     nz = n[:, 2]
     # Top edge: a face is a "lip" when a top face lies just above it.
     flat = recipe.get("top_slope", 0.75)       # a face this upright or more is a top (grass)
-    tops = centre[nz > flat]
     lip = np.zeros(len(centre), bool)
-    if len(tops):
-        cell = 3.0
-        key = {}
-        for q in tops:
-            k = (int(q[0] // cell), int(q[1] // cell))
-            key[k] = max(key.get(k, -1e9), q[2])
+    cell = 3.0
+    # The tops that count for a lip: a cell with a few square units of top in it, not a small
+    # ledge half-way up a wall.
+    top_area = {}
+    for q, a_ in zip(centre[nz > flat], area[nz > flat]):
+        k = (int(q[0] // cell), int(q[1] // cell))
+        z, total = top_area.get(k, (-1e9, 0.0))
+        top_area[k] = (max(z, q[2]), total + a_)
+    key = {k: z for k, (z, total) in top_area.items() if total >= recipe.get("lip_top_area", 3.0)}
+    if key:
         for i in np.nonzero((nz <= flat) & (nz > -0.3))[0]:
             q = centre[i]
             best = -1e9
@@ -857,11 +861,12 @@ def auto_texture(t, recipe, args):
                 for dy in (-1, 0, 1):
                     best = max(best, key.get((int(q[0] // cell) + dx, int(q[1] // cell) + dy), -1e9))
             lip[i] = 0 < best - q[2] < recipe.get("lip", 4.0)
-    creep = value_noise3(centre / 14.0, 9, 2) > 1 - recipe.get("creepers", 0.42)   # creepers: the share of walls they cover
+    creep = value_noise3(centre / 24.0, 9, 2) > 1 - recipe.get("creepers", 0.42)   # creepers: the share of walls they cover
     kind = np.full(len(centre), "wall", dtype=object)
     kind[creep] = "creeper"
     kind[lip] = "lip"
     kind[nz > flat] = "top"
+    kind = smooth_kinds(p.faces, kind, ("top", "lip", "wall", "creeper"), recipe.get("smooth_passes", 2))
     kind[nz < -0.35] = "under"
     if sea is not None:
         kind[(centre[:, 2] < sea + 2.5) & (nz <= flat)] = "shore"
@@ -875,9 +880,63 @@ def auto_texture(t, recipe, args):
     node[2] = prims
     tile = recipe.get("tile", 3.0)
     tiles = recipe.get("tiles", {})            # a kind's own tile size, e.g. {"wall": 5}
+    wrap = recipe.get("uv") == "wrap" and recipe.get("rocks")
     for name, q in zip([k for k in ("top", "lip", "wall", "creeper", "under", "shore") if (kind == k).any()], prims):
         uri = t.texture_uri(q.material)
-        box_uv_prim(q, tiles.get(name, tile), lip_tile=recipe.get("lip", 4.0) if uri == styles["lip"] else None)
+        lip_tile = recipe.get("lip", 4.0) if uri == styles["lip"] else None
+        if wrap and name != "top":
+            wrap_uv_prim(q, recipe["rocks"], tiles.get(name, tile), lip_tile)
+        else:
+            box_uv_prim(q, tiles.get(name, tile), lip_tile=lip_tile)
+
+
+def smooth_kinds(faces, kind, kinds, passes):
+    """Each face takes the kind most of the faces round it have (over shared corners), so the
+    pictures come in patches, not lone triangles of one picture in another."""
+    nv = int(faces.max()) + 1
+    for _ in range(passes):
+        score = []
+        for k in kinds:
+            at_vertex = np.zeros(nv)
+            np.add.at(at_vertex, faces.reshape(-1), np.repeat((kind == k).astype(float), 3))
+            score.append(at_vertex[faces].sum(1))
+        best = np.array(kinds, dtype=object)[np.argmax(np.stack(score, 1), 1)]
+        movable = np.isin(kind, kinds)
+        kind = np.where(movable, best, kind)
+    return kind
+
+
+def wrap_uv_prim(p, rocks, tile, lip_tile=None):
+    """The picture wrapped round each face's nearest rock (along its outline, up its height), so a
+    wall reads as one rock with no seams where a box projection would change its axis."""
+    F = p.faces
+    for k in list(p.attrs):
+        p.attrs[k] = p.attrs[k][F.reshape(-1)]
+    p.faces = np.arange(len(F) * 3).reshape(-1, 3)
+    P = p.pos.reshape(-1, 3, 3)
+    c = P.mean(1)
+    rx = np.array([r["x"] for r in rocks]); ry = np.array([r["y"] for r in rocks])
+    rr = np.array([r["radius"] for r in rocks])
+    best = np.full(len(c), np.inf); which = np.zeros(len(c), int)
+    for i in range(len(rocks)):       # rock by rock: a face is near a few of them only
+        d = np.hypot(c[:, 0] - rx[i], c[:, 1] - ry[i]) / rr[i]
+        m = d < best
+        best[m] = d[m]; which[m] = i
+    ang = np.arctan2(P[:, :, 1] - ry[which][:, None], P[:, :, 0] - rx[which][:, None])
+    ang = ang[:, :1] + (ang - ang[:, :1] + np.pi) % (2 * np.pi) - np.pi     # no face spans the seam
+    u = ang * rr[which][:, None] / tile
+    v = -P[:, :, 2] / tile
+    uv = np.stack([u, v], -1).reshape(-1, 2)
+    p.attrs["TEXCOORD_0"] = uv
+    if lip_tile:
+        Q = p.pos
+        key = {}
+        for q in Q:
+            k = (int(q[0] // 3), int(q[1] // 3))
+            key[k] = max(key.get(k, -1e9), q[2])
+        top = np.array([max(key.get((int(q[0] // 3) + dx, int(q[1] // 3) + dy), -1e9)
+                            for dx in (-1, 0, 1) for dy in (-1, 0, 1)) for q in Q])
+        uv[:, 1] = np.clip((top - Q[:, 2]) / lip_tile, 0.02, 0.98)
 
 
 def box_uv_prim(p, tile, lip_tile=None):
@@ -952,6 +1011,7 @@ def main(argv=None):
     s.add_argument("--cell", type=float, default=0.75, help="shadow detail in units")
     s.add_argument("--bias", type=float, default=0.6)
     s.add_argument("--strength", type=float, default=1.0)
+    s.add_argument("--ambient", type=float, default=0.0, help="light added everywhere (no black walls)")
     s.add_argument("--sun-colour", type=float, nargs=3, default=[1.15, 1.02, 0.78])
     s.add_argument("--sky-colour", type=float, nargs=3, default=[0.42, 0.5, 0.62])
     s.add_argument("--bounce-colour", type=float, nargs=3, default=[0.22, 0.2, 0.12])

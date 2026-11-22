@@ -53,6 +53,7 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		{"sun": prop("array", "[azimuth, elevation] in degrees (default [-40, 50])."),
 		"region": prop("array", "Only [x0, y0, x1, y1]; default: the terrain's middle 96%."),
 		"strength": prop("number", "Overall brightness (default 1)."),
+		"ambient": prop("number", "Light added everywhere, so no wall in shade goes black (default 0; 0.2 is soft)."),
 		"ao": prop("integer", "Sky directions for the occlusion (default 24; more is smoother, slower).")}, [], terrain_bake_light)
 	add("terrain_rock_add", "Adds a rock to the terrain's rock recipe (terrain-rocks.json): a mesh shape with a "
 		+ "narrow foot (undercut), a bulging shoulder, a rounded top and layers, like Pokitaru's islands. "
@@ -223,6 +224,8 @@ func terrain_bake_light(args: Dictionary) -> Variant:
 			extra.append(str(float(v)))
 	if args.has("strength"):
 		extra.append_array(["--strength", str(float(args["strength"]))])
+	if args.has("ambient"):
+		extra.append_array(["--ambient", str(float(args["ambient"]))])
 	if args.has("ao"):
 		extra.append_array(["--ao", str(int(args["ao"]))])
 	return run("bake-light", extra, "Bake terrain light")
