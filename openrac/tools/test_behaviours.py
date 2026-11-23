@@ -50,6 +50,14 @@ class Behaviours(unittest.TestCase):
                          (["Vendor_0001: behaviour spin (Vendor_0003 has the same spawn number: only one of them "
                            "moves; give one another number)"], []))
 
+    def test_a_moby_the_mod_makes_with_no_move_stands(self):
+        where = {"class": 531, "position": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0], "scale": 1.0}
+        changes, problems = behaviours.write_behaviours(scene(""), self.out, {}, {"Ship": where})
+        self.assertEqual(problems, [])
+        self.assertIn("Ship: made by the mod, standing", changes[0])
+        doc = json.loads((self.out / "behaviours.json").read_text(encoding="utf-8"))
+        self.assertEqual(doc["mobys"], [{**where, "preset": "spin", "speed": 0.0, "sequence": -1}])
+
     def test_problems(self):
         (self.out).mkdir(parents=True)
         (self.out / "behaviours.json").write_text("{}")

@@ -8,7 +8,7 @@ the preset says, from where it is placed. Pack writes them beside the level's pl
 
 A moby of another level's class that has a move is not placed: the mod makes it, so its entry has
 "class", "position", "rotation" (radians) and "scale" in place of "spawn_id", and the class comes
-for its look and animations only (its code never runs).
+for its look and animations only (its code never runs). One with no move stands still.
 
 The presets and their numbers (metadata rc1_behaviour_<name>; a missing one takes its default):
 
@@ -42,6 +42,9 @@ PRESETS: dict[str, dict[str, float]] = {
     "follow": {"speed": 4.0, "distance": 3.0, "range": 30.0},
     "wander": {"radius": 8.0, "speed": 3.0, "pause": 2.0},
 }
+
+# A moby the mod makes with no move given: a spin of no speed, its own standing animation.
+STAND = {"preset": "spin", "speed": 0.0, "sequence": -1}
 
 
 def text(value) -> str:
@@ -106,6 +109,10 @@ def write_behaviours(text_of_scene: str, out: Path, spawn_ids: dict[str, int],
             problems.append(f"{name}: behaviour not used: {error}")
             continue
         changes.append(f"{name}: behaviour {entries[-1]['preset']}" + sharing(name, spawn_id, spawn_ids, "behaviour"))
+    for name in sorted(made.keys() - {node["name"] for node in given(text_of_scene)}):
+        # No simple move: it stands where it is placed, playing its own animation (its code never runs).
+        entries.append({**made[name], **STAND})
+        changes.append(f"{name}: made by the mod, standing (give it a simple move to make it move)")
     if entries:
         out.mkdir(parents=True, exist_ok=True)
         (out / "behaviours.json").write_text(json.dumps({"format": 1, "mobys": entries}, indent=1) + "\n", encoding="utf-8", newline="\n")

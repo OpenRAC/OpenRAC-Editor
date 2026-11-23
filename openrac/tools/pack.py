@@ -1304,12 +1304,12 @@ def pack(disc, survey: dict, project: Path, out: Path,
         placed: list = []
         core_donors = loaded_class_donors(disc, survey, info["id"], text, available_classes, original_classes,
                                           wanted, sources)
-        # A class this level loads that no level places, with a simple move: the mod makes it.
+        # A class this level loads that no level places: the mod makes it, with its simple move, or
+        # standing still with its own animation when it has none (behaviours.STAND).
         made_here = {n["name"]: made_by_mod(n) for n in scene_mobys(text)
                      if available_classes and n["class_id"] in available_classes
                      and n["class_id"] not in original_classes and n["class_id"] not in core_donors
-                     and n["meta"].get("index") is None and n["meta"].get("foreign_level") is None
-                     and "behaviour" in n["meta"]}
+                     and n["meta"].get("index") is None and n["meta"].get("foreign_level") is None}
         edited, changes, problems = pack_level(info["id"], gameplay, text, available_classes, names, moby_spawn_ids,
                                                donors, placed, core_donors, set(made_here))
         problems += foreign_problems
