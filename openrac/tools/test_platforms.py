@@ -217,6 +217,7 @@ class Release(unittest.TestCase):
                         self.assertEqual(len(names), len({n.lower() for n in names}), "a name only in case")
                         self.assertIn("openrac/tools/openrac_editor.py", names)
                         self.assertIn("openrac/tools/openrac_root.py", names)
+                        self.assertIn("openrac/tools/vendor/numpy/__init__.py", names)     # terrain tools
                         manifest = json.loads(archive.read("openrac/editor.json"))
                         self.assertEqual(manifest["version"], "v9.9.9")
                         if system == "macos":

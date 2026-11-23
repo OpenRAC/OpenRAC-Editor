@@ -30,10 +30,13 @@ import sys
 import time
 from pathlib import Path
 
+# The release brings numpy for the launcher's Python in vendor/ (build/package.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent / "vendor"))
 try:
     import numpy as np
 except ImportError:
-    raise SystemExit("The terrain tools need numpy: python3 -m pip install numpy")
+    raise SystemExit("The terrain tools could not load their numpy: download OpenRAC Editor again "
+                     "from the launcher (it comes with it)")
 
 BACKUPS = ".terrain-backups"
 RECIPE = "terrain-rocks.json"
