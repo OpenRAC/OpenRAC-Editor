@@ -19,7 +19,7 @@ const SCENARIOS: PackedStringArray = ["stand_up", "dock_lists", "search", "typin
 	"drag_onto_a_selected_node", "drag_cancelled", "copies_left_alone", "foreign_switch", "previews",
 	"class_menu_names", "keyboard", "many_adds", "new_group", "broken_assets", "odd_clicks", "refresh_click",
 	"layout", "looks", "ui_sizes", "planet_settings", "no_level", "closed_while_importing", "plugin_off_and_on", "speed",
-	"check_and_play", "model_from_outside"]
+	"check_and_play", "model_from_outside", "level_list"]
 
 ## The dock's narrowest sensible width at 100%: a dock column a person has not widened (narrow()
 ## gives it at the editor's display scale).
@@ -912,6 +912,54 @@ func speed() -> void:
 	dock.refill()
 	check("a search over many levels finds each class once", dock.shown.filter(func(asset: Dictionary) -> bool: return String(asset["name"]).begins_with("thing_")).size() == STRESS_MOBYS, dock.shown.size())
 	reset_dock()
+
+
+## The Level list groups Objects' copies by model under a readable name with a count; a group's
+## row selects all its copies, and its lock makes them unclickable in the 3D view (undoable).
+func level_list() -> void:
+	var level: Control = EditorInterface.get_base_control().find_children("*", "SceneTreeDock", true, false).front()
+	var tree: Tree = null
+	for node in level.find_children("*", "SceneTreeEditor", true, false):
+		var trees: Array = node.find_children("*", "Tree", true, false)
+		tree = trees[0] if not trees.is_empty() else null
+		if tree != null:
+			break
+	await frames(3)
+	var objects: TreeItem = null
+	var stack: Array = [tree.get_root()] if tree != null and tree.get_root() != null else []
+	while not stack.is_empty():
+		var item: TreeItem = stack.pop_back()
+		if item.get_text(0).begins_with("Objects ("):
+			objects = item
+		stack.append_array(item.get_children())
+	var count: int = children_of("Mobys").size()
+	check("Objects shows its count", objects != null and objects.get_text(0) == "Objects (%d)" % count, objects.get_text(0) if objects != null else null)
+	if objects == null:
+		return
+	var vendors: TreeItem = null
+	for group in objects.get_children():
+		if group.has_meta("openrac_group") and String(group.get_meta("openrac_group")).ends_with("moby_11.tscn"):
+			vendors = group
+	var copies: Array = children_of("Mobys").filter(func(node: Node) -> bool: return node.scene_file_path.ends_with("moby_11.tscn"))
+	check("one group per model, named with its count", vendors != null and vendors.get_text(0).ends_with(" ×%d" % copies.size())
+		and not vendors.get_text(0).begins_with("Moby"), [vendors.get_text(0) if vendors != null else null, objects.get_children().map(func(i: TreeItem) -> String: return i.get_text(0))])
+	if vendors == null:
+		return
+	check("copies read as the group's name and a number", vendors.get_child_count() == copies.size()
+		and vendors.get_child(0).get_text(0).begins_with(vendors.get_text(0).get_slice(" ×", 0)), vendors.get_children().map(func(i: TreeItem) -> String: return i.get_text(0)))
+	EditorInterface.get_selection().clear()
+	tree.set_selected(vendors, 0)
+	await frames(2)
+	var selected: Array = EditorInterface.get_selection().get_selected_nodes()
+	check("a group's row selects all its copies", copies.all(func(node: Node) -> bool: return selected.has(node)) and selected.size() == copies.size(), selected)
+	EditorInterface.get_selection().clear()
+	var steps: int = history().size()
+	tree.button_clicked.emit(vendors, 0, 20, MOUSE_BUTTON_LEFT)
+	await frames(2)
+	check("the group's lock locks every copy", copies.all(func(node: Node) -> bool: return node.get_meta("_edit_lock_", false)), history())
+	await undo()
+	await frames(2)
+	check("undo unlocks them", copies.all(func(node: Node) -> bool: return not node.get_meta("_edit_lock_", false)) and history().size() >= steps, history())
 
 
 ## A level's model, or a scene, picked in the Scene dock: Godot drops the asset as its child; the

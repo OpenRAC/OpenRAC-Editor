@@ -77,6 +77,11 @@ These are deleted from the source:
   is **Messages**, Animation is **Keys**, History is **Undo History**. The menus are **Level**,
   **View** and **Help**. Game values show plain labels (`EditorPropertyNameProcessor`), and the
   level's fixed parts read Objects, Big Scenery, Small Scenery and Ground in the Level list.
+- **Level list groups:** Objects, Big Scenery and Small Scenery show their copies grouped by model,
+  one row each with its name and count ("Mountain Wall ×24"), and each copy reads as that name and
+  a number. Clicking a group selects all its copies; its lock makes them unclickable in the 3D view.
+  Only the list changes (`SceneTreeEditor::_openrac_*`); names come from the Assets dock's tables
+  through EditorInterface's `openrac_outline_label` meta.
 
 ## Added
 
