@@ -454,6 +454,10 @@ func show_skins(root: Node) -> void:
 		return
 
 	for moby in mobys.get_children():
+		if moby.has_meta("rc1_foreign_look"):
+			show_foreign_look(moby)
+			continue
+
 		if not moby.has_meta("rc1_skin") or moby.has_node("SkinLook"):
 			continue
 
@@ -471,6 +475,39 @@ func show_skins(root: Node) -> void:
 		look.name = "SkinLook"
 		look.transform = Transform3D(Basis.from_scale(Vector3(scale, scale, scale)), Vector3.ZERO)
 		moby.add_child(look)
+
+
+## A moby of another level (add_foreign) drawn with its skeleton and animations: its placed model is
+## a still copy (imported, so without a skin: importing a skinned model can bring the editor down),
+## so a "ForeignLook" child read from the full model, not imported and not saved, takes its place,
+## posed at the start of its first animation as the level's own mobys are.
+func show_foreign_look(moby: Node) -> void:
+	if moby.has_node("ForeignLook"):
+		return
+
+	var look: Node3D = Library.scene_of(String(moby.get_meta("rc1_foreign_look")))
+
+	if look == null:
+		return
+
+	for mesh in moby.find_children("*", "GeometryInstance3D", true, false):
+		(mesh as GeometryInstance3D).visible = false
+
+	look.name = "ForeignLook"
+	moby.add_child(look)
+	var players: Array[Node] = look.find_children("*", "AnimationPlayer", true, false)
+
+	if players.is_empty():
+		return
+
+	var player := players[0] as AnimationPlayer
+
+	for clip in [&"seq_00", &"seq_00_loop"]:
+		if player.has_animation(clip):
+			player.play(clip)
+			player.seek(0.0, true)
+			player.pause()
+			return
 
 
 ## The level the edited scene is (library.gd here_of()).
@@ -691,6 +728,8 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "", beh
 	var error: Array = []
 	dock.importing = true
 	var path: String = Library.prepare(asset, here(), error)
+	# Its full model, skeleton and animations kept, to draw it with (show_foreign_look).
+	var look: String = Library.prepare_skin(asset, []) if not path.is_empty() else ""
 	dock.importing = false
 
 	if not path.is_empty() and not ready_to_place(path, add_foreign.bind(asset, place, job, behaviour)):
@@ -729,6 +768,10 @@ func add_foreign(asset: Dictionary, place: Variant = null, job: String = "", beh
 	undo_redo.add_do_property(node, "scale", Vector3(scale, scale, scale))
 	undo_redo.add_do_method(node, "set_meta", "rc1_foreign_level", int(asset["level"]))
 	undo_redo.add_do_method(node, "set_meta", "rc1_foreign_class_scale", scale)
+
+	if not look.is_empty():
+		undo_redo.add_do_method(node, "set_meta", "rc1_foreign_look", look)
+		undo_redo.add_do_method(self, "show_skins", root)
 
 	if not behaviour.is_empty():
 		undo_redo.add_do_method(node, "set_meta", "rc1_behaviour", behaviour)
