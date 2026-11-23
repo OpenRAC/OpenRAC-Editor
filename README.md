@@ -103,7 +103,7 @@ See [MCP](docs/MCP.md).
 
 1. [Get the OpenRAC launcher](https://github.com/OpenRAC/OpenRAC/releases/latest) and add your disc.
 2. In **Mods**, open the **Level editor** tab and press **Download OpenRAC Editor** (once: the
-   launcher fetches it from [this repository's releases](https://github.com/nickyyOO/OpenRAC-Editor/releases)).
+   launcher fetches it from [this repository's releases](https://github.com/OpenRAC/OpenRAC-Editor/releases)).
 3. Pick a planet and open it.
 
 Edits play in Ratchet & Clank (PAL and NTSC-U). Levels of the later games open to explore.
@@ -114,7 +114,7 @@ Edits play in Ratchet & Clank (PAL and NTSC-U). Levels of the later games open t
 ## Build from source
 
 ```sh
-git clone https://github.com/nickyyOO/OpenRAC-Editor.git && cd OpenRAC-Editor
+git clone https://github.com/OpenRAC/OpenRAC-Editor.git && cd OpenRAC-Editor
 scons platform=linuxbsd profile=build/custom.py      # Linux
 scons platform=windows profile=build/custom.py       # Windows
 scons platform=macos arch=arm64 profile=build/custom.py metal=yes vulkan=no   # macOS

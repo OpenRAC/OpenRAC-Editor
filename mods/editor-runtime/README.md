@@ -15,7 +15,7 @@ has editor parts and the mod is off.
   mod. Format:
   [docs/BEHAVIOUR_FORMAT.md](../../docs/BEHAVIOUR_FORMAT.md).
 
-It uses only the port's mod interface (1.15; SDK 1.15.1 for the field of view, the hidden HUD, the
+It uses only the port's mod interface (the field of view, the hidden HUD, the
 music, joint layers, joints as targets, sounds on actors, the air, slow motion, hidden ties,
 animated props and feet on the ground, which it skips on an older port), so the game's own logic
 is not changed.

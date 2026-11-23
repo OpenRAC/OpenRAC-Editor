@@ -211,7 +211,7 @@ is turned on bones, as the hero's rig does) or has no skeleton.
 ```
 
 The actor's whole animation, every joint per 30 Hz frame, as the game's own scenes have it
-(OpenRAC's `editor/game_scenes.py` writes one for each actor of a scene it imports). `frames` is a
+(`openrac/tools/game_scenes.py` writes one for each actor of a scene it imports). `frames` is a
 file beside the .cutscene file: for each frame from 0 (frame f is tick 2f), for each of `joints`
 joints, 20 bytes, little-endian: the joint's turn from its parent as int16 x, y, z, w over 32767
 (its columns are the joint's axes in its parent's, as glTF has it), its place in its parent as
@@ -353,7 +353,7 @@ again, when the scene ends, so a skip leaves the level as watching does. While t
 `moby_hide` holds: the player sets it again each tick, so a class whose own code hides or shows
 the moby (an amoeboid until Ratchet comes near) does not undo it. `spawn_id` is the record's uid
 (the editor's `rc1_spawn_id`), not its place in the level; the player maps one to the other with
-the port's `moby_uid` (SDK 1.15.1). A `moby_kill` and a
+the port's `moby_uid`. A `moby_kill` and a
 `mission_flag` always last.
 
 A `fade` goes from the colour before it (none at first) to `to`, `[r, g, b]` or `[r, g, b, a]`
@@ -411,7 +411,7 @@ view. Keys themselves are set as in any OpenRAC Editor animation, with the key i
 the Animation dock.
 
 Saving the level writes every Cutscene to `cutscenes/<name>.cutscene` beside the scene, and the
-launcher packs them with the level. Packing checks each one first (OpenRAC's `editor/pack.py`, `check_cutscene`) and
+launcher packs them with the level. Packing checks each one first (`openrac/tools/pack.py`, `check_cutscene`) and
 leaves out one that is for another level, has no length or one over ten minutes, has two actors of
 one name, spawns a moby class the level does not load, or asks for more than the port has (8
 figures, 256 meshes, 128 joints an actor, 64 MiB of sounds). What the player would only skip is
@@ -420,15 +420,15 @@ one back into a new, empty Cutscene (a camera looking at an actor becomes its tu
 a smooth curve, and events the editor has no node for are not kept: it says which). From a script, `to_cutscene()`,
 `export_cutscene()`, `from_cutscene(data)` and `import_cutscene(path)` do the same.
 
-The game's own in-engine scenes can be a start: OpenRAC's `editor/game_scenes.py DISC.iso --level 3
+The game's own in-engine scenes can be a start: `openrac/tools/game_scenes.py DISC.iso --level 3
 --out DIR` writes each of a level's scenes as `game_scene_KK.cutscene`, with its speech as WAV per
 language. It keeps the camera (a key a tick, its cuts and field of view), each actor's class, place
 and size, the subtitles and the speech; the first hero actor becomes a figure and the hero is hidden.
 It also writes each actor's own joint animation as a pose file (see Pose).
 
-## What the player does today (version 0.3)
+## What the player does today
 
-The player is a mod on the port's mod interface (1.15, SDK 1.15.1: `pack_folder` and `game_language`, and
+The player is a mod on the port's mod interface (`pack_folder` and `game_language`, and
 what a scene needs: `camera_fov`, `hud_hide`, `music_volume`, `moby_set_joints`,
 `moby_joint_position`, `moby_sound_play`, `scene_air`, `time_stretch`, `tie_hide`, `prop_animate`,
 `moby_joint_frame`, `moby_set_joint_poses`). It plays all of this format: the triggers, `once` (per

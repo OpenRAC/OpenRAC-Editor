@@ -19,4 +19,4 @@ void load(openrac::Mod& mod) {
 
 }  // namespace
 
-OPENRAC_MOD_CPP("editor-runtime", "0.4.0", load)
+OPENRAC_MOD_CPP("editor-runtime", "0.5.0", load)

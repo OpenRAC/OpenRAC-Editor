@@ -91,8 +91,8 @@ jobs:
       # packed into the archive: Play installs it into the game's mods folder.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: nickyyOO/OpenRAC
-          ref: feature/editor-asset-library
+          repository: OpenRAC/OpenRAC
+          ref: develop
           path: openrac-game
           persist-credentials: false
 
