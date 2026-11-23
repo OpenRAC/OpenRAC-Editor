@@ -1845,7 +1845,7 @@ void SceneTreeEditor::_update_selection(TreeItem *item) {
 			all = all && editor_selection->is_selected(copy);
 		}
 		if (all && !item->is_selected(0)) {
-			item->select(0);
+			item->select(0, false); // Not as the cursor: that stays where the person is.
 		} else if (!all && item->is_selected(0)) {
 			item->deselect(0);
 		}

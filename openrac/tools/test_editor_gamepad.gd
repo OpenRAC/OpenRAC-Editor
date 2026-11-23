@@ -381,7 +381,8 @@ func number_field() -> void:
 func row_buttons() -> void:
 	var tree := level_tree()
 	var item: TreeItem = tree.get_root()
-	while item and item.get_text(0) != "Vendor_0000":
+	# The Level list shows a copy by its group's name ("Vendor 1"); its path names the node.
+	while item and not String(item.get_metadata(0)).ends_with("/Vendor_0000"):
 		item = item.get_next_in_tree()
 	if item == null:
 		check("the moby is in the Level list", false)
@@ -393,6 +394,10 @@ func row_buttons() -> void:
 	check("its row has the eye", eye >= 0, item.get_button_count(0))
 	if eye < 0:
 		return
+	var parent: TreeItem = item.get_parent()
+	while parent:
+		parent.collapsed = false
+		parent = parent.get_parent()
 	tree.grab_focus()
 	tree.set_selected(item, 0)
 	await frames(2)
