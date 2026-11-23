@@ -554,7 +554,21 @@ func set_picking(on: bool) -> void:
 	is_picking = on
 	is_pressing = false
 	is_dragging = false
+
+	# Picking starts on the selected tie's or shrub's baked faces, to move them with it.
+	if on and faces != null and is_scenery(selected_node):
+		select_baked(selected_node as Node3D)
+
 	refresh_selection()
+
+
+## Whether NODE is a tie or a shrub of the open level.
+func is_scenery(node: Node) -> bool:
+	if faces == null or not (node is Node3D) or not is_instance_valid(node):
+		return false
+
+	var parent: Node = node.get_parent()
+	return parent != null and parent.get_parent() == faces.game and parent.name in [&"Ties", &"Shrubs"]
 
 
 ## A click in the 3D view: the face under the mouse.
@@ -943,8 +957,14 @@ func handle_selection_changed() -> void:
 		mesh_name = String(selected_node.name) if (selected_node is MeshInstance3D or
 			selected_node.find_children("*", "MeshInstance3D", true, false).size() > 0) else ""
 
-		if parent != null and parent.get_parent() == faces.game and parent.name in [&"Ties", &"Shrubs"]:
+		# Only while picking faces: elsewhere the yellow faces stayed on and could not be cleared.
+		if is_picking and is_scenery(selected_node):
 			select_baked(selected_node as Node3D)
+
+	# Outside face picking, selecting something else (or nothing) clears the picked faces.
+	if faces != null and not is_picking and not faces.selection.is_empty():
+		faces.selection = {}
+		refresh_selection()
 
 	dock.show_mesh(mesh_name)
 	show_object()
