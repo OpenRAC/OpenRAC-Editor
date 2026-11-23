@@ -584,7 +584,10 @@ def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: 
                         force: bool = False) -> bytes | None:
     """Build a virtual level-data container when the compressed core outgrows its slot or force is set.
 
-    Existing sections keep their offsets. The replacement core stream is appended on a 0x40
+    Existing sections keep their offsets. A stream that fits the disc's slot stays there (force
+    only mounts the level in virtual sectors, for the expanded RAM): the game reads the whole
+    container into the top of its 32 MiB, so a container that grew by a second core ran into the
+    game's own code (a crash while the HUD loads). One that does not fit is appended on a 0x40
     boundary and the container's core range is redirected to it. None means the original slot fits.
     """
     index_at, index_size = struct.unpack_from("<ii", data, 2 * 8)
@@ -596,6 +599,10 @@ def expanded_level_data(data: bytes, core: bytes, index: bytes, original_index: 
         raise FormatError("the expanded core index no longer fits its level-data section")
     out = bytearray(data)
     out[index_at:index_at + index_size] = index + bytes(index_size - len(index))
+    if len(stream) <= core_size:
+        out[core_at:core_at + core_size] = stream + bytes(core_size - len(stream))
+        struct.pack_into("<ii", out, 10 * 8, core_at, core_size)
+        return bytes(out)
     out[core_at:core_at + core_size] = bytes(core_size)
     out += bytes(-len(out) % 0x40)
     new_core_at = len(out)
