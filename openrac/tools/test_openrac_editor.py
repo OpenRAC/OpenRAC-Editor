@@ -286,6 +286,20 @@ class CheckAndPlay(unittest.TestCase):
             oe.play_plugins(data, runtime)
             self.assertEqual((data / "plugins" / "editor-runtime" / "lib" / "editor_runtime.so").read_bytes(), b"v2")
 
+    def test_a_map_that_needs_it_turns_the_editors_mod_on_in_the_players_list(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp) / "editor" / "mods" / "editor-runtime"
+            runtime.mkdir(parents=True)
+            (runtime / "openrac-mod.json").write_text('{"id": "editor-runtime"}')
+            data = Path(tmp) / "data"
+            self.assertFalse(oe.turn_on_runtime(data, Path(tmp) / "nothing"))
+            (data / "plugins").mkdir(parents=True)
+            (data / "plugins" / "plugins.json").write_text('{"format": 1, "mods": [{"id": "lock-strafe", "enabled": true}]}')
+            self.assertTrue(oe.turn_on_runtime(data, runtime))
+            self.assertEqual(json.loads((data / "plugins" / "plugins.json").read_text())["mods"],
+                             [{"id": "lock-strafe", "enabled": True}, {"id": "editor-runtime", "enabled": True}])
+            self.assertTrue((data / "plugins" / "editor-runtime" / "openrac-mod.json").is_file())
+
     def test_on_a_mac_the_game_draws_with_vulkan_like_the_launcher(self):
         with mock.patch.object(oe.sys, "platform", "darwin"), mock.patch.dict(oe.os.environ, {}, clear=True):
             self.assertEqual(oe.game_environment()["OPENRAC_GL_API"], "vulkan")

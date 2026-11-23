@@ -724,6 +724,19 @@ def import_map(path: Path, projects: Path, disc_path: Path | None = None) -> dic
 # COMMAND LINE
 # =============================================================================
 
+def needs_runtime(project: Path, level: int) -> bool:
+    """Whether PROJECT's level has what only the editor-runtime mod plays: simple moves (objects
+    of other levels brought for their look among them) or cutscenes."""
+    import behaviours
+    level_dir = project / "levels" / f"level_{level:02}"
+    scene = level_dir / f"level_{level:02}.tscn"
+    try:
+        moves = behaviours.given(scene.read_text(encoding="utf-8"))
+    except OSError:
+        moves = []
+    return bool(moves) or (level_dir / "cutscenes").is_dir()
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="openrac_editor.py map", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -782,6 +795,12 @@ def main(argv=None) -> int:
                     raise FormatError(str(exc), code=planet.code_of(exc)) from exc
                 print(f"Added it to your mods as the planet {added['name']}: turn on Mods, board the ship "
                       "and pick it in the ship's menu.")
+            if needs_runtime(done["project"], done["level"]):
+                import openrac_editor
+                if openrac_editor.turn_on_runtime(args.planet.resolve().parent):
+                    print("Turned on the editor-runtime mod: this map's moving objects and cutscenes need it.")
+                else:
+                    print("  check: this map needs the editor-runtime mod: turn it on in Mods.")
         print(f"openrac-output: {done['project']}")
         return 0
     except (MapError, planet.PlanetError, FormatError, OSError, struct.error, zipfile.BadZipFile) as exc:
