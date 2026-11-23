@@ -568,7 +568,33 @@ static func scene_of(path: String) -> Node3D:
 	if data.is_empty() or document.append_from_buffer(data, "", state) != OK:
 		return null
 
-	return document.generate_scene(state) as Node3D
+	var scene := document.generate_scene(state) as Node3D
+
+	# In the editor the glTF reader leaves its meshes as ImporterMeshInstance3D, which draws
+	# nothing (the import turns them into MeshInstance3D): turned here, skin and skeleton kept.
+	for node in scene.find_children("*", "ImporterMeshInstance3D", true, false) if scene != null else []:
+		var importer := node as ImporterMeshInstance3D
+		var drawn := MeshInstance3D.new()
+		drawn.name = importer.name
+		drawn.transform = importer.transform
+		drawn.mesh = importer.mesh.get_mesh() if importer.mesh != null else null
+		drawn.skin = importer.skin
+		drawn.skeleton = importer.skeleton_path
+		drawn.cast_shadow = importer.cast_shadow
+		var parent: Node = importer.get_parent()
+		var at: int = importer.get_index()
+		parent.remove_child(importer)
+
+		for child in importer.get_children():
+			importer.remove_child(child)
+			drawn.add_child(child)
+
+		parent.add_child(drawn)
+		parent.move_child(drawn, at)
+		drawn.owner = scene
+		importer.free()
+
+	return scene
 
 
 ## A 1x1 white PNG, in base64.
@@ -680,7 +706,8 @@ static func import_files(files: PackedStringArray) -> void:
 
 
 ## The model as static scenery (openrac/tools/static_assets.py validate()): no skin, no animation and no
-## bone weights, its mesh as it is stored (the class's bind pose).
+## bone weights, its mesh as it is stored (the class's bind pose). The skeleton's joints go too:
+## without the skin they are empty nodes, a long chain in the Level list.
 static func still(json: Dictionary) -> void:
 	json.erase("skins")
 	json.erase("animations")
@@ -689,6 +716,8 @@ static func still(json: Dictionary) -> void:
 		node.erase("skin")
 		node.erase("weights")
 
+	drop_empty_nodes(json)
+
 	for mesh in json.get("meshes", []):
 		for primitive in mesh.get("primitives", []):
 			var attributes: Dictionary = primitive.get("attributes", {})
@@ -696,6 +725,72 @@ static func still(json: Dictionary) -> void:
 			for key in attributes.keys():
 				if String(key).begins_with("JOINTS_") or String(key).begins_with("WEIGHTS_"):
 					attributes.erase(key)
+
+
+## Drops the nodes of JSON with no mesh in or under them (a still model's joints), keeping a
+## scene's only node so the model is never empty.
+static func drop_empty_nodes(json: Dictionary) -> void:
+	var nodes: Array = json.get("nodes", [])
+	var keep: Array[bool] = []
+	keep.resize(nodes.size())
+	keep.fill(false)
+
+	# A node is kept when it has a mesh or a kept child: children are read before their parents.
+	var visit := func(visit: Callable, index: int) -> bool:
+		var node: Dictionary = nodes[index]
+		var any: bool = node.has("mesh") or node.has("camera")
+
+		for child in node.get("children", []):
+			any = visit.call(visit, int(child)) or any
+
+		keep[index] = any
+		return any
+
+	var scenes: Array = json.get("scenes", [])
+
+	for scene in scenes:
+		for root in scene.get("nodes", []):
+			visit.call(visit, int(root))
+
+	if not keep.has(true):
+		return
+
+	var new_index: Dictionary = {}
+
+	for i in nodes.size():
+		if keep[i]:
+			new_index[i] = new_index.size()
+
+	var kept: Array = []
+
+	for i in nodes.size():
+		if not keep[i]:
+			continue
+
+		var node: Dictionary = nodes[i]
+		var children: Array = []
+
+		for child in node.get("children", []):
+			if keep[int(child)]:
+				children.append(new_index[int(child)])
+
+		if children.is_empty():
+			node.erase("children")
+		else:
+			node["children"] = children
+
+		kept.append(node)
+
+	json["nodes"] = kept
+
+	for scene in scenes:
+		var roots: Array = []
+
+		for root in scene.get("nodes", []):
+			if keep[int(root)]:
+				roots.append(new_index[int(root)])
+
+		scene["nodes"] = roots
 
 
 ## A .glb's JSON and binary chunk: {"json", "bin"}, or empty when it is not one.
