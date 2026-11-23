@@ -1145,6 +1145,8 @@ def read_recipe(terrain):
 
 def add_brush(p):
     p.add_argument("--at", type=float, nargs=3, metavar=("X", "Y", "Z"))
+    p.add_argument("--then", type=float, nargs=3, action="append", metavar=("X", "Y", "Z"),
+                   help="more spots of the same stroke (a drag in the editor): one change, one undo")
     p.add_argument("--radius", type=float, default=10.0)
     p.add_argument("--hardness", type=float, default=0.5)
     p.add_argument("--strength", type=float, default=1.0)
@@ -1156,6 +1158,19 @@ def add_filters(p):
     p.add_argument("--slope-max", type=float)
     p.add_argument("--z-min", type=float)
     p.add_argument("--z-max", type=float)
+
+
+def stroke(t, args, op):
+    """OP at --at, then at each --then spot in turn; the counts add up."""
+    spots = [args.at] + (getattr(args, "then", None) or []) if args.at is not None else [None]
+    total = {}
+    for spot in spots:
+        args.at = spot
+        for key, value in op(t, args).items():
+            total[key] = total.get(key, 0) + value if isinstance(value, int) else value
+    if len(spots) > 1:
+        total["spots"] = len(spots)
+    return total
 
 
 def main(argv=None):
@@ -1223,12 +1238,8 @@ def main(argv=None):
             result = info(t, args.near)
         else:
             backup(path)
-            if args.op == "uv":
-                result = box_uv(t, args)
-            elif args.op == "paint":
-                result = paint(t, args)
-            elif args.op == "sculpt":
-                result = sculpt(t, args)
+            if args.op in ("uv", "paint", "sculpt"):
+                result = stroke(t, args, {"uv": box_uv, "paint": paint, "sculpt": sculpt}[args.op])
             elif args.op == "bake-light":
                 result = bake_models(t, args)
             elif args.op == "build":

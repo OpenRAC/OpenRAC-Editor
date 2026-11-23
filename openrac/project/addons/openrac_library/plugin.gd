@@ -42,6 +42,8 @@ var play: Play
 var voices: VoicesDock
 ## The Terrain panel (terrain_dock.gd): brushes for the ground, light bake, rocks.
 var terrain: TerrainDock
+## Brush mode's button above the 3D view (the Terrain panel has the same one).
+var brush_button: Button
 ## The Planet Name section of the level (planet_inspector.gd).
 var planet_inspector: PlanetInspector
 
@@ -78,6 +80,16 @@ func _enter_tree() -> void:
 	terrain = TerrainDock.new()
 	add_dock(terrain)
 	set_input_event_forwarding_always_enabled()
+	set_force_draw_over_forwarding_enabled()
+	brush_button = Button.new()
+	brush_button.text = "Terrain brush"
+	brush_button.toggle_mode = true
+	brush_button.flat = true
+	brush_button.tooltip_text = "Paint on the ground: click or drag in the 3D view. Right drag still moves the camera. [ ] size, Esc to stop."
+	brush_button.toggled.connect(terrain.set_brush)
+	terrain.brush_changed = func(on: bool) -> void: brush_button.set_pressed_no_signal(on)
+	terrain.redraw = update_overlays
+	add_control_to_container(CONTAINER_SPATIAL_EDITOR_MENU, brush_button)
 	behaviour_inspector = BehaviourInspector.new()
 	behaviour_inspector.undo_redo = get_undo_redo()
 	add_inspector_plugin(behaviour_inspector)
@@ -155,19 +167,25 @@ func _exit_tree() -> void:
 	remove_dock(voices)
 	voices.queue_free()
 	voices = null
+	remove_control_from_container(CONTAINER_SPATIAL_EDITOR_MENU, brush_button)
+	brush_button.queue_free()
+	brush_button = null
 	remove_dock(terrain)
 	terrain.queue_free()
 	terrain = null
 
 
-## A left click in the 3D view goes to the Terrain panel's brush while it is on.
+## In brush mode the 3D view's clicks and drags go to the Terrain panel's brush (terrain_dock.gd).
 func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
-	if terrain == null or not event is InputEventMouseButton:
+	if terrain == null:
 		return AFTER_GUI_INPUT_PASS
-	var click := event as InputEventMouseButton
-	if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
-		return AFTER_GUI_INPUT_PASS
-	return AFTER_GUI_INPUT_STOP if terrain.handle_click(camera, click.position) else AFTER_GUI_INPUT_PASS
+	return AFTER_GUI_INPUT_STOP if terrain.handle_input(camera, event) else AFTER_GUI_INPUT_PASS
+
+
+## The brush circle over the 3D view.
+func _forward_3d_draw_over_viewport(overlay: Control) -> void:
+	if terrain != null:
+		terrain.draw_overlay(overlay)
 
 
 ## Whether PATH is imported and can be placed now. When the editor is still bringing it in (a new
