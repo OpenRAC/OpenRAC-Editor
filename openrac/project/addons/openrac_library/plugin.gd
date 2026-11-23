@@ -182,8 +182,8 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	return AFTER_GUI_INPUT_STOP if terrain.handle_input(camera, event) else AFTER_GUI_INPUT_PASS
 
 
-## The brush circle over the 3D view.
-func _forward_3d_draw_over_viewport(overlay: Control) -> void:
+## The brush circle over the 3D view (drawn whatever is selected: set_force_draw_over_forwarding_enabled()).
+func _forward_3d_force_draw_over_viewport(overlay: Control) -> void:
 	if terrain != null:
 		terrain.draw_overlay(overlay)
 

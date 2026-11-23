@@ -344,7 +344,7 @@ func draw_overlay(overlay: Control) -> void:
 		"smooth", "flatten": colour = Color(0.5, 0.8, 1)
 	if m[1] == "paint":
 		colour = Color(1, 1, 1)
-	ring(overlay, hover, size_box.value, colour, 2.0)
+	ring(overlay, hover, size_box.value, colour, 3.0)
 	ring(overlay, hover, size_box.value * 0.5, Color(colour, 0.35), 1.0)
 	for spot in stroke:
 		if not camera.is_position_behind(spot):
@@ -364,6 +364,8 @@ func ring(overlay: Control, centre: Vector3, radius: float, colour: Color, width
 		if camera.is_position_behind(p):
 			return
 		points.append(camera.unproject_position(p))
+	# A dark edge under the colour, so the circle shows on bright ground too.
+	overlay.draw_polyline(points, Color(0, 0, 0, colour.a * 0.6), width + 3.0, true)
 	overlay.draw_polyline(points, colour, width, true)
 
 
