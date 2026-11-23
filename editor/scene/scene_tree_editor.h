@@ -53,6 +53,7 @@ class SceneTreeEditor : public Control {
 		BUTTON_GROUP = 4,
 		BUTTON_WARNING = 5,
 		BUTTON_PIN = 8,
+		BUTTON_OPENRAC_GROUP_LOCK = 20,
 	};
 
 	struct CachedNode {
@@ -144,6 +145,19 @@ class SceneTreeEditor : public Control {
 	void _tree_process_mode_changed();
 
 	void _move_node_children(HashMap<Node *, CachedNode>::Iterator &p_I);
+
+	// OpenRAC Editor: the Level list groups the copies under Game/Ties, Game/Shrubs and Game/Mobys by
+	// their model (and the ground's pieces under Game/Terrain into one row),
+	// one row each with a count ("Mountain Wall ×24"), so a level's thousands of
+	// Tie_0001s read as a few dozen named rows. Only the list changes; the nodes stay as they are.
+	// A group's row carries its folder's path (so the rest of the tree treats it as that folder) and
+	// the meta "openrac_group" (its model's path).
+	HashMap<ObjectID, HashMap<String, ObjectID>> openrac_groups; // Folder node -> model path -> group row.
+	bool _openrac_is_grouped(const Node *p_folder) const;
+	TreeItem *_openrac_group_item(Node *p_folder, TreeItem *p_folder_item, Node *p_child);
+	String _openrac_label(const String &p_model) const;
+	void _openrac_update_groups();
+	void _openrac_group_children(TreeItem *p_group, Vector<Node *> &r_nodes) const;
 	void _move_node_item(TreeItem *p_parent, HashMap<Node *, CachedNode>::Iterator &p_I, TreeItem *p_correct_prev = nullptr);
 
 	void _node_child_order_changed(Node *p_node);

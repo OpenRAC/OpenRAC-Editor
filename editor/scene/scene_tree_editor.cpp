@@ -38,6 +38,7 @@
 #include "core/object/script_language.h"
 #include "editor/animation/animation_player_editor_plugin.h"
 #include "editor/docks/editor_dock_manager.h"
+#include "editor/editor_interface.h"
 #include "editor/editor_node.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
@@ -96,12 +97,45 @@ void SceneTreeEditor::_cell_button_pressed(Object *p_item, int p_column, int p_i
 	TreeItem *item = Object::cast_to<TreeItem>(p_item);
 	ERR_FAIL_NULL(item);
 
+	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
+	if (item->has_meta(SNAME("openrac_group"))) {
+		// OpenRAC Editor: a group's lock: none of its copies can be clicked in the 3D view, or all can.
+		if (p_id != BUTTON_OPENRAC_GROUP_LOCK) {
+			return;
+		}
+		Vector<Node *> copies;
+		_openrac_group_children(item, copies);
+		bool all_locked = !copies.is_empty();
+		for (Node *copy : copies) {
+			all_locked = all_locked && bool(copy->get_meta("_edit_lock_", false));
+		}
+		undo_redo->create_action(all_locked ? TTR("Unlock Objects") : TTR("Lock Objects"));
+		for (Node *copy : copies) {
+			const bool was_locked = copy->get_meta("_edit_lock_", false);
+			if (all_locked) {
+				undo_redo->add_do_method(copy, "remove_meta", "_edit_lock_");
+			} else {
+				undo_redo->add_do_method(copy, "set_meta", "_edit_lock_", true);
+			}
+			if (was_locked) {
+				undo_redo->add_undo_method(copy, "set_meta", "_edit_lock_", true);
+			} else {
+				undo_redo->add_undo_method(copy, "remove_meta", "_edit_lock_");
+			}
+			undo_redo->add_do_method(copy, "update_configuration_warnings");
+			undo_redo->add_undo_method(copy, "update_configuration_warnings");
+		}
+		undo_redo->add_do_method(this, "emit_signal", "node_changed");
+		undo_redo->add_undo_method(this, "emit_signal", "node_changed");
+		undo_redo->commit_action();
+		return;
+	}
+
 	NodePath np = item->get_metadata(0);
 
 	Node *n = get_node(np);
 	ERR_FAIL_NULL(n);
 
-	EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 	if (p_id == BUTTON_SUBSCENE) {
 		if (n == get_scene_node()) {
 			if (n && n->get_scene_inherited_state().is_valid()) {
@@ -270,7 +304,8 @@ void SceneTreeEditor::_update_node_subtree(Node *p_node, TreeItem *p_parent, boo
 			index = 0;
 		} else {
 			index = p_node->get_index(false);
-			item = tree->create_item(p_parent, index);
+			// OpenRAC Editor: a copy in a group goes last in it (the group is not in node order).
+			item = tree->create_item(p_parent, p_parent->has_meta(SNAME("openrac_group")) ? -1 : index);
 		}
 
 		I = node_cache.add(p_node, item);
@@ -292,8 +327,10 @@ void SceneTreeEditor::_update_node_subtree(Node *p_node, TreeItem *p_parent, boo
 	// Force update all our children if we are new or if we were forced to update.
 	bool force_update_children = p_force || is_new;
 	// Update all our children.
+	const bool grouped = _openrac_is_grouped(p_node);
 	for (int i = 0; i < p_node->get_child_count(false); i++) {
-		_update_node_subtree(p_node->get_child(i, false), item, force_update_children);
+		Node *child = p_node->get_child(i, false);
+		_update_node_subtree(child, grouped ? _openrac_group_item(p_node, item, child) : item, force_update_children);
 	}
 
 	if (valid_types.size()) {
@@ -351,8 +388,15 @@ void SceneTreeEditor::_update_node(Node *p_node, TreeItem *p_item, bool p_part_o
 			const String *label = plain.getptr(p_node->get_name());
 			if (label) {
 				p_item->set_text(0, *label);
+				if (_openrac_is_grouped(p_node)) {
+					p_item->set_text(0, vformat("%s (%d)", *label, p_node->get_child_count(false)));
+				}
 				openrac_fixed = true;
 			}
+		}
+		// A copy in a group shows the group's name (_openrac_update_groups()), not its own.
+		if (parent && _openrac_is_grouped(parent)) {
+			openrac_fixed = true;
 		}
 	}
 	if (can_rename && !p_part_of_subscene && !openrac_fixed) {
@@ -493,6 +537,129 @@ void SceneTreeEditor::_update_node(Node *p_node, TreeItem *p_item, bool p_part_o
 	}
 }
 
+// OpenRAC Editor: the Level list's groups (see the header).
+bool SceneTreeEditor::_openrac_is_grouped(const Node *p_folder) const {
+	if (!is_scene_tree_dock || !p_folder) {
+		return false;
+	}
+	const StringName name = p_folder->get_name();
+	if (name != StringName("Ties") && name != StringName("Shrubs") && name != StringName("Mobys") && name != StringName("Terrain")) {
+		return false;
+	}
+	const Node *game = p_folder->get_parent();
+	return game && game->get_name() == StringName("Game") && game->get_parent() == get_scene_node();
+}
+
+TreeItem *SceneTreeEditor::_openrac_group_item(Node *p_folder, TreeItem *p_folder_item, Node *p_child) {
+	String model = p_child->get_scene_file_path();
+	if (p_folder->get_name() == StringName("Terrain")) {
+		model = "Ground pieces"; // The ground's model has hundreds of pieces: one row for them all.
+	} else if (model.is_empty()) {
+		model = p_child->get_class();
+	}
+	HashMap<String, ObjectID> &groups = openrac_groups[p_folder->get_instance_id()];
+	const ObjectID *known = groups.getptr(model);
+	if (known) {
+		TreeItem *group = ObjectDB::get_instance<TreeItem>(*known);
+		if (group && group->get_parent() == p_folder_item) {
+			return group;
+		}
+	}
+	TreeItem *group = tree->create_item(p_folder_item);
+	group->set_meta(SNAME("openrac_group"), model);
+	group->set_metadata(0, p_folder->get_path());
+	group->set_text(0, _openrac_label(model));
+	group->set_collapsed(true);
+	group->set_icon(0, EditorNode::get_singleton()->get_object_icon(p_child));
+	groups[model] = group->get_instance_id();
+	return group;
+}
+
+String SceneTreeEditor::_openrac_label(const String &p_model) const {
+	if (!p_model.contains_char('/')) {
+		return p_model; // Not a model's path: a plain name already.
+	}
+	// The Assets dock's names (names/<game>.tsv), from openrac_library's plugin.gd.
+	EditorInterface *editor = EditorInterface::get_singleton();
+	if (editor->has_meta("openrac_outline_label")) {
+		const Callable label = editor->get_meta("openrac_outline_label");
+		if (label.is_valid()) {
+			const String text = label.call(p_model);
+			if (!text.is_empty()) {
+				return text;
+			}
+		}
+	}
+	return p_model.get_file().get_basename().replace("_", " ").capitalize();
+}
+
+void SceneTreeEditor::_openrac_group_children(TreeItem *p_group, Vector<Node *> &r_nodes) const {
+	for (TreeItem *c = p_group->get_first_child(); c; c = c->get_next()) {
+		Node *n = get_node_or_null(c->get_metadata(0));
+		if (n) {
+			r_nodes.push_back(n);
+		}
+	}
+}
+
+void SceneTreeEditor::_openrac_update_groups() {
+	for (KeyValue<ObjectID, HashMap<String, ObjectID>> &folder : openrac_groups) {
+		Vector<String> gone;
+		for (const KeyValue<String, ObjectID> &entry : folder.value) {
+			TreeItem *group = ObjectDB::get_instance<TreeItem>(entry.value);
+			if (!group) {
+				gone.push_back(entry.key);
+				continue;
+			}
+			const int count = group->get_child_count();
+			if (count == 0) {
+				memdelete(group);
+				gone.push_back(entry.key);
+				continue;
+			}
+			const String label = _openrac_label(entry.key);
+			group->set_text(0, vformat(U"%s ×%d", label, count));
+			// Each copy reads as the group's name and its number, unless it was given a name of its own.
+			int number = 1;
+			bool all_locked = true;
+			for (TreeItem *c = group->get_first_child(); c; c = c->get_next(), number++) {
+				Node *n = get_node_or_null(c->get_metadata(0));
+				if (!n) {
+					continue;
+				}
+				all_locked = all_locked && bool(n->get_meta("_edit_lock_", false));
+				const String name = n->get_name();
+				const bool made = name.contains_char('_') && name.get_slicec('_', name.get_slice_count("_") - 1).is_valid_int();
+				c->set_text(0, made ? vformat("%s %d", label, number) : name);
+				c->set_editable(0, false);
+			}
+			group->clear_buttons();
+			if (all_locked) {
+				group->add_button(0, get_editor_theme_icon(SNAME("Lock")), BUTTON_OPENRAC_GROUP_LOCK, false, TTR("These can't be clicked in the 3D view.\nClick so they can."));
+			} else {
+				group->add_button(0, get_editor_theme_icon(SNAME("Unlock")), BUTTON_OPENRAC_GROUP_LOCK, false, TTR("Click so these can't be clicked in the 3D view\n(handy when big scenery is in the way)."));
+			}
+		}
+		for (const String &key : gone) {
+			folder.value.erase(key);
+		}
+		// Groups in name order, so a model is found where its name says.
+		Vector<Pair<String, TreeItem *>> order;
+		for (const KeyValue<String, ObjectID> &entry : folder.value) {
+			TreeItem *group = ObjectDB::get_instance<TreeItem>(entry.value);
+			if (group) {
+				order.push_back(Pair<String, TreeItem *>(group->get_text(0).to_lower(), group));
+			}
+		}
+		order.sort_custom<PairSort<String, TreeItem *>>();
+		for (int i = 1; i < order.size(); i++) {
+			if (order[i].second->get_prev() != order[i - 1].second) {
+				order[i].second->move_after(order[i - 1].second);
+			}
+		}
+	}
+}
+
 void SceneTreeEditor::_update_if_clean() {
 	if (tree_dirty) {
 		return;
@@ -623,6 +790,19 @@ void SceneTreeEditor::_move_node_children(HashMap<Node *, CachedNode>::Iterator 
 	Node *node = p_I->key;
 	int cc = node->get_child_count(false);
 
+	if (_openrac_is_grouped(node)) {
+		// OpenRAC Editor: copies go back into their groups.
+		for (int i = 0; i < cc; i++) {
+			Node *child = node->get_child(i, false);
+			HashMap<Node *, CachedNode>::Iterator CI = node_cache.get(child);
+			if (CI) {
+				_move_node_item(_openrac_group_item(node, item, child), CI);
+			}
+		}
+		p_I->value.has_moved_children = false;
+		return;
+	}
+
 	for (int i = 0; i < cc; i++) {
 		HashMap<Node *, CachedNode>::Iterator CI = node_cache.get(node->get_child(i, false));
 		if (CI) {
@@ -646,6 +826,19 @@ void SceneTreeEditor::_move_node_item(TreeItem *p_parent, HashMap<Node *, Cached
 	int current_node_index = node->get_index(false);
 	int current_item_index = -1;
 	TreeItem *item = p_I->value.item;
+
+	if (p_parent->has_meta(SNAME("openrac_group"))) {
+		// OpenRAC Editor: in a group only the group matters, not the place in it.
+		if (item->get_parent() != p_parent) {
+			if (item->get_parent()) {
+				item->get_parent()->remove_child(item);
+			}
+			p_parent->add_child(item);
+			p_I->value.removed = false;
+		}
+		p_I->value.index = current_node_index;
+		return;
+	}
 
 	if (item->get_parent() != p_parent) {
 		TreeItem *p = item->get_parent();
@@ -820,6 +1013,7 @@ void SceneTreeEditor::_update_tree(bool p_scroll_to_selected) {
 		_compute_hash(get_scene_node(), last_hash);
 
 		node_cache.delete_pending();
+		_openrac_update_groups();
 	}
 
 	updating_tree = false;
@@ -1086,6 +1280,7 @@ void SceneTreeEditor::_reset() {
 	update_node_tooltip_delay->stop();
 	tree->clear();
 	node_cache.clear();
+	openrac_groups.clear();
 }
 
 void SceneTreeEditor::_test_update_tree() {
@@ -1137,6 +1332,9 @@ void SceneTreeEditor::_tree_changed() {
 void SceneTreeEditor::_selected_changed() {
 	TreeItem *s = tree->get_selected();
 	ERR_FAIL_NULL(s);
+	if (s->has_meta(SNAME("openrac_group"))) {
+		return; // OpenRAC Editor: a group selects its copies (_cell_multi_selected()).
+	}
 	NodePath np = s->get_metadata(0);
 
 	Node *n = get_node(np);
@@ -1165,6 +1363,27 @@ void SceneTreeEditor::_cell_multi_selected(Object *p_object, int p_cell, bool p_
 	ERR_FAIL_NULL(item);
 
 	if (!item->is_visible()) {
+		return;
+	}
+
+	if (item->has_meta(SNAME("openrac_group"))) {
+		// OpenRAC Editor: a group's row selects all its copies.
+		if (!editor_selection) {
+			return;
+		}
+		Vector<Node *> copies;
+		_openrac_group_children(item, copies);
+		for (Node *copy : copies) {
+			if (p_selected) {
+				editor_selection->add_node(copy);
+			} else {
+				editor_selection->remove_node(copy);
+			}
+		}
+		if (!pending_selection_update) {
+			pending_selection_update = true;
+			callable_mp(this, &SceneTreeEditor::_process_selection_update).call_deferred();
+		}
 		return;
 	}
 
@@ -1617,6 +1836,25 @@ void SceneTreeEditor::_update_selection(TreeItem *item) {
 		return; // OpenRAC Editor: the selection can still change while the editor closes.
 	}
 
+	if (item->has_meta(SNAME("openrac_group"))) {
+		// OpenRAC Editor: a group's row shows selected when all its copies are.
+		Vector<Node *> copies;
+		_openrac_group_children(item, copies);
+		bool all = !copies.is_empty();
+		for (Node *copy : copies) {
+			all = all && editor_selection->is_selected(copy);
+		}
+		if (all && !item->is_selected(0)) {
+			item->select(0);
+		} else if (!all && item->is_selected(0)) {
+			item->deselect(0);
+		}
+		for (TreeItem *c = item->get_first_child(); c; c = c->get_next()) {
+			_update_selection(c);
+		}
+		return;
+	}
+
 	NodePath np = item->get_metadata(0);
 
 	if (!has_node(np)) {
@@ -1678,6 +1916,9 @@ void SceneTreeEditor::_cell_collapsed(Object *p_obj) {
 	}
 
 	bool collapsed = ti->is_collapsed();
+	if (ti->has_meta(SNAME("openrac_group"))) {
+		return; // OpenRAC Editor: a group is no node to fold.
+	}
 
 	NodePath np = ti->get_metadata(0);
 
@@ -1700,6 +1941,10 @@ Variant SceneTreeEditor::get_drag_data_fw(const Point2 &p_point, Control *p_from
 	Vector<Ref<Texture2D>> icons;
 	TreeItem *next = tree->get_next_selected(nullptr);
 	while (next) {
+		if (next->has_meta(SNAME("openrac_group"))) {
+			next = tree->get_next_selected(next); // OpenRAC Editor: a group's row is no node to drag.
+			continue;
+		}
 		NodePath np = next->get_metadata(0);
 
 		Node *n = get_node(np);

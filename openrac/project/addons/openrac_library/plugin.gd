@@ -94,6 +94,7 @@ func _enter_tree() -> void:
 	add_planet_settings()
 	play = Play.new()
 	add_control_to_container(CONTAINER_TOOLBAR, play)
+	EditorInterface.set_meta("openrac_outline_label", outline_label)
 	register_mcp()
 
 
@@ -140,6 +141,7 @@ func _exit_tree() -> void:
 
 	scene_changed.disconnect(handle_scene_changed)
 	EditorInterface.get_editor_settings().settings_changed.disconnect(handle_settings_changed)
+	EditorInterface.remove_meta("openrac_outline_label")
 	remove_control_from_container(CONTAINER_TOOLBAR, play)
 	play.queue_free()
 	play = null
@@ -168,6 +170,23 @@ func _forward_3d_gui_input(camera: Camera3D, event: InputEvent) -> int:
 	if click.button_index != MOUSE_BUTTON_LEFT or not click.pressed:
 		return AFTER_GUI_INPUT_PASS
 	return AFTER_GUI_INPUT_STOP if terrain.handle_click(camera, click.position) else AFTER_GUI_INPUT_PASS
+
+
+## The Level list's name for the copies of model PATH (the editor groups them under it), from the
+## Assets dock's names: "res://levels/level_01/ties/tie_438.glb" is "Mountain Wall".
+static func outline_label(path: String) -> String:
+	var kind: String = path.get_base_dir().get_file()
+	var stem: String = path.get_file().get_basename()
+	var number: String = stem.get_slice("_", stem.get_slice_count("_") - 1)
+	if kind in ["mobys", "ties", "shrubs"] and number.is_valid_int():
+		var game: String = "rac1"
+		for part in path.split("/"):
+			if FileAccess.file_exists(Library.NAMES_DIR.path_join(part + ".tsv")):
+				game = part
+		var known: String = Library.asset_name(game, kind, number.to_int())
+		if not known.is_empty():
+			return known.replace("_", " ").capitalize()
+	return stem.replace("_", " ").capitalize()
 
 
 ## Whether PATH is imported and can be placed now. When the editor is still bringing it in (a new
