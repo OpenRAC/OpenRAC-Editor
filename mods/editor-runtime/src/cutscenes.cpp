@@ -1881,9 +1881,9 @@ int moby_gate(void*, int slot, int phase) {
 void load(openrac::Mod& mod) {
     g_api = &mod.api();
     g_mod = mod.handle();
-    if (g_api->api_minor < 15 || g_api->size < offsetof(openrac_api, game_language) + sizeof(void*)
+    if (g_api->api_minor < 35 || g_api->size < offsetof(openrac_api, game_language) + sizeof(void*)
         || g_api->pack_folder == nullptr || g_api->game_language == nullptr) {
-        throw openrac::Error("this player needs a newer OpenRAC (mod interface 1.15 with pack_folder, SDK 1.15.1)");
+        throw openrac::Error("this player needs a newer OpenRAC (one with pack_folder and game_language)");
     }
     g_subtitles = mod.setting<bool>("subtitles");
     g_play_scenes = mod.setting<bool>("play");

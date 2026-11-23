@@ -12,7 +12,7 @@ Makes Ratchet & Clank levels with OpenRAC Editor and shows them in OpenRAC's gam
 Install from this repository:
 
 ```sh
-claude plugin marketplace add nickyyOO/OpenRAC-Editor
+claude plugin marketplace add OpenRAC/OpenRAC-Editor
 claude plugin install openrac@openrac-editor
 ```
 

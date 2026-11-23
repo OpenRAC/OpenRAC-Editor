@@ -224,8 +224,8 @@ void frame() {
 void load(openrac::Mod& mod) {
     g_api = &mod.api();
     g_mod = mod.handle();
-    if (g_api->api_minor < 15 || !API_HAS(pack_folder) || !API_HAS(moby_drive) || !API_HAS(moby_pose)) {
-        throw openrac::Error("behaviour presets need a newer OpenRAC (mod interface 1.15 with pack_folder)");
+    if (g_api->api_minor < 35 || !API_HAS(pack_folder) || !API_HAS(moby_drive) || !API_HAS(moby_pose)) {
+        throw openrac::Error("behaviour presets need a newer OpenRAC (one with pack_folder)");
     }
     mod.on_frame(frame);
 }
