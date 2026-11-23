@@ -37,7 +37,7 @@ var selection_label: Label
 var surface_option: OptionButton
 
 ## The footstep sound class a repaint gives.
-var sound_spin: SpinBox
+var sound_option: OptionButton
 
 ## Whether a repaint keeps the faces out of some queries.
 var excluded_check: CheckBox
@@ -172,13 +172,30 @@ func build_edit(box: VBoxContainer) -> void:
 	grid.add_child(surface_label)
 	surface_option = OptionButton.new()
 	surface_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# The known ground types first, the planet's own ids after them.
+	for surface in Surfaces.KNOWN:
+		surface_option.add_item(Surfaces.describe(surface), surface)
+
+	surface_option.add_separator()
+
 	for surface in 32:
-		var known: String = Surfaces.describe(surface)
-		surface_option.add_item(known, surface)
+		if not Surfaces.KNOWN.has(surface):
+			surface_option.add_item(Surfaces.describe(surface), surface)
+
 	surface_option.select(surface_option.get_item_index(Surfaces.DEFAULT_SURFACE))
 	surface_option.item_selected.connect(func(_index: int) -> void: handle_surface_changed(surface_option.get_selected_id()))
 	grid.add_child(surface_option)
-	sound_spin = spin(grid, "Footstep sound", 0, 3, 1, 0)
+	var sound_label := Label.new()
+	sound_label.text = "Footstep sound"
+	grid.add_child(sound_label)
+	sound_option = OptionButton.new()
+	sound_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sound_option.tooltip_text = "Each planet has its own three step sounds: pick the one the floor next to it uses."
+
+	for sound in Surfaces.SOUNDS.size():
+		sound_option.add_item(Surfaces.sound_name(sound), sound)
+
+	grid.add_child(sound_option)
 	excluded_check = CheckBox.new()
 	excluded_check.text = "Ignore for shots"
 	box.add_child(excluded_check)
@@ -397,8 +414,8 @@ func show_selection(faces, selected: PackedInt32Array) -> void:
 	if not sounds.is_empty():
 		var classes: Array = sounds.keys()
 		classes.sort()
-		text += " Footstep sound %s; %d ignored for shots." % [
-			", ".join(classes.map(func(c: int) -> String: return str(c))), excluded]
+		text += " %s; %d ignored for shots." % [
+			", ".join(classes.map(func(c: int) -> String: return Surfaces.sound_name(c))), excluded]
 	# Hero faces and added faces are worth a word each.
 	if heroes > 0:
 		text += " %d on yellow walls (delete only)." % heroes
@@ -411,7 +428,7 @@ func show_selection(faces, selected: PackedInt32Array) -> void:
 	if selected.size() == 1 and heroes == 0:
 		var kind: int = faces.face_kind(selected[0])
 		surface_option.select(surface_option.get_item_index(Surfaces.surface_of(kind)))
-		sound_spin.value = Surfaces.sound_of(kind)
+		sound_option.select(sound_option.get_item_index(Surfaces.sound_of(kind)))
 		excluded_check.button_pressed = Surfaces.is_excluded(kind)
 
 
@@ -464,7 +481,7 @@ func enable(group: String, on: bool) -> void:
 
 ## The type byte the controls give.
 func chosen_kind() -> int:
-	return Surfaces.type_byte(surface_option.get_selected_id(), int(sound_spin.value), excluded_check.button_pressed)
+	return Surfaces.type_byte(surface_option.get_selected_id(), sound_option.get_selected_id(), excluded_check.button_pressed)
 
 
 ## The vector of three spin boxes.
@@ -501,7 +518,7 @@ func handle_clear_pressed() -> void:
 
 ## Says what the chosen surface id is known for.
 func handle_surface_changed(value: float) -> void:
-	surface_meaning.text = "Ground type %d." % int(value)
+	surface_meaning.text = "%s (ground type %d)." % [Surfaces.meaning(int(value)).trim_suffix("."), int(value)]
 
 
 ## Repaints the selection.
