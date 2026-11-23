@@ -14,12 +14,21 @@ They use numpy, which comes with the editor (openrac/tools/vendor, for the launc
 Every change copies `terrain.glb` to `.terrain-backups/` first (the last 20 are kept); `undo` takes
 the newest back. Places are the game's: x and y across, z up, about a metre a unit.
 
+## Painting in the 3D view
+
+Press **Terrain brush** above the 3D view (or **Brush mode** in the Terrain panel). The 3D view then
+paints instead of selecting: a circle follows the mouse on the ground, its colour shows the brush
+(green raise, red lower, blue smooth or flatten, white paint). Click, or hold the left button and
+drag; a drag is one change, so one Undo takes it back. A right drag and the wheel still move the
+camera. `[` and `]` make the brush smaller and bigger, Esc leaves the mode. Pick the brush, picture,
+size and strength in the Terrain panel.
+
 ## What each one does
 
 | Op | What it does |
 |---|---|
 | `info` | Triangles per 100 m², shares of flat ground, walls and overhangs, light spread, share in shadow, texture tile size, textures used, and advice against Pokitaru's numbers |
-| `sculpt --mode raise\|lower\|smooth\|roughen\|flatten` | A brush on the mesh (`--at X Y Z --radius R --strength S --hardness H`); raise and lower move along the surface, so walls and overhangs work too |
+| `sculpt --mode raise\|lower\|smooth\|roughen\|flatten` | A brush on the mesh (`--at X Y Z --radius R --strength S --hardness H`; `--then X Y Z`, repeated, adds the spots of a drag); raise and lower move along the surface, so walls and overhangs work too |
 | `paint --texture textures/terrain_0003.png` | The faces in the brush get that picture (the game draws one per triangle). Filters: `--slope-min/--slope-max` in degrees (0 flat, 90 wall, 180 ceiling), `--z-min/--z-max`; `--noise N --coverage C` paints in patches |
 | `uv --tile 3` | Box projection per face: floors from above, walls from the side, pictures upright, one tile every 3 units (Pokitaru's size) |
 | `rock-add --at X Y Z --radius R --height H` | Adds a rock to `terrain-rocks.json`: a narrow foot (`--undercut`), a shoulder (`--bulge`), `--taper`, `--roughness`, `--warp` (how far the outline wanders), `--stretch SX SY`, `--yaw`, `--seed` |

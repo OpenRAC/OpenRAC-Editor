@@ -61,6 +61,17 @@ class TerrainTest(unittest.TestCase):
         far = np.hypot(P[:, 0] - 20, P[:, 1] - 20) > 8
         self.assertTrue(np.allclose(P[far, 2], 0))
 
+    def test_a_dragged_stroke_is_one_change(self):
+        t = self.run_op("sculpt", "--mode", "raise", "--at", "8", "20", "0", "--then", "32", "20", "0",
+                        "--radius", "5", "--strength", "2")
+        P = np.concatenate([p.pos for _, _, p in t.prims()])
+        for x in (8, 32):
+            near = np.hypot(P[:, 0] - x, P[:, 1] - 20) < 1
+            self.assertGreater(P[near, 2].max(), 1.5)
+        t = self.run_op("undo")
+        P = np.concatenate([p.pos for _, _, p in t.prims()])
+        self.assertTrue(np.allclose(P[:, 2], 0))
+
     def test_undo_takes_the_change_back(self):
         self.run_op("sculpt", "--mode", "raise", "--at", "20", "20", "0", "--radius", "8")
         t = self.run_op("undo")
