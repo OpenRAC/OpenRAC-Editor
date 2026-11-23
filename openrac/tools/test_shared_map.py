@@ -103,6 +103,19 @@ class Scenes(unittest.TestCase):
         self.assertEqual(len(problems), 1)
 
 
+    def test_a_copy_of_a_removed_node(self):
+        # The model is removed and only its moved copy stays: the copy still comes back.
+        head, rest = SCENE.split('[node name="Bolt_0011"')
+        text = head + '[node name="Bolt_0011_2"' + rest.replace("139, 229, 31", "160, 227, 40")
+        changes = shared_map.scene_changes(SCENE, text)
+        self.assertEqual(changes["removed"], ["node:Game/Mobys/Bolt_0011"])
+        problems = []
+        made = shared_map.apply_scene_changes(SCENE, changes, problems)
+        self.assertEqual(problems, [])
+        self.assertNotIn('name="Bolt_0011"', made)
+        self.assertIn("[9, 9, 9", made.split('name="Bolt_0011_2"')[1])
+
+
 def project(root: Path, level: int, files: dict) -> Path:
     folder = root / f"level_{level:02}"
     for rel, data in files.items():
