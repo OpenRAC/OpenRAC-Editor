@@ -90,9 +90,9 @@ it; Alt-click takes the faces that touch it with the same type byte
 (Shift-Alt-click adds them, **Connected, same surface** adds those of the
 whole selection). The dock says what is selected: how many faces, their
 surface ids, sound classes and how many are excluded. With Pick faces off, the
-editor selects nodes as usual: selecting a tie or a shrub selects the
-collision baked inside its bounds, and selecting a moby shows its class's
-collision.
+editor selects nodes as usual and no faces stay picked; selecting a moby shows
+its class's collision. Turning Pick faces on with a tie or a shrub selected
+picks the collision baked inside its bounds.
 
 ### Edit
 
@@ -110,8 +110,8 @@ the scene (Ctrl+S). Faces are solid from the side their corners turn
 counter-clockwise from; an added box faces out.
 
 - **Moving scenery.** The collision of ties and shrubs is baked into the
-  level's: a tie you move is walked on where it was. Select the tie (its baked
-  faces get selected), turn Pick faces on, and move the faces by the offset
+  level's: a tie you move is walked on where it was. Select the tie, turn Pick faces on
+  (its baked faces get selected), and move the faces by the offset
   you moved the tie; a new tie needs collision added (Make collision from the
   selected mesh).
 - **What is kept.** The dock does not change the tiles: its edits are

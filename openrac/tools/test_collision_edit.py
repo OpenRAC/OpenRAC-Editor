@@ -419,5 +419,18 @@ class LevelDataTests(unittest.TestCase):
                                                  lambda core, head: b"fits"))
 
 
+    def test_a_forced_container_keeps_a_core_that_fits_in_its_slot(self):
+        # The game reads the whole container under its 32 MiB: it must not grow by a second core.
+        data = bytearray(16 * 2048)
+        index_at, core_at, core_size = 2048, 5 * 2048, 3000
+        struct.pack_into("<ii", data, 2 * 8, index_at, 0x90)
+        struct.pack_into("<ii", data, 10 * 8, core_at, core_size)
+        out = cs.expanded_level_data(bytes(data), b"core", bytes([7]) * 0x90, bytes(0x90),
+                                     lambda core, head: b"WADfits", force=True)
+        self.assertEqual(len(out), len(data))
+        self.assertEqual(struct.unpack_from("<ii", out, 10 * 8), (core_at, core_size))
+        self.assertEqual(out[core_at:core_at + 8], b"WADfits\0")
+        self.assertEqual(out[index_at:index_at + 0x90], bytes([7]) * 0x90)
+
 if __name__ == "__main__":
     unittest.main()
