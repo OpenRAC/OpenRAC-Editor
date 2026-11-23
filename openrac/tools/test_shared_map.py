@@ -53,7 +53,8 @@ def edited_scene() -> str:
 
 class Patches(unittest.TestCase):
     def test_round_trip_holds_only_new_bytes(self):
-        base = os.urandom(200_000)
+        # High bytes only, so no byte of the plain-text insert can match the base by chance.
+        base = bytes(b | 0x80 for b in os.urandom(200_000))
         target = base[:1000] + b"creator's own bytes" + base[1000:150_000] + base[150_100:]
         patch = shared_map.make_patch(base, target)
         self.assertEqual(shared_map.apply_patch(base, patch), target)
