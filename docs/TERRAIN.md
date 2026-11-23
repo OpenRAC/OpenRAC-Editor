@@ -9,7 +9,7 @@ the command line:
 python3 openrac/tools/openrac_editor.py terrain OP levels/level_NN/terrain.glb [options]
 ```
 
-They need numpy (`python3 -m pip install numpy`).
+They use numpy, which comes with the editor (openrac/tools/vendor, for the launcher's Python 3.12); from a source checkout, `python3 -m pip install numpy`.
 
 Every change copies `terrain.glb` to `.terrain-backups/` first (the last 20 are kept); `undo` takes
 the newest back. Places are the game's: x and y across, z up, about a metre a unit.

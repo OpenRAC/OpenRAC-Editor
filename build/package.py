@@ -13,11 +13,23 @@ import json
 import os
 import re
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 import zipfile
 
 REPO = Path(__file__).resolve().parents[1]
 MANIFEST = REPO / "openrac" / "editor.json"
+
+# numpy for the terrain tools (terrain_tools.py), for the Python the launcher brings (3.12), so
+# nothing has to be installed: unpacked into openrac/tools/vendor, which terrain_tools.py reads first.
+NUMPY = "numpy==2.2.6"
+PYTHON = "3.12"
+PLATFORMS = {
+    "linux": ["manylinux_2_17_x86_64", "manylinux2014_x86_64"],
+    "windows": ["win_amd64"],
+    "macos": ["macosx_11_0_arm64", "macosx_14_0_arm64"],
+}
 
 
 def wanted(rel: Path) -> bool:
@@ -41,6 +53,22 @@ def plist_version(data: bytes, version: str) -> bytes:
     return re.sub(rb"(<key>CFBundle(?:ShortVersionString|Version)</key>\s*<string>)[^<]*", rb"\g<1>" + plain, data)
 
 
+def vendored(system: str) -> list[tuple[str, bytes]]:
+    """numpy's wheel for SYSTEM's launcher Python, as (path in the wheel, bytes)."""
+    with tempfile.TemporaryDirectory() as folder:
+        command = [sys.executable, "-m", "pip", "download", NUMPY, "--only-binary=:all:", "--no-deps",
+                   "--python-version", PYTHON, "--implementation", "cp", "--abi", "cp" + PYTHON.replace(".", ""),
+                   "-d", folder, "-q"]
+        for platform in PLATFORMS[system]:
+            command += ["--platform", platform]
+        subprocess.run(command, check=True)
+        wheel = next(Path(folder).glob("*.whl"))
+        with zipfile.ZipFile(wheel) as source:
+            # numpy's own tests are left out, as the editor's are.
+            return [(name, source.read(name)) for name in source.namelist()
+                    if not name.endswith("/") and "tests" not in name.split("/")]
+
+
 def package(program: Path, system: str, version: str, out: Path) -> None:
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     manifest["version"] = version
@@ -61,6 +89,9 @@ def package(program: Path, system: str, version: str, out: Path) -> None:
                 continue
             put(archive, f"openrac/{rel.as_posix()}", path.read_bytes())
         put(archive, "openrac/editor.json", (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode())
+        for name, data in vendored(system):
+            put(archive, f"openrac/tools/vendor/{name}", data,
+                executable=name.endswith((".so", ".dylib", ".pyd", ".dll")))
         # The editor's mod, built for this system (mods/editor-runtime's package folder, named by
         # OPENRAC_EDITOR_MOD): Play installs it into the game's mods folder (openrac_editor.py).
         mod = os.environ.get("OPENRAC_EDITOR_MOD", "")
