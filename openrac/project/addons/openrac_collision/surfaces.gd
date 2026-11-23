@@ -28,13 +28,32 @@ const HERO_COLOUR: Color = Color(1.0, 0.85, 0.2)
 const KNOWN: Dictionary = {
 	0x1f: "Normal ground",
 	0: "Water",
-	8: "Wall or ledge 8",
-	9: "Wall or ledge 9",
-	10: "Wall or ledge 10",
-	12: "Wall or ledge 12",
-	11: "Special floor",
-	13: "Liquid",
+	13: "Liquid (like water)",
+	11: "Floor the hero does not snap to",
+	9: "Steep wall 9",
+	10: "Steep wall 10",
+	12: "Steep wall 12",
+	8: "Ground for shots 8",
+	1: "Ground for shots 1",
+	3: "Ground for shots 3",
 }
+
+## What each known surface id does in the game, for the dock's hint.
+const MEANING: Dictionary = {
+	0x1f: "Plain floor and walls, most of every level.",
+	0: "Water: the hero swims; the floor under it is found through it.",
+	13: "Kept like water (Hoven's liquid).",
+	11: "A floor whose height is kept apart; the hero is not snapped onto it.",
+	9: "Wall and ledge checks skip it and look at its slope instead.",
+	10: "Wall and ledge checks skip it and look at its slope instead.",
+	12: "Wall and ledge checks skip it and look at its slope instead (most common after normal).",
+	8: "Shots and some objects treat it as ground.",
+	1: "Shots and some objects treat it as ground.",
+	3: "Shots and some objects treat it as ground.",
+}
+
+## The footstep sound classes: each planet has its own three step sounds.
+const SOUNDS: PackedStringArray = ["Step sound 1", "Step sound 2", "Step sound 3", "No step sound"]
 
 ## The golden-ratio step that spreads the other ids around the colour wheel.
 const HUE_STEP: float = 0.381966
@@ -78,7 +97,17 @@ static func type_byte(surface: int, sound: int, excluded: bool) -> int:
 
 ## What is known of a surface id, in a few words.
 static func describe(surface: int) -> String:
-	return KNOWN.get(surface, "Other (%d)" % surface)
+	return KNOWN.get(surface, "Planet special %d" % surface)
+
+
+## What a surface id does, in a sentence.
+static func meaning(surface: int) -> String:
+	return MEANING.get(surface, "Not used by the game's shared code: only this planet's own objects may react to it.")
+
+
+## A footstep sound class in words.
+static func sound_name(sound: int) -> String:
+	return SOUNDS[sound & 3]
 
 
 ## A type byte in words: its surface id, sound class and exclusion.
