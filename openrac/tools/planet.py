@@ -13,6 +13,7 @@ classes run the new planet, and the original planet stays as it is.
 from __future__ import annotations
 
 import openrac_root  # noqa: F401,I001  (OpenRAC's extractor on the import path)
+import json
 import re
 import secrets
 import tempfile
@@ -165,6 +166,21 @@ def level_of(project: Path) -> int:
     return found[0]
 
 
+def map_note(project: Path) -> tuple[str, str]:
+    """The author and the line about the map a shared map's import keeps (.openrac/map.json),
+    else the author the project's settings name."""
+    note = {}
+    try:
+        note = json.loads((project / ".openrac" / "map.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        pass
+    if not isinstance(note, dict):
+        note = {}
+    author = note.get("author") if isinstance(note.get("author"), str) else ""
+    about = note.get("about") if isinstance(note.get("about"), str) else ""
+    return author or settings(project).get("map/author", "").strip(), about
+
+
 def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
     """Packs PROJECT's level, exports it as a new planet and installs it in the launcher's packs
     folder INTO: what was done, for the report."""
@@ -184,7 +200,9 @@ def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
         if refused:
             raise PlanetError("Some edits could not be packed:\n" + "\n".join(f"  {line}" for line in refused), INCOMPLETE)
         out = Path(temp) / "planet"
-        manifest = export_map(packed, project, out, name, level, destination=True, map_id=ident)
+        author, about = map_note(project)
+        manifest = export_map(packed, project, out, name, level, destination=True, map_id=ident,
+                              author=author, description=about)
         installed, _, _ = overrides.add(out, into)
     return {"name": name, "id": ident, "installed": installed, "level": level, "report": report,
             "spawn": manifest["map"]["spawn"]}

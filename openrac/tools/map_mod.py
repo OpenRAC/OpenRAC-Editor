@@ -20,7 +20,8 @@ import overrides
 
 def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
                spawn: list[float] | None = None, heading: float | None = None, skip_movies: bool = True,
-               skip_cutscenes: bool = True, destination: bool = False, map_id: str | None = None) -> dict:
+               skip_cutscenes: bool = True, destination: bool = False, map_id: str | None = None,
+               author: str = "", description: str = "") -> dict:
     """Only copies inputs; never changes the editor project, packed files or an existing export."""
     packed, project, out = Path(packed), Path(project), Path(out)
     if out.exists():
@@ -32,6 +33,11 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
                 "game": "rac1", "version": note["version"], "name": name,
                 "map": {"level": level, "spawn": spawn, "heading": heading, "skip_movies": skip_movies,
                         "skip_cutscenes": skip_cutscenes}}
+    # What the launcher's Mods list shows under the name.
+    if author.strip():
+        manifest["author"] = author.strip()[:80]
+    if description.strip():
+        manifest["description"] = description.strip()[:300]
     prefix = f"level_{level:02}"
     # The level's project, the folder of every level's project (--split), or the level folder itself.
     level_dir = next((p for p in (project / "levels" / prefix, project / prefix / "levels" / prefix,

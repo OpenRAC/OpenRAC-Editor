@@ -346,6 +346,9 @@ def apply_scene_changes(pristine: str, changes: dict, problems: list[str]) -> st
     def find(key: str):
         return next((b for b in blocks if key_of(b) == key), None)
 
+    # A copy names the section it was made from as the level has it, which may be one the map
+    # removes (a model kept only for its copies).
+    pristine_by = {key_of(b): b for b in blocks if key_of(b) is not None}
     for key in changes.get("removed", []):
         gone = find(key)
         if gone is None:
@@ -370,7 +373,7 @@ def apply_scene_changes(pristine: str, changes: dict, problems: list[str]) -> st
             continue
         block = carry.Block(by_id(entry["head"]))
         if "base" in entry:
-            base = find(entry["base"])
+            base = find(entry["base"]) or pristine_by.get(entry["base"])
             if base is None:
                 problems.append(f"{entry['key'][5:]}: copies {entry['base'][5:]}, which this level lacks")
                 continue
