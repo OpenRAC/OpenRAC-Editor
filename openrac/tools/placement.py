@@ -38,6 +38,8 @@ HEADROOM = 1.0       # a thing being placed now needs this many of its heights f
                      # (a tree high over a crate is fine; a block it is sunk in is not)
 MAX_TILT = 25.0      # soft things are turned with the ground up to this many degrees
 BIG = 12.0           # soft things wider than this (islets, towers) are left as they are
+LOW = 0.25           # a soft thing lower than this share of its width is ground cover: it lies flat on the ground
+LOW_TILT = 40.0      # ground cover is turned with the ground up to this many degrees
 SOFT_SINK = 0.45     # soft things may sink this share of their height on the high side before they turn
 
 # rac1 classes that float by design: bolts, the gold bolt, Swingshot and Versa targets. (Animated
@@ -435,8 +437,38 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
     if water is not None and abs(F[:, 2].min() - water) < 0.4:
         return basis, origin, None, None                     # afloat
     if not hard:
+        if pose.height < LOW * pose.size:
+            return settle_low(shape, basis, origin, look, pose.height)
         return settle_soft(ground, shape, basis, origin, lambda b, o: look(b, o, True), pose.height, pose.size)
     return settle_hard(ground, shape, basis, origin, look, pose.size, pose.height, name, move)
+
+
+def settle_low(shape, basis, origin, look, height):
+    """Ground cover (a patch of flowers, rings in the sand, pebbles): it lies on the ground, so it
+    is turned to the ground's slope under its whole outline and set down until no part floats."""
+    F, g, n = look(basis, origin)
+    ok = ~np.isnan(g)
+    if ok.sum() < 3 or not ok[-1]:
+        return basis, origin, None, None
+    gap = F[ok, 2] - g[ok]
+    if gap.max() <= FLOAT_OK:
+        return basis, origin, None, None
+    # The ground's plane under it, z = a x + b y + c, and the turn that lays it on that plane.
+    A = np.c_[F[ok, :2] - origin[:2], np.ones(ok.sum())]
+    (a, b, _), *_ = np.linalg.lstsq(A, g[ok], rcond=None)
+    up = np.array([-a, -b, 1.0])
+    turned = tilt(basis, up / np.linalg.norm(up), LOW_TILT)
+    F2, g2, _ = look(turned, origin)
+    ok2 = ~np.isnan(g2)
+    if ok2.sum() >= 3 and ok2[-1] and np.ptp(F2[ok2, 2] - g2[ok2]) < np.ptp(gap):
+        basis, F, g, ok = turned, F2, g2, ok2
+    gap = F[ok, 2] - g[ok]
+    # Down until its highest gap closes, but never more than its own height under the rest.
+    drop = min(gap.max(), gap.min() + max(height, 0.05))
+    if drop <= 0.01 and basis is not turned:
+        return basis, origin, None, None
+    done = ("turned with the slope, " if basis is turned else "") + f"lowered {drop:.2f}"
+    return basis, origin + np.array([0, 0, -drop]), done, None
 
 
 def settle_soft(ground, shape, basis, origin, look, height, size):
@@ -527,14 +559,14 @@ def wall_inside(ground, shape, basis, origin, name="", floor_top=None, mobys=Fal
     return ground.walls_in(centre, half, np.eye(3), name, mobys) > 0
 
 
-def tilt(basis: np.ndarray, up: np.ndarray) -> np.ndarray:
-    """BASIS turned so its up follows UP, by at most MAX_TILT."""
+def tilt(basis: np.ndarray, up: np.ndarray, most: float = None) -> np.ndarray:
+    """BASIS turned so its up follows UP, by at most MOST degrees (MAX_TILT)."""
     z = np.array([0.0, 0.0, 1.0])
     axis = np.cross(z, up)
     s = np.linalg.norm(axis)
     if s < 1e-6:
         return basis
-    angle = min(math.asin(min(s, 1.0)), math.radians(MAX_TILT))
+    angle = min(math.asin(min(s, 1.0)), math.radians(MAX_TILT if most is None else most))
     k = axis / s
     K = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
     R = np.eye(3) + math.sin(angle) * K + (1 - math.cos(angle)) * K @ K

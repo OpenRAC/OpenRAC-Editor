@@ -81,6 +81,7 @@ class Placement(unittest.TestCase):
                 f'[node name="Moby_{c}" type="Node3D"]\n\n[node name="Model" parent="." instance=ExtResource("model")]\n'
                 "transform = Transform3D(0.041666668, 0, 0, 0, 0.041666668, 0, 0, 0, 0.041666668, 0, 0, 0)\n")
         write_glb(level / "shrubs" / "shrub_1.glb", box((-0.5, -0.5, 0), (0.5, 0.5, 0.8)))      # a bush
+        write_glb(level / "shrubs" / "shrub_2.glb", box((-1, -1, 0), (1, 1, 0.05)))            # rings in the sand
         self.scene = level / "level_00.tscn"
 
     def tearDown(self):
@@ -93,7 +94,8 @@ class Placement(unittest.TestCase):
                  '[ext_resource type="PackedScene" path="res://levels/level_00/mobys/moby_500.tscn" id="moby_500"]',
                  '[ext_resource type="PackedScene" path="res://levels/level_00/mobys/moby_13.tscn" id="moby_13"]',
                  '[ext_resource type="PackedScene" path="res://levels/level_00/mobys/moby_1246.tscn" id="moby_1246"]',
-                 '[ext_resource type="PackedScene" path="res://levels/level_00/shrubs/shrub_1.glb" id="shrub_1"]', '',
+                 '[ext_resource type="PackedScene" path="res://levels/level_00/shrubs/shrub_1.glb" id="shrub_1"]',
+                 '[ext_resource type="PackedScene" path="res://levels/level_00/shrubs/shrub_2.glb" id="shrub_2"]', '',
                  '[node name="Level" type="Node3D"]', '', '[node name="Game" type="Node3D" parent="."]', '',
                  '[node name="Terrain" parent="Game" instance=ExtResource("terrain")]', '']
         for name, kind, cls, xform in things:
@@ -160,6 +162,19 @@ class Placement(unittest.TestCase):
         self.assertAlmostEqual(self.origin("Up")[2], 0.0, delta=0.02)
         self.assertNotIn("Down", report)
         self.assertAlmostEqual(self.origin("Down")[2], -0.3, delta=1e-6)
+
+    def test_ground_cover_lies_on_the_slope(self):
+        # Flat on the 45 degree slope (ground z = x - 10): one edge would float a whole unit.
+        self.write([("Rings", "shrub", 2, transform(12, 0, 2.0))])
+        report = self.placed()
+        self.assertIn("turned", report["Rings"]["done"])
+        text = self.scene.read_text()
+        line = text[text.index('name="Rings"'):].split("transform = Transform3D(", 1)[1].split(")", 1)[0]
+        basis, origin = placement.read_matrix(line)
+        shape = placement.Shape(np.asarray(box((-1, -1, 0), (1, 1, 0.05)), float).reshape(-1, 3, 3), False)
+        feet = shape.pose(basis).feet + origin
+        gaps = feet[:, 2] - (feet[:, 0] - 10)
+        self.assertLess(gaps.max(), 0.15, gaps)
 
     def test_turned_plant_stands_on_its_turned_underside(self):
         # On its side (turned 90 degrees about x): its underside is now its old side, 0.5 below.
