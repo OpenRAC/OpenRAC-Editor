@@ -39,7 +39,7 @@ HEADROOM = 1.0       # a thing being placed now needs this many of its heights f
 MAX_TILT = 25.0      # soft things are turned with the ground up to this many degrees
 BIG = 12.0           # soft things wider than this (islets, towers) are left as they are
 LOW = 0.25           # a soft thing lower than this share of its width is ground cover: it lies flat on the ground
-LOW_TILT = 40.0      # ground cover is turned with the ground up to this many degrees
+LOW_TILT = 50.0      # ground cover is turned with the ground up to this many degrees
 SOFT_SINK = 0.45     # soft things may sink this share of their height on the high side before they turn
 
 # rac1 classes that float by design: bolts, the gold bolt, Swingshot and Versa targets. (Animated
@@ -207,6 +207,9 @@ class Pose:
         core = np.concatenate([centre + (hull - centre) * 0.35, centre[None]])
         self.core = np.column_stack([core, np.full(len(core), bottom)])
         self.bottom = float(bottom)
+        # Ground cover lies on all of its underside: its points as they are, the centre last.
+        some = W[np.linspace(0, len(W) - 1, min(len(W), 240)).astype(int)]
+        self.points = np.concatenate([some, self.feet[-1:]])
 
 
 def cross2(a, b) -> float:
@@ -427,7 +430,7 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
         """Its feet, the ground under each (NaN: none within LIFT below, an edge) and its normal.
         EXTRA widens the window both ways (a spot found to the side may be higher or lower)."""
         ps = shape.pose(b)
-        F = (ps.core if core else ps.feet) + o
+        F = (ps.points if core == "points" else ps.core if core else ps.feet) + o
         g, n = ground.floor(F[:, :2], F[:, 2] + reach + extra, F[:, 2] - LIFT - extra, name)
         return F, g, n
 
@@ -438,7 +441,7 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
         return basis, origin, None, None                     # afloat: water under its middle
     if not hard:
         if pose.height < LOW * pose.size:
-            return settle_low(shape, basis, origin, look, pose.height)
+            return settle_low(shape, basis, origin, lambda b, o: look(b, o, "points", 0.7), pose.height)
         return settle_soft(ground, shape, basis, origin, lambda b, o: look(b, o, True), pose.height, pose.size)
     return settle_hard(ground, shape, basis, origin, look, pose.size, pose.height, name, move)
 
@@ -450,7 +453,7 @@ def settle_low(shape, basis, origin, look, height):
     ok = ~np.isnan(g)
     if ok.sum() < 3 or not ok[-1]:
         return basis, origin, None, None
-    gap = F[ok, 2] - g[ok]
+    gap = cell_gaps(F[ok], g[ok])
     if gap.max() <= FLOAT_OK:
         return basis, origin, None, None
     # The ground's plane under it, z = a x + b y + c, and the turn that lays it on that plane.
@@ -460,15 +463,26 @@ def settle_low(shape, basis, origin, look, height):
     turned = tilt(basis, up / np.linalg.norm(up), LOW_TILT)
     F2, g2, _ = look(turned, origin)
     ok2 = ~np.isnan(g2)
-    if ok2.sum() >= 3 and ok2[-1] and np.ptp(F2[ok2, 2] - g2[ok2]) < np.ptp(gap):
+    if ok2.sum() >= 3 and ok2[-1] and np.ptp(cell_gaps(F2[ok2], g2[ok2])) < np.ptp(gap):
         basis, F, g, ok = turned, F2, g2, ok2
-    gap = F[ok, 2] - g[ok]
+    gap = cell_gaps(F[ok], g[ok])
     # Down until its highest gap closes, but never more than its own height under the rest.
-    drop = min(gap.max(), gap.min() + max(height, 0.05))
+    drop = max(min(gap.max(), gap.min() + max(height, 0.05)), 0.0)   # never raised
     if drop <= 0.01 and basis is not turned:
         return basis, origin, None, None
     done = ("turned with the slope, " if basis is turned else "") + f"lowered {drop:.2f}"
     return basis, origin + np.array([0, 0, -drop]), done, None
+
+
+def cell_gaps(F, g, cell=0.4):
+    """The gap under the lowest point of each CELL-wide patch of the outline (the top of a thin
+    thing is not its underside)."""
+    keys = np.floor(F[:, :2] / cell).astype(int)
+    gap = F[:, 2] - g
+    out = {}
+    for k, v in zip(map(tuple, keys), gap):
+        out[k] = min(out.get(k, v), v)
+    return np.array(list(out.values()))
 
 
 def settle_soft(ground, shape, basis, origin, look, height, size):
