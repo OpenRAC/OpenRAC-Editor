@@ -4,6 +4,7 @@
 
     python3 terrain_tools.py info  TERRAIN [--near X Y R]
     python3 terrain_tools.py bake-light TERRAIN [--sun AZ EL] [--region X0 Y0 X1 Y1] [--ao 24]
+                             [--bounce 1] [--sun-samples 8 --sun-soft 1.5]
     python3 terrain_tools.py uv    TERRAIN --tile 3 [brush]
     python3 terrain_tools.py paint TERRAIN --texture textures/terrain_0003.png [brush] [filters]
     python3 terrain_tools.py sculpt TERRAIN --mode raise|lower|smooth|roughen|flatten --strength S [brush]
@@ -523,15 +524,21 @@ def value_noise3(q, seed=0, octaves=1):
 
 # ---------------------------------------------------------------- light bake
 
-def splat_depth(points, M, lo, cell, shape):
-    """Depth map (smallest depth along the view) of POINTS seen through rotation M."""
+def splat_depth(points, M, lo, cell, shape, values=None):
+    """Depth map (smallest depth along the view) of POINTS seen through rotation M; with VALUES (one
+    row per point), also the map of the nearest point's values."""
     q = points @ M.T
     ij = np.floor((q[:, :2] - lo) / cell).astype(np.int64)
     ok = (ij[:, 0] >= 0) & (ij[:, 1] >= 0) & (ij[:, 0] < shape[0]) & (ij[:, 1] < shape[1])
     depth = np.full(shape, np.inf)
     flat = ij[ok, 0] * shape[1] + ij[ok, 1]
     np.minimum.at(depth.reshape(-1), flat, q[ok, 2])
-    return depth
+    if values is None:
+        return depth
+    seen = np.zeros((shape[0] * shape[1], values.shape[1]))
+    front = q[ok, 2] <= depth.reshape(-1)[flat]
+    seen[flat[front]] = values[ok][front]
+    return depth, seen
 
 
 def view_matrix(d):
@@ -543,8 +550,9 @@ def view_matrix(d):
     return np.stack([x, y, d])
 
 
-def surface_points(tris, spacing, rng):
-    """Points spread over triangles (about one per SPACING squared), for depth maps."""
+def surface_points(tris, spacing, rng, with_faces=False):
+    """Points spread over triangles (about one per SPACING squared), for depth maps; WITH_FACES:
+    also the triangle each comes from."""
     a, b, c = tris[:, 0], tris[:, 1], tris[:, 2]
     area = np.linalg.norm(np.cross(b - a, c - a), axis=1) / 2
     count = np.maximum(1, np.round(area / (spacing * spacing) * 2)).astype(np.int64)
@@ -552,12 +560,17 @@ def surface_points(tris, spacing, rng):
     idx = np.repeat(np.arange(len(tris)), count)
     r1 = np.sqrt(rng.random(len(idx))); r2 = rng.random(len(idx))
     pts = a[idx] * (1 - r1)[:, None] + b[idx] * (r1 * (1 - r2))[:, None] + c[idx] * (r1 * r2)[:, None]
-    return np.concatenate([pts, a, b, c])
+    out = np.concatenate([pts, a, b, c])
+    if with_faces:
+        every = np.arange(len(tris))
+        return out, np.concatenate([idx, every, every, every])
+    return out
 
 
-def occluded(points, normals, occ_pts, d, region, cell, bias):
+def occluded(points, normals, occ_pts, d, region, cell, bias, values=None):
     """1 where something in OCC_PTS stands between POINTS and the far end of direction -D
-    (light coming along D), soft over a 3x3 neighbourhood."""
+    (light coming along D), soft over a 3x3 neighbourhood. With VALUES (one row per point of
+    OCC_PTS): also the values of what stands in the way, averaged over the cells it covers."""
     M = view_matrix(d)
     corners = np.array([[region[0], region[1], region[4]], [region[2], region[1], region[4]],
                         [region[0], region[3], region[4]], [region[2], region[3], region[4]],
@@ -568,7 +581,11 @@ def occluded(points, normals, occ_pts, d, region, cell, bias):
     shape = tuple(np.ceil((hi - lo) / cell).astype(int) + 1)
     if shape[0] * shape[1] > 30_000_000:
         raise SystemExit("bake region too big for this cell size: give --region or a larger --cell")
-    depth = splat_depth(occ_pts, M, lo, cell, shape)
+    if values is None:
+        depth = splat_depth(occ_pts, M, lo, cell, shape)
+    else:
+        depth, seen = splat_depth(occ_pts, M, lo, cell, shape, values)
+        gathered = np.zeros((len(points), values.shape[1]))
     q = (points + normals * bias) @ M.T
     # Slope-scaled bias: a face the light grazes changes depth fast from cell to cell, and its
     # neighbour cells would shade it (blotches on roofs and slopes).
@@ -582,8 +599,13 @@ def occluded(points, normals, occ_pts, d, region, cell, bias):
         for dy in (-1, 0, 1):
             ii = np.clip(i0[:, 0] + dx, 0, shape[0] - 1)
             jj = np.clip(i0[:, 1] + dy, 0, shape[1] - 1)
-            shade += depth[ii, jj] < q[:, 2] - slack
+            hit = depth[ii, jj] < q[:, 2] - slack
+            shade += hit
+            if values is not None:
+                gathered += seen[ii * shape[1] + jj] * hit[:, None]
             n += 1
+    if values is not None:
+        return shade / n, gathered / np.maximum(shade, 1)[:, None]
     return shade / n
 
 
@@ -614,14 +636,21 @@ def bake_light(t, args, others=()):
     sun_az, sun_el = args.sun
     sun = np.array([math.cos(math.radians(sun_el)) * math.cos(math.radians(sun_az)),
                     math.cos(math.radians(sun_el)) * math.sin(math.radians(sun_az)), math.sin(math.radians(sun_el))])
-    tris = []
+    tris, tri_albedo = [], []
     verts, norms = [], []
     for name, off, p in all_prims(ts):
         P = p.pos + off
         tris.append(P[p.faces])
         recompute_normals(p) if "NORMAL" not in p.attrs else None
         verts.append(P); norms.append(p.attrs["NORMAL"])
+        # How much light a face sends on (for the bounce): the caller's albedo per vertex, else
+        # a mid grey times the colour there now.
+        alb = getattr(p, "albedo", None)
+        if alb is None:
+            alb = 0.45 * np.clip(p.attrs["COLOR_0"][:, :3], 0, 2) if "COLOR_0" in p.attrs else np.full((len(P), 3), 0.45)
+        tri_albedo.append(np.asarray(alb, np.float64)[p.faces].mean(1))
     tris = np.concatenate(tris)
+    tri_albedo = np.clip(np.concatenate(tri_albedo), 0, 0.95)
     V = np.concatenate(verts); N = np.concatenate(norms)
     if args.region:
         x0, y0, x1, y1 = args.region
@@ -632,27 +661,68 @@ def bake_light(t, args, others=()):
     region = [x0, y0, x1, y1, float(V[inside, 2].min()) if inside.any() else 0, float(V[inside, 2].max()) if inside.any() else 1]
     tc = tris.mean(1)
     near = (tc[:, 0] > x0 - 60) & (tc[:, 0] < x1 + 60) & (tc[:, 1] > y0 - 60) & (tc[:, 1] < y1 + 60)
-    occ = surface_points(tris[near], args.cell * 0.7, rng)
+    bounce = float(getattr(args, "bounce", 0.0) or 0.0)
+    if bounce > 0:
+        occ, occ_face = surface_points(tris[near], args.cell * 0.7, rng, with_faces=True)
+    else:
+        occ = surface_points(tris[near], args.cell * 0.7, rng)
     lit_sun = np.clip(N @ sun, 0, 1)
+    sun_col = np.array(args.sun_colour)
+    sky_col = np.array(args.sky_colour)
+    bounce_col = np.array(args.bounce_colour)
+    # A soft sun: its shadow is the mean of SUN_SAMPLES directions across a disc SUN_SOFT degrees
+    # wide, so a shadow's edge blurs with its distance from what casts it.
+    samples = max(1, int(getattr(args, "sun_samples", 1) or 1))
+    soft = math.radians(float(getattr(args, "sun_soft", 0.0) or 0.0))
+    side = np.cross(sun, [0.0, 0.0, 1.0]); side /= np.linalg.norm(side)
+    up = np.cross(side, sun)
+    suns = []
+    for k in range(samples):
+        if samples == 1 or soft <= 0:
+            suns.append(sun)
+            break
+        r = soft * math.sqrt((k + 0.5) / samples)
+        a = k * math.pi * (3 - math.sqrt(5))
+        v = sun + side * math.tan(r) * math.cos(a) + up * math.tan(r) * math.sin(a)
+        suns.append(v / np.linalg.norm(v))
     shadow = np.zeros(len(V))
     ao = np.zeros(len(V))
+    indirect = np.zeros((len(V), 3))
     if inside.any():
-        shadow[inside] = occluded(V[inside], N[inside], occ, -sun, region, args.cell, args.bias)
+        for s_dir in suns:
+            shadow[inside] += occluded(V[inside], N[inside], occ, -s_dir, region, args.cell, args.bias) / len(suns)
+        values = None
+        if bounce > 0:
+            # One bounce: what each sample of the surfaces sends on (its sun and sky light times its
+            # albedo), gathered from every sky direction it stands in.
+            face_n = np.cross(tris[near][:, 1] - tris[near][:, 0], tris[near][:, 2] - tris[near][:, 0])
+            face_n /= np.maximum(np.linalg.norm(face_n, axis=1), 1e-9)[:, None]
+            on = face_n[occ_face]
+            occ_shadow = occluded(occ, on, occ, -sun, region, args.cell, args.bias)
+            sent = (sun_col[None] * (np.clip(on @ sun, 0, 1) * (1 - occ_shadow))[:, None]
+                    + sky_col[None] * (0.35 + 0.35 * np.clip(on[:, 2], 0, 1))[:, None])
+            values = sent * tri_albedo[near][occ_face]
         dirs = hemisphere(args.ao)
         weight = 0
         for d in dirs:
             vis = np.clip(N[inside] @ d, 0, 1)
-            ao[inside] += occluded(V[inside], N[inside], occ, -d, region, args.cell * 1.5, args.bias * 1.5) * vis
+            got = occluded(V[inside], N[inside], occ, -d, region, args.cell * 1.5, args.bias * 1.5, values)
+            if values is not None:
+                got, seen = got
+                indirect[inside] += seen * (got * vis)[:, None]
+            ao[inside] += got * vis
             weight += vis
         ao[inside] = ao[inside] / np.maximum(weight, 1e-6)
+        indirect[inside] = indirect[inside] / np.maximum(weight, 1e-6)[:, None]
     sky_open = 1 - ao
-    # Light: sun (warm) where not in shadow, sky (cool) by how open it is, bounce from below.
-    sun_col = np.array(args.sun_colour)
-    sky_col = np.array(args.sky_colour)
-    bounce_col = np.array(args.bounce_colour)
+    # Light: sun (warm) where not in shadow, sky (cool) by how open it is, and light bounced off
+    # what stands round (gathered, with BOUNCE; else a warm guess from below).
     light = (sun_col[None] * (lit_sun * (1 - shadow))[:, None]
-             + sky_col[None] * (sky_open * (0.55 + 0.45 * np.clip(N[:, 2], 0, 1)))[:, None]
-             + bounce_col[None] * (np.clip(-N[:, 2], 0, 1) * 0.5 + 0.15)[:, None] * sky_open[:, None])
+             + sky_col[None] * (sky_open * (0.55 + 0.45 * np.clip(N[:, 2], 0, 1)))[:, None])
+    if bounce > 0:
+        light = light + bounce * indirect
+    else:
+        light = light + bounce_col[None] * (np.clip(-N[:, 2], 0, 1) * 0.5 + 0.15)[:, None] * sky_open[:, None]
     light = light + getattr(args, "ambient", 0.0)       # a floor, so no wall goes black
     lights = getattr(args, "lights", None) or []
     if lights:
@@ -703,8 +773,9 @@ def bake_models(t, args):
 
 
 def point_lights(V, N, occ, lights, cell):
-    """Warm pools of light from LIGHTS ({"at": [x, y, z], "colour": [r, g, b], "radius": r}): falling
-    off to nothing at the radius, blocked by whatever stands between (a voxel grid of OCC)."""
+    """Warm pools of light from LIGHTS ({"at": [x, y, z], "colour": [r, g, b], "radius": r, "size": s}):
+    falling off to nothing at the radius, blocked by whatever stands between (a voxel grid of OCC);
+    a light with a size casts soft shadows."""
     out = np.zeros((len(V), 3))
     if not lights:
         return out
@@ -725,25 +796,36 @@ def point_lights(V, N, occ, lights, cell):
         i = np.clip(i, 0, len(solid) - 1)
         return solid[i] == flat if len(solid) else np.zeros(len(q), bool)
 
-    for l, c, r in zip(at, lights, rad):
-        d = l - V
+    for centre, c, r in zip(at, lights, rad):
+        d = centre - V
         dist = np.linalg.norm(d, axis=1)
         near = np.nonzero((dist < r) & (dist > 1e-3))[0]
         if not len(near):
             continue
         L = d[near] / dist[near, None]
-        facing = np.clip((N[near] * L).sum(1), 0, 1) * 0.8 + 0.2
+        # Half by how the surface faces it: a fold in the ground then shows as a soft change, not a
+        # sharp line across the pool.
+        facing = np.clip((N[near] * L).sum(1), 0, 1) * 0.5 + 0.5
         fall = (1 - dist[near] / r) ** 2
-        vis = np.ones(len(near))
+        # A light with a "size" is a ball, not a point: its shadow is the mean over points across
+        # it, so the shadows of small things round a fire are soft, not sharp rays.
+        size = float(c.get("size", 0.0))
+        points = [centre] if size <= 0 else [centre + size * np.array(
+            [math.cos(a) * math.sqrt(1 - h * h), math.sin(a) * math.sqrt(1 - h * h), h]) * math.sqrt((k + 0.5) / 12)
+            for k, (a, h) in enumerate((k * math.pi * (3 - math.sqrt(5)), 1 - 2 * (k + 0.5) / 12) for k in range(12))]
+        vis = np.zeros(len(near))
         start = V[near] + N[near] * vox * 1.2
-        span = l - start
-        length = np.linalg.norm(span, axis=1)
-        steps = int(np.ceil(length.max() / vox)) if len(length) else 0
-        for t in np.linspace(0.0, 1.0, max(steps, 2))[:-1]:
-            if t * length.max() < vox * 0.5:
-                continue
-            q = start + span * t
-            vis *= ~(blocked(q) & (length * (1 - t) > vox * 1.5))
+        for l in points:
+            span = l - start
+            length = np.linalg.norm(span, axis=1)
+            seen = np.ones(len(near), bool)
+            steps = int(np.ceil(length.max() / vox)) if len(length) else 0
+            for t in np.linspace(0.0, 1.0, max(steps, 2))[:-1]:
+                if t * length.max() < vox * 0.5:
+                    continue
+                q = start + span * t
+                seen &= ~(blocked(q) & (length * (1 - t) > vox * 1.5))
+            vis += seen / len(points)
         out[near] += np.array(c.get("colour", [1.6, 1.1, 0.6]))[None] * (fall * facing * vis)[:, None]
     return out
 
@@ -1201,12 +1283,16 @@ def main(argv=None):
     s.add_argument("--sun-colour", type=float, nargs=3, default=[1.15, 1.02, 0.78])
     s.add_argument("--sky-colour", type=float, nargs=3, default=[0.42, 0.5, 0.62])
     s.add_argument("--bounce-colour", type=float, nargs=3, default=[0.22, 0.2, 0.12])
+    s.add_argument("--bounce", type=float, default=0.0,
+                   help="light bounced once off the surfaces round, times this (0: a warm guess from below)")
+    s.add_argument("--sun-samples", type=int, default=1, help="sun directions for soft shadows")
+    s.add_argument("--sun-soft", type=float, default=0.0, help="the sun's width in degrees (soft shadow edges)")
     s.add_argument("--keep-tint", action="store_true", help="multiply by the colours there now instead of replacing them")
     s.add_argument("--models", nargs="*", default=[], help="model glbs baked with the terrain (each shades the others)")
     s.add_argument("--model-tint", type=float, default=0.0, help="with --models: their light times this (0: as the terrain)")
     s.add_argument("--subdivide", type=float, default=0.0, help="with --models: split their faces to this size first")
     s.add_argument("--glow", type=float, default=0.0, help="with --models: vertices brighter than this keep their colour")
-    s.add_argument("--lights", help="a json list of point lights: {\"at\": [x, y, z], \"colour\": [r, g, b], \"radius\": r}")
+    s.add_argument("--lights", help="a json list of point lights: {\"at\": [x, y, z], \"colour\": [r, g, b], \"radius\": r, \"size\": s} (a size: soft shadows)")
     s = sub.add_parser("rock-add"); s.add_argument("terrain")
     s.add_argument("--at", type=float, nargs=3, required=True, metavar=("X", "Y", "Z_FOOT"))
     s.add_argument("--radius", type=float, required=True); s.add_argument("--height", type=float, required=True)

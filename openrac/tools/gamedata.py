@@ -5,6 +5,13 @@ RAC1 moby behaviour is native code (the decompilation's C), but the gameplay fil
 placed object starts with. The sections read and written here (header words of the decompressed
 gameplay file; docs/engine/formats/LEVEL.md section 8):
 
+    +0x04  light sets       count, pad[3]; 0x40 records {f32 colour A[4], direction A[4],
+                            colour B[4], direction B[4]}: two directional lights each, the
+                            level's moby light bank (the loader takes 12 at most)
+    +0x80  light zones      count, pad[3]; count {f32 x, y, z, radius squared} circles, then
+                            count 0x80 records {f32 matrix[4][4] (world to the zone's unit box),
+                            u8 colour A[4], colour B[4], s32 set A, set B, flags (1: on), 0x2C
+                            bytes}: where the hero takes his light from (HeroEnvLighting)
     +0x00  level settings   0x50 bytes: background and fog colours (three s32 each), fog near
                             and far distance and intensity, death height, ship position and
                             rotation about Z (f32), ship path, ship camera cuboids (s32), pad[2]
@@ -40,6 +47,9 @@ the record layouts were measured on all 19 PAL levels (editor/README.md, "Gamepl
 The scene side (godot.py calls `moby_metadata` and `write_scene`; pack.py calls `pack_level`):
 
     Game/LevelSettings            metadata: the settings; child Ship, the ship's place
+    Game/LightSets                metadata rc1_set_<n>: each light set's 16 floats
+    Game/LightZones/LightZone_NNNN gameplay/light_zone.tscn: the zone's unit box through its
+                                  transform; its colours, sets, reach and whether it is on
     Game/MobyGroups               metadata rc1_group_<n>: each group's members, by node name
     Game/Cameras/Camera_NNNN      gameplay/camera.tscn: position and rotation; class, pvars
     Game/Sounds/Sound_NNNN        gameplay/sound.tscn: the shape body's matrix; class, range, pvars
@@ -73,6 +83,10 @@ from util import f32
 SETTINGS, CAMERAS, SOUNDS = 0x00, 0x08, 0x0C
 PATHS, GRIND_PATHS = 0x70, 0x74
 CAMERA_GRID = 0x84
+LIGHT_SETS, LIGHT_ZONES = 0x04, 0x80
+LIGHT_SET_SIZE, ZONE_SIZE = 0x40, 0x80
+LIGHT_SETS_MAX, LIGHT_ZONES_MAX = 12, 32   # the loader's cap; the game's zone tables
+ZONE_HEAD = struct.Struct("<16f4B4B3i")
 # The four shape sections: kind, header word, node group, node prefix, mesh.
 SHAPES = (("cuboid", 0x60, "Cuboids", "Cuboid"), ("sphere", 0x64, "Spheres", "Sphere"),
           ("cylinder", 0x68, "Cylinders", "Cylinder"), ("pill", 0x6C, "Pills", "Pill"))
@@ -92,10 +106,12 @@ SETTINGS_FIELDS = ("background", "fog_colour", "fog_near", "fog_far", "fog_near_
 SHAPE_W = (0.0, 0.0, 0.0, struct.unpack("<f", struct.pack("<f", 0.01))[0])
 PATH_W = -1.0       # the fourth float of nearly every path point on the disc
 # The nodes this module writes under Game (rc1/check.gd leaves them out of the level geometry).
-GROUPS = ("LevelSettings", "MobyGroups", "Cameras", "Sounds", "Volumes", "Paths", "GrindPaths")
+GROUPS = ("LevelSettings", "LightSets", "LightZones", "MobyGroups", "Cameras", "Sounds", "Volumes", "Paths",
+          "GrindPaths")
 VOLUME_ALPHA = 0.25
 COLOURS = {"cuboid": (0.2, 0.8, 1.0), "sphere": (1.0, 0.75, 0.2), "cylinder": (0.4, 1.0, 0.4),
-           "pill": (1.0, 0.4, 0.9), "camera": (1.0, 1.0, 0.3), "sound": (0.6, 0.5, 1.0), "ship": (1.0, 0.3, 0.2)}
+           "pill": (1.0, 0.4, 0.9), "camera": (1.0, 1.0, 0.3), "sound": (0.6, 0.5, 1.0), "ship": (1.0, 0.3, 0.2),
+           "light_zone": (1.0, 0.9, 0.5)}
 
 # A scalar field: its struct format and its range.
 # Every camera block starts with this header (port/assets/world/cameras.h, after ReRAC).
@@ -312,6 +328,74 @@ def write_settings(s: dict) -> bytes:
                                 s["fog_near_intensity"], s["fog_far_intensity"], s["death_height"],
                                 *s["ship_position"], s["ship_yaw"], s["ship_path"], *s["ship_camera_cuboids"],
                                 *s["pad"])
+
+
+# --- light sets and light zones --------------------------------------------------------------------------------
+
+def read_light_sets(g: bytes) -> list[list[float]]:
+    """The level's light sets: colour A, direction A, colour B, direction B (four floats each)."""
+    return [list(struct.unpack("<16f", r)) for r in table(g, LIGHT_SETS, LIGHT_SET_SIZE)]
+
+
+def read_light_zones(g: bytes) -> list[dict]:
+    """The light zones: each one's circle (x, y, z, radius squared), the matrix that takes the world
+    to its unit box (column-major, as the game multiplies), colours, sets, flags and the rest."""
+    at = start(g, LIGHT_ZONES)
+    if at <= 0:
+        return []
+    count, = struct.unpack_from("<i", g, at)
+    if count < 0 or at + 0x10 + count * (0x10 + ZONE_SIZE) > len(g):
+        raise FormatError(f"light zones: {count} zones do not fit")
+    out = []
+    for i in range(count):
+        circle = struct.unpack_from("<4f", g, at + 0x10 + i * 0x10)
+        record = bytes(g[at + 0x10 + count * 0x10 + i * ZONE_SIZE:][:ZONE_SIZE])
+        v = ZONE_HEAD.unpack_from(record)
+        out.append({"circle": list(circle), "matrix": list(v[0:16]), "colour_a": list(v[16:20]),
+                    "colour_b": list(v[20:24]), "set_a": v[24], "set_b": v[25], "flags": v[26],
+                    "tail": record[ZONE_HEAD.size:]})
+    return out
+
+
+def write_light_zones(g: bytes, zones: list[dict]) -> bytes:
+    at = start(g, LIGHT_ZONES)
+    head = bytes(g[at + 4:at + 0x10]) if at > 0 else bytes(12)
+    out = struct.pack("<i", len(zones)) + head
+    out += b"".join(struct.pack("<4f", *z["circle"]) for z in zones)
+    for z in zones:
+        out += ZONE_HEAD.pack(*z["matrix"], *z["colour_a"], *z["colour_b"], z["set_a"], z["set_b"], z["flags"])
+        out += z["tail"]
+    return out
+
+
+def affine_inverse(m: list[float]) -> list[float]:
+    """The inverse of a column-major 4 x 4 affine matrix (bottom row 0, 0, 0, 1)."""
+    cols = [m[0:3], m[4:7], m[8:11]]
+    rows = inverse3(cols)           # rows of the inverse in the same row-vector form
+    inv = [rows[j][k] for j in range(3) for k in range(3)]
+    t = [-sum(m[12 + j] * rows[j][k] for j in range(3)) for k in range(3)]
+    return [*inv[0:3], 0.0, *inv[3:6], 0.0, *inv[6:9], 0.0, *t, 1.0]
+
+
+def zone_box(z: dict) -> list[float]:
+    """A zone's unit box in the world, column-major (the scene's transform of its node)."""
+    m = z["matrix"]
+    return affine_inverse([*m[0:3], 0.0, *m[4:7], 0.0, *m[8:11], 0.0, *m[12:15], 1.0])
+
+
+def zone_reach(t: tuple) -> float:
+    """The circle that holds a box's footprint (scene transform T): from its middle to the
+    farthest corner, across x and y."""
+    return max(math.hypot(sx * t[0] + sy * t[1] + sz * t[2], sx * t[3] + sy * t[4] + sz * t[5])
+               for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1))
+
+
+def zone_meta(i: int, z: dict) -> dict:
+    meta = {"index": i, "on": bool(z["flags"] & 1), "colour_a": z["colour_a"], "colour_b": z["colour_b"],
+            "set_a": z["set_a"], "set_b": z["set_b"], "reach": math.sqrt(max(z["circle"][3], 0.0))}
+    if z["flags"] & ~1:
+        meta["flags"] = z["flags"] & ~1
+    return meta
 
 
 # --- shapes ----------------------------------------------------------------------------------------------------
@@ -621,10 +705,11 @@ def write_class_scene(path: Path, kind: str) -> None:
               "pill": ("CapsuleMesh", {"radius": 1.0, "height": 4.0}, along_z),
               "camera": ("BoxMesh", {"size": Raw("Vector3(0.6, 0.6, 1)")}, None),
               "sound": ("SphereMesh", {"radius": 1.0, "height": 2.0}, None),
-              "ship": ("BoxMesh", {"size": Raw("Vector3(3, 1.5, 0.8)")}, None)}
+              "ship": ("BoxMesh", {"size": Raw("Vector3(3, 1.5, 0.8)")}, None),
+              "light_zone": ("BoxMesh", {"size": Raw("Vector3(2, 2, 2)")}, None)}
     mesh_type, props, placed = meshes[kind]
     mesh = scene.subresource(mesh_type, "mesh", material=material, **props)
-    scene.node(kind.capitalize(), kind="Node3D")
+    scene.node(kind.title().replace("_", ""), kind="Node3D")
     scene.node("Shape", ".", "MeshInstance3D", mesh=mesh, **({"transform": placed} if placed else {}))
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(scene.text(), encoding="utf-8", newline="\n")
@@ -646,7 +731,7 @@ def write_scene(scene, directory: Path, res: str, g: bytes) -> dict:
     from godot import transform
     pvars, names = Pvars(g), moby_names(g)
     scenes = {}
-    for kind in ("cuboid", "sphere", "cylinder", "pill", "camera", "sound", "ship"):
+    for kind in ("cuboid", "sphere", "cylinder", "pill", "camera", "sound", "ship", "light_zone"):
         write_class_scene(directory / "gameplay" / f"{kind}.tscn", kind)
         scenes[kind] = scene.resource("PackedScene", f"{res}/gameplay/{kind}.tscn", f"gameplay_{kind}")
     stats = {}
@@ -657,6 +742,17 @@ def write_scene(scene, directory: Path, res: str, g: bytes) -> dict:
         scene.node("LevelSettings", "Game", "Node3D", **raw(meta))
         ship = euler_matrix(settings["ship_position"], (0.0, 0.0, settings["ship_yaw"]), 1.0)
         scene.node("Ship", "Game/LevelSettings", instance=scenes["ship"], transform=transform(ship))
+
+    if start(g, LIGHT_SETS) > 0:
+        sets = read_light_sets(g)
+        scene.node("LightSets", "Game", "Node", **raw({f"set_{i}": [float(v) for v in s] for i, s in enumerate(sets)}))
+        stats["light_sets"] = len(sets)
+    zones = read_light_zones(g)
+    scene.node("LightZones", "Game", "Node3D", visible=False)
+    for i, z in enumerate(zones):
+        scene.node(f"LightZone_{i:04}", "Game/LightZones", instance=scenes["light_zone"],
+                   transform=transform(zone_box(z)), **raw(zone_meta(i, z)))
+    stats["light_zones"] = len(zones)
 
     groups = gp.groups(g) if start(g, gp.GROUPS) > 0 else []
     scene.node("MobyGroups", "Game", "Node", **raw({f"group_{i}": [names[m] if m < len(names) else str(m) for m in members]
@@ -1013,9 +1109,134 @@ def pack_level(original: bytes, edited: bytes, source: str, numbering: dict[str,
     pack_camera_grid(original, nodes, sections, changes, problems)
     pack_paths(original, nodes, subresources, sections, changes, problems)
     pack_settings(original, out, nodes, changes, problems)
+    pack_light_sets(original, nodes, sections, changes, problems)
+    pack_light_zones(original, nodes, sections, changes, problems)
     if sections:
         return gp.replace(bytes(out), sections), changes, problems
     return bytes(out), changes, problems
+
+
+def pack_light_sets(original: bytes, nodes: dict, sections: dict, changes: list[str], problems: list[str]) -> None:
+    """Game/LightSets: rc1_set_0, rc1_set_1, ... (16 numbers each), the level's light sets in
+    order; a set edited, added or left out changes the section."""
+    node = nodes.get("Game/LightSets")
+    if node is None:
+        return
+    meta, sets = meta_of(node), []
+    wrong = [k for k in meta if not re.fullmatch(r"set_\d+", k) or int(k[4:]) >= len(meta)]
+    if wrong:
+        problems.append(f"LightSets: rc1_{wrong[0]}: the sets are rc1_set_0, rc1_set_1, ... with none left out; "
+                        "not packed")
+        return
+    for i in range(len(meta)):
+        value = meta[f"set_{i}"]
+        if (not isinstance(value, list) or len(value) != 16
+                or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in value)):
+            problems.append(f"LightSets: rc1_set_{i} needs 16 numbers (colour A, direction A, colour B, direction B); "
+                            "not packed")
+            return
+        sets.append([float(v) for v in value])
+    if len(sets) > LIGHT_SETS_MAX:
+        problems.append(f"LightSets: {len(sets)} sets; the game takes {LIGHT_SETS_MAX} at most; not packed")
+        return
+    old = read_light_sets(original)
+    from pack import same
+    if len(old) == len(sets) and all(same(tuple(a), tuple(b)) for a, b in zip(old, sets)):
+        return
+    sections[LIGHT_SETS] = write_table(original, LIGHT_SETS, [struct.pack("<16f", *s) for s in sets])
+    changes.append(f"light sets: {len(sets)}")
+
+
+def pack_light_zones(original: bytes, nodes: dict, sections: dict, changes: list[str], problems: list[str]) -> None:
+    """Game/LightZones: the zones in the order of their nodes (the game takes the first whose circle
+    holds the hero, then lights him only if he is in its box too); a zone's record is built from its
+    node's transform and metadata, the bytes it does not name kept from the zone it was made from.
+    A zone that cannot be packed keeps the level's zones as they are."""
+    if "Game/LightZones" not in nodes:
+        return
+    old = read_light_zones(original)
+    zones, failed = [], False
+    for node in children(nodes, "Game/LightZones"):
+        meta, name = meta_of(node), node["name"]
+        index = meta.get("index")
+        base = old[index] if isinstance(index, int) and 0 <= index < len(old) else None
+        try:
+            t = placed(nodes, node)
+            if not all(math.isfinite(v) for v in t):
+                raise FormatError("a transform that is not a number")
+            box = [t[0], t[3], t[6], 0.0, t[1], t[4], t[7], 0.0, t[2], t[5], t[8], 0.0, t[9], t[10], t[11], 1.0]
+            m = affine_inverse(box)
+        except FormatError as e:
+            problems.append(f"{name}: {e}; not packed")
+            failed = True
+            continue
+        z = {"matrix": [*m[0:3], base["matrix"][3] if base else 0.0, *m[4:7], base["matrix"][7] if base else 0.0,
+                        *m[8:11], base["matrix"][11] if base else 0.0, *m[12:15], base["matrix"][15] if base else 1.0],
+             "colour_a": base["colour_a"] if base else [128, 128, 128, 128],
+             "colour_b": base["colour_b"] if base else [128, 128, 128, 128],
+             "set_a": base["set_a"] if base else 0, "set_b": base["set_b"] if base else 0,
+             "flags": base["flags"] if base else 1, "tail": base["tail"] if base else bytes(ZONE_SIZE - ZONE_HEAD.size)}
+        ok = True
+        for key in ("colour_a", "colour_b"):
+            if key in meta:
+                v = meta[key]
+                if not isinstance(v, list) or len(v) not in (3, 4) or not all(
+                        isinstance(c, int) and not isinstance(c, bool) and 0 <= c <= 255 for c in v):
+                    problems.append(f"{name}: rc1_{key} needs red, green, blue (and alpha) from 0 to 255 "
+                                    "(128 is full light); not packed")
+                    ok = False
+                    continue
+                z[key] = list(v) + ([z[key][3]] if len(v) == 3 else [])
+        for key in ("set_a", "set_b"):
+            if key in meta:
+                v = meta[key]
+                if not isinstance(v, int) or isinstance(v, bool) or not -1 <= v < 16:
+                    problems.append(f"{name}: rc1_{key} needs a light set from 0 to 15 (-1: set 11); not packed")
+                    ok = False
+                    continue
+                z[key] = v
+        if "on" in meta:
+            if not isinstance(meta["on"], bool):
+                problems.append(f"{name}: rc1_on needs true or false; not packed")
+                ok = False
+            else:
+                z["flags"] = (z["flags"] & ~1) | int(meta["on"])
+        if "flags" in meta:
+            if not isinstance(meta["flags"], int) or isinstance(meta["flags"], bool):
+                problems.append(f"{name}: rc1_flags needs a whole number; not packed")
+                ok = False
+            else:
+                z["flags"] = (meta["flags"] & ~1) | (z["flags"] & 1)
+        reach = meta.get("reach")
+        if reach is None:
+            reach = zone_reach(t)
+        if isinstance(reach, bool) or not isinstance(reach, (int, float)) or not math.isfinite(reach) or reach <= 0:
+            problems.append(f"{name}: rc1_reach needs a distance above 0; not packed")
+            ok = False
+        if not ok:
+            failed = True
+            continue
+        r2 = float(reach) ** 2
+        if base is not None and abs(math.sqrt(max(base["circle"][3], 0.0)) - float(reach)) < 1e-4 \
+                and all(abs(a - b) < 1e-4 for a, b in zip(base["circle"][:2], t[9:11])):
+            r2 = base["circle"][3]
+        z["circle"] = [t[9], t[10], t[11], r2]
+        zones.append(z)
+    if failed:
+        return      # one zone left out would move the others' places: none is packed
+    if len(zones) > LIGHT_ZONES_MAX:
+        problems.append(f"LightZones: {len(zones)} zones; the game holds {LIGHT_ZONES_MAX} at most; not packed")
+        return
+    data = write_light_zones(original, zones)
+    at = start(original, LIGHT_ZONES)
+    if at > 0:
+        count, = struct.unpack_from("<i", original, at)
+        if data == bytes(original[at:at + 0x10 + count * (0x10 + ZONE_SIZE)]):
+            return
+    elif not zones:
+        return
+    sections[LIGHT_ZONES] = data
+    changes.append(f"light zones: {len(zones)}")
 
 
 def pack_groups(original: bytes, out: bytearray, nodes: dict, numbering: dict[str, int], sections: dict,

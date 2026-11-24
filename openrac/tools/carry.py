@@ -19,8 +19,8 @@ What is carried, for each moby (the level's objects):
   instance of, after the level's mobys.
 
 What is not carried, and listed so the player can redo it: edits of cameras, volumes, sounds,
-paths, grind paths, moby groups and level settings; ties and shrubs; the level's collision and
-the moby classes' collision; imported static models. Matching a moby of the old project to the
+paths, grind paths, moby groups, level settings, light sets and light zones; ties and shrubs; the
+level's collision and the moby classes' collision; imported static models. Matching a moby of the old project to the
 fresh one is by its place in the level's table when both tables list the same classes in the same
 order (true of the two gameplay copies of every PAL level), else by class and spawn number.
 
@@ -50,7 +50,7 @@ DESCRIPTIVE = ("index", "class", "class_name", "source", "update")
 # What the report calls each kind of node that is not carried.
 KINDS = (("Game/Cameras", "cameras"), ("Game/Sounds", "sounds"), ("Game/Volumes", "volumes"),
          ("Game/Paths", "paths"), ("Game/GrindPaths", "grind paths"), ("Game/LevelSettings", "level settings"),
-         ("Game/MobyGroups", "moby groups"))
+         ("Game/MobyGroups", "moby groups"), ("Game/LightSets", "light sets"), ("Game/LightZones", "light zones"))
 
 
 class Block:

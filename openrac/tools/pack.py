@@ -182,7 +182,7 @@ def same_fields(a: dict, b: dict) -> bool:
 # hides them from the packer, which would then take them for deleted).
 RECORD_GROUPS = ("Game/Mobys", "Game/Ties", "Game/Shrubs", "Game/Cameras", "Game/Sounds", "Game/Paths",
                  "Game/GrindPaths", "Game/Volumes/Cuboids", "Game/Volumes/Spheres", "Game/Volumes/Cylinders",
-                 "Game/Volumes/Pills")
+                 "Game/Volumes/Pills", "Game/LightZones")
 
 
 def validate_record_folders(nodes: dict, level_id: int) -> None:
