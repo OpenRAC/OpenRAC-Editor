@@ -42,6 +42,15 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		+ "launcher play). A job.", {}, [], level_pack, opens_world)
 	add("level_play", "Saves, packs and starts the game on this level with the edits, as Play level does. A job; "
 		+ "for pictures and state of the running game use the game's own MCP server (OpenRAC tools/game_mcp.py).", {}, [], level_play, opens_world)
+	add("level_place", "Sets things down on the ground so none floats, sinks or stands in a wall: a moby, tie or "
+		+ "shrub is lowered or raised until its whole underside (not one point) touches the floor, plants and rocks "
+		+ "follow a slope, and with move a made thing (a crate) that cannot stand level goes to the nearest good spot "
+		+ "within 4 units. Run it after placing or moving anything (moby_add, moby_set, scatter), on those names with "
+		+ "move. Saves first, then the scene is read again. A job.", {
+		"names": prop("array", "Only nodes with these names (* and ? patterns). Default: the whole level."),
+		"move": prop("boolean", "A thing that cannot stand where it is moves to the nearest good spot (default false: only listed)."),
+		"water": prop("number", "The water's height: things afloat on it stay."),
+		"check": prop("boolean", "Only list what is off; change nothing.")}, [], level_place)
 	add("planet_get", "The planet's name in the ship's menu and its id (set once it was added).", {}, [], planet_get, read_only)
 	add("planet_set", "Names this level as a planet (the ship's menu): plain letters A-Z, digits, spaces and punctuation, "
 		+ "at most 40 characters. Saved in project.godot.", {"name": prop("string", "The planet's name.")}, ["name"], planet_set)
@@ -68,7 +77,8 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		"level": prop("integer", "The level the class comes from (default: this one)."),
 		"position": prop("array", "[x, y, z] in the game's coordinates. Default: in front of the 3D view."),
 		"yaw": prop("number", "Heading in degrees about the game's up (default 0)."),
-		"on_ground": prop("boolean", "Put it on the floor under the position (default false)."),
+		"on_ground": prop("boolean", "Put it on the floor under the position (default false); level_place with move then "
+			+ "sets its whole underside down."),
 		"mode": prop("string", "auto (default), own, import, look, skin or simple (a simple move in place of its logic: behaviour)."),
 		"behaviour": prop("string", "For mode simple: spin, bob, patrol, orbit, face_hero, follow or wander."),
 		"host_class": prop("integer", "For mode skin: the class of this level whose logic it runs.")}, ["class"], moby_add)
@@ -167,7 +177,7 @@ func project_info(_args: Dictionary) -> Variant:
 		"levels": others}
 
 
-## Runs openrac_editor.py KIND (check, play) as a job, with EXTRA arguments; the scenes are saved first.
+## Runs openrac_editor.py KIND (check, play, place) as a job, with EXTRA arguments; the scenes are saved first.
 func run_tool(kind: String, title: String, extra: PackedStringArray = PackedStringArray()) -> Variant:
 	var command: Variant = Play.command_for(kind, Play.this_level())
 
@@ -202,6 +212,17 @@ func parsed(code: int, lines: PackedStringArray, kind: String) -> Dictionary:
 
 	var result: Dictionary = {"ok": code == 0 and problems.is_empty(), "kind": kind, "problems": problems, "said": said}
 
+	if kind == "place":
+		# The scene file was written under the editor: read it again (nothing changed with --check).
+		if at != null and not said.is_empty() and not String(said[-1]).begins_with("would") and not String(said[-1]).begins_with("set 0 "):
+			EditorInterface.reload_scene_from_path.call_deferred(at.scene_file_path)
+
+		if not result["ok"]:
+			result["error"] = "%d thing(s) cannot stand where they are (why): move them by hand, or run again with move." \
+				% problems.size() if not problems.is_empty() else ("\n".join(said.slice(-5)) if not said.is_empty() else "It did not run.")
+
+		return result
+
 	if not result["ok"]:
 		result["error"] = "%d edit(s) cannot be packed: fix each (path) and check again." % problems.size() \
 			if not problems.is_empty() else ("\n".join(said.slice(-5)) if not said.is_empty() else "It did not run.")
@@ -219,6 +240,29 @@ func level_pack(_args: Dictionary) -> Variant:
 
 func level_play(_args: Dictionary) -> Variant:
 	return run_tool("play", "Play level")
+
+
+func level_place(args: Dictionary) -> Variant:
+	var extra := PackedStringArray()
+
+	if bool(args.get("check", false)):
+		extra.append("--check")
+
+	if bool(args.get("move", false)):
+		extra.append("--move")
+
+	if args.get("water") != null:
+		extra.append_array(["--water", str(float(args["water"]))])
+
+	var only: Variant = args.get("names")
+
+	if only is Array and not only.is_empty():
+		extra.append("--names")
+
+		for pattern in only:
+			extra.append(String(pattern))
+
+	return run_tool("place", "Set things down", extra)
 
 
 func planet_get(_args: Dictionary) -> Dictionary:

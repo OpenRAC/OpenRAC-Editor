@@ -614,6 +614,14 @@ def main() -> None:
             sub.add_argument("--data", type=Path, help="the port's game data")
             sub.add_argument("--levels", type=Path, help="the port's levels")
             sub.add_argument("--no-start", action="store_true", help="pack only: the game is not started")
+    placing = commands.add_parser("place", help="set a level's mobys, ties and shrubs down on its ground: no "
+                                                "floating, no sinking, none in a wall (placement.py)")
+    placing.add_argument("project", type=Path, help="one level's project (a project per level)")
+    placing.add_argument("--check", action="store_true", help="only list what is off; change nothing")
+    placing.add_argument("--names", nargs="+", help="only nodes with these names (* and ? patterns)")
+    placing.add_argument("--water", type=float, help="the water's height: things afloat on it stay")
+    placing.add_argument("--move", action="store_true",
+                         help="a made thing (a crate) that cannot stand where it is goes to the nearest good spot")
     args = parser.parse_args()
     if args.command == "play" and not args.no_start and None in (args.game, args.data, args.levels):
         parser.error("play needs --game, --data and --levels (or --no-start)")
@@ -621,6 +629,13 @@ def main() -> None:
         try:
             args.iso = remembered_disc(args.project.resolve())
         except FormatError as exc:
+            errors.say(exc)
+            parser.exit(1, f"openrac_editor: {exc}\n")
+    if args.command == "place":
+        import placement
+        try:
+            sys.exit(placement.main(args.project.resolve(), args.check, args.names, args.water, args.move))
+        except OSError as exc:
             errors.say(exc)
             parser.exit(1, f"openrac_editor: {exc}\n")
     if args.command in ("check", "play"):

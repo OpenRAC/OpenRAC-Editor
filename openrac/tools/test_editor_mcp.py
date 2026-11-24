@@ -134,7 +134,7 @@ class EditorMCP(unittest.TestCase):
     def test_1_lists_the_level_tools_resources_and_prompts(self):
         names = {t["name"] for t in self.tools}
         for name in ("project_info", "level_check", "planet_set", "planet_add", "class_list", "class_search",
-                     "moby_list", "moby_add", "moby_set", "moby_remove", "ground_at", "cutscene_write",
+                     "moby_list", "moby_add", "level_place", "moby_set", "moby_remove", "ground_at", "cutscene_write",
                      "cutscene_add", "cutscene_check", "cutscene_frame", "job_wait", "batch", "undo"):
             self.assertIn(name, names)
         prompts = {p["name"] for p in self.editor.rpc("prompts/list")["result"]["prompts"]}

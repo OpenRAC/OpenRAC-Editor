@@ -228,6 +228,13 @@ like a cutscene's ship) comes as scenery, or moves with a simple move. A moby's 
 **Behaviour** section (spin, bob, patrol, orbit, face or follow the hero), which
 the editor-runtime mod plays.
 
+To set things down on the ground, run `openrac_editor.py place <project>` (or the MCP tool
+`level_place`). It looks at each moby's, tie's and shrub's whole underside, not one point: a
+floating one is lowered, a sunk crate raised, a plant or rock follows the slope. A crate that
+cannot stand level, or stands in a wall, is listed; with `--move` it goes to the nearest good spot
+within 4 units. `--check` only lists, `--names` picks nodes, `--water` keeps floating things
+afloat. Bolts, flying things and moving characters are left as they are.
+
 ## Play from the editor
 
 The editor's toolbar has a big gold **Play Level** button (the Assets plugin, `play.gd`). It saves

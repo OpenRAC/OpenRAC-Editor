@@ -18,7 +18,9 @@ steps of whole tasks.
    `screenshot` to see it in the editor.
 3. Change with the level's tools, each an undo step: `moby_add` with `on_ground`, `moby_set`,
    `moby_remove`; `cutscene_write` for a whole cutscene, `cutscene_add` to grow one;
-   `cutscene_check` and `cutscene_frame` at the start of each shot.
+   `cutscene_check` and `cutscene_frame` at the start of each shot. After placing or moving
+   things, `level_place` with their `names` and `move` (`job_wait`): it sets each one down on its
+   whole underside, off slopes and out of walls. Never trust a single ground point for a model.
 4. `scene_save`, then `level_check` and `job_wait`. Fix each problem it lists (node, why) and
    check again until none is left.
 5. `level_pack` (`job_wait`), then in the game: `game_start` with the level and `mods` set to the
