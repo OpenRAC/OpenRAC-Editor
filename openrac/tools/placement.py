@@ -33,9 +33,9 @@ FLOAT_OK = 0.12      # gaps under a thing up to this are not seen
 SEARCH = 4.0         # how far a hard thing may be moved to find a good spot
 CELL = 4.0           # the ground's lookup grid
 HARD_SINK = 0.6      # a hard thing's high side may sink this share of its height (set into a slope)
-NEW_SINK = 0.1       # the same for a thing being placed now (MOVE): it stands on level ground
-HEADROOM = 1.5       # a thing being placed now needs this many of its heights free above it,
-HEADROOM_MIN = 3.0   # and at least this much
+NEW_SINK = 0.25      # the same for a thing being placed now (MOVE): it stands on level ground
+HEADROOM = 1.0       # a thing being placed now needs this many of its heights free above it
+                     # (a tree high over a crate is fine; a block it is sunk in is not)
 MAX_TILT = 25.0      # soft things are turned with the ground up to this many degrees
 BIG = 12.0           # soft things wider than this (islets, towers) are left as they are
 SOFT_SINK = 0.45     # soft things may sink this share of their height on the high side before they turn
@@ -290,16 +290,20 @@ class Ground:
             nrm[idx[hit]] = self.floor_n[cand][best[hit]]
         return z, nrm
 
-    def walls_in(self, centre: np.ndarray, half: np.ndarray, basis: np.ndarray, exclude: str = "") -> int:
-        """How many wall faces cross the box at CENTRE, HALF its size along BASIS's columns."""
+    def walls_in(self, centre: np.ndarray, half: np.ndarray, basis: np.ndarray, exclude: str = "",
+                 mobys: bool = False) -> int:
+        """How many wall faces cross the box at CENTRE, HALF its size along BASIS's columns (MOBYS:
+        other mobys' sides count too)."""
         lo = centre - np.abs(basis) @ half
         hi = centre + np.abs(basis) @ half
         cand = set()
         for i in range(int(math.floor(lo[0] / CELL)), int(math.floor(hi[0] / CELL)) + 1):
             for j in range(int(math.floor(lo[1] / CELL)), int(math.floor(hi[1] / CELL)) + 1):
                 cand.update(self.wall_cells.get((i, j), []))
-        # Other mobys are not walls: crates stand against crates, in stacks.
-        cand = [c for c in cand if self.wall_owner[c] != exclude and not str(self.wall_owner[c]).startswith("m:")]
+        # Other mobys are no walls where they stand now (crates against crates, in stacks); a thing
+        # placed now must not go into one.
+        cand = [c for c in cand if self.wall_owner[c] not in (exclude, "m:" + exclude)
+                and (mobys or not str(self.wall_owner[c]).startswith("m:"))]
         if not cand:
             return 0
         T = self.walls[sorted(cand)]
@@ -481,11 +485,11 @@ def settle_hard(ground, shape, basis, origin, look, size, height, name="", move=
         else:
             return None
         if move:
-            top = np.full(len(F), g.max() + height + max(HEADROOM * height, HEADROOM_MIN))
+            top = np.full(len(F), g.max() + (1 + HEADROOM) * height)
             above, _ = ground.floor(F[:, :2], top, g + 0.05 * height + 0.02, name)
             if not np.isnan(above).all():
                 return None                           # something over it: a ceiling, inside a block
-        return None if wall_inside(ground, shape, basis, o2, name, float(g.max())) else o2
+        return None if wall_inside(ground, shape, basis, o2, name, float(g.max()), move) else o2
 
     first = fit(origin)
     if first is not None:
@@ -508,7 +512,7 @@ def settle_hard(ground, shape, basis, origin, look, size, height, name="", move=
     return basis, origin, None, f"{why}, and no good spot within {SEARCH:g} units" if move else why
 
 
-def wall_inside(ground, shape, basis, origin, name="", floor_top=None) -> bool:
+def wall_inside(ground, shape, basis, origin, name="", floor_top=None, mobys=False) -> bool:
     """A wall through the middle of the thing's box over the ground under it (FLOOR_TOP: the
     highest ground under its feet; the slope it is set into is no wall). Its outer part is left
     out: touching a wall, or a small detail, is fine."""
@@ -519,7 +523,7 @@ def wall_inside(ground, shape, basis, origin, name="", floor_top=None) -> bool:
         return False
     centre = (lo + hi) / 2
     half = (hi - lo) / 2 * np.array([0.6, 0.6, 1.0])
-    return ground.walls_in(centre, half, np.eye(3), name) > 0
+    return ground.walls_in(centre, half, np.eye(3), name, mobys) > 0
 
 
 def tilt(basis: np.ndarray, up: np.ndarray) -> np.ndarray:

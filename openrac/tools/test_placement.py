@@ -51,11 +51,11 @@ def quad(p0, p1, p2, p3):
 
 def ground():
     """Flat at z 0 for x < 10; a 45 degree slope up from x 10 to 14; flat again at z 4 beyond; a
-    wall (a block 2 wide, 3 tall) at x 20..22."""
+    wall (a block 2 wide, 1.5 tall) at x 20..22."""
     tris = quad((-20, -20, 0), (10, -20, 0), (10, 20, 0), (-20, 20, 0))
     tris += quad((10, -20, 0), (14, -20, 4), (14, 20, 4), (10, 20, 0))
     tris += quad((14, -20, 4), (40, -20, 4), (40, 20, 4), (14, 20, 4))
-    tris += box((20, -20, 4), (22, 20, 7))
+    tris += box((20, -20, 4), (22, 20, 5.5))
     return tris
 
 
@@ -138,15 +138,15 @@ class Placement(unittest.TestCase):
         self.write([("Crate", "moby", 500, transform(20.2, 0, 4))])  # half in the wall
         report = self.placed(move=True)
         self.assertIn("moved", report["Crate"]["done"])
-        x = self.origin("Crate")[0]
-        self.assertTrue(x <= 19.6 or x >= 22.4, x)
+        x, _, z = self.origin("Crate")
+        self.assertTrue(x <= 19.6 or x >= 22.4 or abs(z - 5.5) < 0.02, (x, z))   # beside it, or on top
 
     def test_crate_inside_a_block_is_moved_out(self):
         self.write([("Crate", "moby", 500, transform(21, 0, 4))])
         report = self.placed(move=True)
         self.assertIn("moved", report["Crate"]["done"])
-        x = self.origin("Crate")[0]
-        self.assertTrue(x <= 19.6 or x >= 22.4, x)
+        x, _, z = self.origin("Crate")
+        self.assertTrue(x <= 19.6 or x >= 22.4 or abs(z - 5.5) < 0.02, (x, z))   # beside it, or on top
 
     def test_crate_on_a_crate(self):
         self.write([("Low", "moby", 500, transform(0, 0, 0.3)), ("High", "moby", 500, transform(0, 0, 1.6))])
