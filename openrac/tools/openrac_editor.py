@@ -485,24 +485,55 @@ def play_plugins(data: Path, runtime: Path = RUNTIME) -> Path | None:
     (DATA/plugins, where the launcher keeps the player's), and a list beside the player's
     plugins.json, which it leaves as it is, with that mod on. None when this editor carries no
     built mod (a checkout, not a download)."""
-    if not (runtime / "openrac-mod.json").is_file():
+    if not install_runtime(data, runtime):
         return None
     folder = data / "plugins"
-    installed = folder / RUNTIME_ID
+    play = folder / PLAY_LIST
+    write_mod_list(play, with_runtime(read_mod_list(folder / "plugins.json")))
+    return play
+
+
+def install_runtime(data: Path, runtime: Path = RUNTIME) -> bool:
+    """The editor's mod brought up to date in DATA/plugins; False when this editor carries no built
+    mod (a checkout, not a download)."""
+    if not (runtime / "openrac-mod.json").is_file():
+        return False
+    installed = data / "plugins" / RUNTIME_ID
     if not same_tree(runtime, installed):
         if installed.exists():
             shutil.rmtree(installed)
         shutil.copytree(runtime, installed)
-    mods: list = []
+    return True
+
+
+def read_mod_list(path: Path) -> list:
     try:
-        listed = json.loads((folder / "plugins.json").read_text(encoding="utf-8"))
-        mods = [m for m in listed.get("mods", []) if isinstance(m, dict)]
+        listed = json.loads(path.read_text(encoding="utf-8"))
+        return [m for m in listed.get("mods", []) if isinstance(m, dict)]
     except (OSError, ValueError, AttributeError):
-        pass
-    mods = [m for m in mods if m.get("id") != RUNTIME_ID] + [{"id": RUNTIME_ID, "enabled": True}]
-    play = folder / PLAY_LIST
-    play.write_text(json.dumps({"format": 1, "mods": mods}, indent=2) + "\n", encoding="utf-8", newline="\n")
-    return play
+        return []
+
+
+def with_runtime(mods: list) -> list:
+    return [m for m in mods if m.get("id") != RUNTIME_ID] + [{"id": RUNTIME_ID, "enabled": True}]
+
+
+def write_mod_list(path: Path, mods: list) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"format": 1, "mods": mods}, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+
+def turn_on_runtime(data: Path, runtime: Path = RUNTIME) -> bool:
+    """For a planet that needs it (a shared map's): the editor's mod installed in DATA/plugins and
+    on in the player's own list (plugins.json), their other mods as they were. False when this
+    editor carries no built mod."""
+    if not install_runtime(data, runtime):
+        return False
+    listed = data / "plugins" / "plugins.json"
+    mods = read_mod_list(listed)
+    if {"id": RUNTIME_ID, "enabled": True} not in mods:
+        write_mod_list(listed, with_runtime(mods))
+    return True
 
 
 def same_tree(a: Path, b: Path) -> bool:
