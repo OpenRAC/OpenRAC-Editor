@@ -341,8 +341,9 @@ def tri_box(T: np.ndarray, h: np.ndarray) -> np.ndarray:
 
 
 def level_ground(project: Path, text: str) -> Ground:
-    """The level's drawn ground: its terrain, its static models, its ties (rocks, platforms,
-    buildings) and its still mobys (crates stand on crates), as the scene places them."""
+    """The level's ground: its terrain, its static models, its own collision (Game/Collision), its
+    ties (rocks, platforms, buildings) and its still mobys (crates stand on crates), as the scene
+    places them."""
     ids = {}
     tris, owners = [], []
     current = None
@@ -367,7 +368,7 @@ def level_ground(project: Path, text: str) -> Ground:
             current = None
             name, parent, inst = m.groups()
             if inst and inst in ids and ((parent == "Game" and name == "Terrain")
-                                         or parent in ("Game/StaticAssets", "Game/Ties", "Game/Mobys")):
+                                         or parent in ("Game/StaticAssets", "Game/Collision", "Game/Ties", "Game/Mobys")):
                 current = [ids[inst], None, name, parent in ("Game/Ties", "Game/Mobys")]
             continue
         if current is not None and line.startswith("transform = "):
