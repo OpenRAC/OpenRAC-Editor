@@ -434,8 +434,8 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
     F, g, n = look(basis, origin)
     if np.isnan(g).all():
         return basis, origin, None, None                     # nothing under it: water, sky, flying
-    if water is not None and abs(F[:, 2].min() - water) < 0.4:
-        return basis, origin, None, None                     # afloat
+    if water is not None and abs(F[:, 2].min() - water) < 0.4 and not g[-1] > water:
+        return basis, origin, None, None                     # afloat: water under its middle
     if not hard:
         if pose.height < LOW * pose.size:
             return settle_low(shape, basis, origin, look, pose.height)
