@@ -773,8 +773,9 @@ def bake_models(t, args):
 
 
 def point_lights(V, N, occ, lights, cell):
-    """Warm pools of light from LIGHTS ({"at": [x, y, z], "colour": [r, g, b], "radius": r}): falling
-    off to nothing at the radius, blocked by whatever stands between (a voxel grid of OCC)."""
+    """Warm pools of light from LIGHTS ({"at": [x, y, z], "colour": [r, g, b], "radius": r, "size": s}):
+    falling off to nothing at the radius, blocked by whatever stands between (a voxel grid of OCC);
+    a light with a size casts soft shadows."""
     out = np.zeros((len(V), 3))
     if not lights:
         return out
@@ -795,25 +796,36 @@ def point_lights(V, N, occ, lights, cell):
         i = np.clip(i, 0, len(solid) - 1)
         return solid[i] == flat if len(solid) else np.zeros(len(q), bool)
 
-    for l, c, r in zip(at, lights, rad):
-        d = l - V
+    for centre, c, r in zip(at, lights, rad):
+        d = centre - V
         dist = np.linalg.norm(d, axis=1)
         near = np.nonzero((dist < r) & (dist > 1e-3))[0]
         if not len(near):
             continue
         L = d[near] / dist[near, None]
-        facing = np.clip((N[near] * L).sum(1), 0, 1) * 0.8 + 0.2
+        # Half by how the surface faces it: a fold in the ground then shows as a soft change, not a
+        # sharp line across the pool.
+        facing = np.clip((N[near] * L).sum(1), 0, 1) * 0.5 + 0.5
         fall = (1 - dist[near] / r) ** 2
-        vis = np.ones(len(near))
+        # A light with a "size" is a ball, not a point: its shadow is the mean over points across
+        # it, so the shadows of small things round a fire are soft, not sharp rays.
+        size = float(c.get("size", 0.0))
+        points = [centre] if size <= 0 else [centre + size * np.array(
+            [math.cos(a) * math.sqrt(1 - h * h), math.sin(a) * math.sqrt(1 - h * h), h]) * math.sqrt((k + 0.5) / 12)
+            for k, (a, h) in enumerate((k * math.pi * (3 - math.sqrt(5)), 1 - 2 * (k + 0.5) / 12) for k in range(12))]
+        vis = np.zeros(len(near))
         start = V[near] + N[near] * vox * 1.2
-        span = l - start
-        length = np.linalg.norm(span, axis=1)
-        steps = int(np.ceil(length.max() / vox)) if len(length) else 0
-        for t in np.linspace(0.0, 1.0, max(steps, 2))[:-1]:
-            if t * length.max() < vox * 0.5:
-                continue
-            q = start + span * t
-            vis *= ~(blocked(q) & (length * (1 - t) > vox * 1.5))
+        for l in points:
+            span = l - start
+            length = np.linalg.norm(span, axis=1)
+            seen = np.ones(len(near), bool)
+            steps = int(np.ceil(length.max() / vox)) if len(length) else 0
+            for t in np.linspace(0.0, 1.0, max(steps, 2))[:-1]:
+                if t * length.max() < vox * 0.5:
+                    continue
+                q = start + span * t
+                seen &= ~(blocked(q) & (length * (1 - t) > vox * 1.5))
+            vis += seen / len(points)
         out[near] += np.array(c.get("colour", [1.6, 1.1, 0.6]))[None] * (fall * facing * vis)[:, None]
     return out
 
@@ -1280,7 +1292,7 @@ def main(argv=None):
     s.add_argument("--model-tint", type=float, default=0.0, help="with --models: their light times this (0: as the terrain)")
     s.add_argument("--subdivide", type=float, default=0.0, help="with --models: split their faces to this size first")
     s.add_argument("--glow", type=float, default=0.0, help="with --models: vertices brighter than this keep their colour")
-    s.add_argument("--lights", help="a json list of point lights: {\"at\": [x, y, z], \"colour\": [r, g, b], \"radius\": r}")
+    s.add_argument("--lights", help="a json list of point lights: {\"at\": [x, y, z], \"colour\": [r, g, b], \"radius\": r, \"size\": s} (a size: soft shadows)")
     s = sub.add_parser("rock-add"); s.add_argument("terrain")
     s.add_argument("--at", type=float, nargs=3, required=True, metavar=("X", "Y", "Z_FOOT"))
     s.add_argument("--radius", type=float, required=True); s.add_argument("--height", type=float, required=True)

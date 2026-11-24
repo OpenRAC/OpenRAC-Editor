@@ -133,6 +133,20 @@ class TerrainTest(unittest.TestCase):
         self.assertGreater(lit, hidden + 0.3)
         self.assertTrue(np.allclose(next(m.prims())[2].attrs["COLOR_0"][:, :3], 1.5))
 
+    def test_a_light_with_a_size_casts_a_soft_shadow(self):
+        # A post beside a lamp: a point lamp leaves the ground behind it lit or not, a lamp with
+        # a size leaves a part-lit band at the shadow's edge.
+        V = np.stack(np.meshgrid(np.linspace(10, 30, 41), np.linspace(10, 30, 41)), -1).reshape(-1, 2)
+        V = np.concatenate([V, np.zeros((len(V), 1))], 1)
+        N = np.tile([0, 0, 1.0], (len(V), 1))
+        g = np.arange(-0.4, 0.41, 0.2)
+        occ = np.array([[20 + a, 18 + b, z] for a in g for b in g for z in np.arange(0, 3, 0.2)])
+        lamp = {"at": [20, 15, 1.5], "colour": [1, 1, 1], "radius": 12}
+        hard = terrain.point_lights(V, N, occ, [lamp], 0.5)[:, 0]
+        soft = terrain.point_lights(V, N, occ, [dict(lamp, size=0.8)], 0.5)[:, 0]
+        behind = (np.abs(V[:, 0] - 20) < 3) & (V[:, 1] > 19) & (V[:, 1] < 24)
+        self.assertGreater(len(np.unique(np.round(soft[behind], 3))), len(np.unique(np.round(hard[behind], 3))))
+
     def test_bounced_light_reaches_the_shade_and_the_sun_is_soft(self):
         # A rock on the ground: what its shadow and its foot get back from the lit ground and rock
         # round them comes with --bounce; a wide sun leaves part-lit points at the shadow's edge.
