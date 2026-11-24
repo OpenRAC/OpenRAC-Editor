@@ -111,7 +111,8 @@ Read openrac://guide/ai first. Then:
 2. Look at the level: moby_list, class_list, screenshot after view_set at the places you change.
 3. Make it the planet: move, add (moby_add with on_ground) and remove mobys; give some a behaviour
    (moby_set); add cutscenes (cutscene_write) for an arrival or a meeting. Keep the hero's start
-   (the Ratchet moby) somewhere he can stand.
+   (the Ratchet moby) somewhere he can stand. Then level_place with their names and move
+   (job_wait), so none floats, sinks or stands in a wall.
 4. scene_save, then level_check and job_wait; fix each problem it lists and check again.
 5. planet_set with the name, then planet_add and job_wait.
 6. With the game's MCP server: game_start on this level with the packed levels, game_step until
@@ -147,7 +148,8 @@ func place_enemies(args: Dictionary) -> String:
 
 1. class_search for the kind (enemy names) and pick classes that come as own or import.
 2. moby_list near the place and ground_at around it, to find open floor away from walls.
-3. moby_add each with on_ground, facing where Ratchet comes from (yaw).
+3. moby_add each with on_ground, facing where Ratchet comes from (yaw), then level_place with
+   their names and move (job_wait).
 4. scene_save, level_check (job_wait), fix problems.
 5. In the game: game_start on the level, game_hero_place near them, game_step 120, game_mobys near
    the place (their state should change from idle as Ratchet comes), game_shot.""" % [args.get("what", ""), args.get("where", "")]

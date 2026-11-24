@@ -30,6 +30,8 @@ server (docs/MCP.md), and to see the result in the game with OpenRAC's game serv
    `screenshot` after `view_set` to look.
 3. Change with the OpenRAC tools: `moby_add` (with `on_ground`), `moby_set`, `moby_remove`,
    `cutscene_write` and `cutscene_add`. Every change is an undo step (`undo` with `steps`).
+   Then `level_place` with the new things' `names` and `move`: it sets each one down on its whole
+   underside (no floating, no sinking, none in a wall) and moves a crate off a slope.
 4. `scene_save`, then `level_check` and `job_wait`: each refused edit comes with the node's path
    and why. Fix and check again until none is left.
 5. To play it: `level_play` (the game starts on the level), or `planet_set` then `planet_add` for a
