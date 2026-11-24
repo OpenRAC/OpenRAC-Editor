@@ -133,6 +133,27 @@ class TerrainTest(unittest.TestCase):
         self.assertGreater(lit, hidden + 0.3)
         self.assertTrue(np.allclose(next(m.prims())[2].attrs["COLOR_0"][:, :3], 1.5))
 
+    def test_bounced_light_reaches_the_shade_and_the_sun_is_soft(self):
+        # A rock on the ground: what its shadow and its foot get back from the lit ground and rock
+        # round them comes with --bounce; a wide sun leaves part-lit points at the shadow's edge.
+        recipe = {"sea": 0.0, "rocks": [{"x": 20, "y": 20, "z0": -4, "z1": 14, "radius": 7, "undercut": 0.5,
+                                          "bulge": 0.2, "seed": 2}]}
+        (self.path.parent / terrain.RECIPE).write_text(json.dumps(recipe))
+        self.run_op("build", "--step", "1.5")
+        built = self.path.read_bytes()
+
+        def light(*extra):
+            self.path.write_bytes(built)
+            t = self.run_op("bake-light", "--ao", "12", "--cell", "0.75", "--bounce-colour", "0", "0", "0", *extra)
+            return np.concatenate([q.attrs["COLOR_0"][:, :3] for _, _, q in t.prims()]).sum(1)
+
+        plain, bounced = light(), light("--bounce", "1")
+        dark = plain < np.percentile(plain, 20)
+        self.assertGreater(bounced[dark].mean(), plain[dark].mean() * 1.1)
+        self.assertTrue(np.all(bounced >= plain - 1e-6))
+        soft = light("--sun-samples", "8", "--sun-soft", "4")
+        self.assertGreater(len(np.unique(np.round(soft, 3))), len(np.unique(np.round(plain, 3))))
+
 
 if __name__ == "__main__":
     unittest.main()

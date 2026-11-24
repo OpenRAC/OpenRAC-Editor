@@ -20,8 +20,8 @@ extends SceneTree
 # =============================================================================
 
 ## The nodes under Game that hold the gameplay data (editor/gamedata.py's GROUPS).
-const GAMEPLAY: Array[String] = ["LevelSettings", "MobyGroups", "Cameras", "Sounds", "Volumes", "Paths",
-	"GrindPaths"]
+const GAMEPLAY: Array[String] = ["LevelSettings", "LightSets", "LightZones", "MobyGroups", "Cameras", "Sounds",
+	"Volumes", "Paths", "GrindPaths"]
 
 # =============================================================================
 # METHODS

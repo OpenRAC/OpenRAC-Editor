@@ -17,6 +17,13 @@ from mobys import FIELDS, RECORD, SIZE, USUAL, moby_instances
 from pack import pack_level
 from sky import clear_colour
 
+# A light set: a warm sun from above (its back clamp -0.17) and a cool fill from the side.
+SUN = [1.0, 0.9, 0.6, -0.17, 0.0, 0.0, -1.0, 0.0, 0.2, 0.25, 0.3, 0.0, 1.0, 0.0, 0.0, 0.0]
+# A light zone: a box 8 by 4 by 6 round (10, 20, 30), its colours blending from A to B along x.
+ZONE = {"circle": [10.0, 20.0, 30.0, 25.0], "matrix": [0.25, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1 / 3, 0.0,
+                                                       -2.5, -10.0, -10.0, 1.0],
+        "colour_a": [32, 32, 40, 128], "colour_b": [96, 90, 80, 128], "set_a": 1, "set_b": 0, "flags": 1,
+        "tail": bytes(range(0x2C))}
 LAYOUT = {500: [("speed", 0x10, "f32", 0), ("count", 0x14, "s16", 0), ("ids", 0x18, "u8", 4)]}
 
 
@@ -79,6 +86,8 @@ def build(groups=([0, 1], None, [2])) -> bytes:
     camera_cells[1 * gd.CAMERA_GRID_SIZE + 1].append(
         struct.pack("<4f4if3i", 10.0, 20.0, 0.0, 5.0, 3, 0, 2, 7, 1.5, -1, 0, 0))
     sections[gd.CAMERA_GRID] = gd.write_camera_collision_grid(camera_cells)
+    sections[gd.LIGHT_SETS] = struct.pack("<i12x", 2) + struct.pack("<16f", *SUN) + struct.pack("<16f", *([0.25] * 16))
+    sections[gd.LIGHT_ZONES] = gd.write_light_zones(bytes(0xA0), [ZONE])
     out = bytearray(0xA0)
     for pointer, data in sections.items():
         struct.pack_into("<i", out, pointer, len(out))
@@ -509,6 +518,81 @@ class GameData(unittest.TestCase):
         out, changes, problems = self.pack(text)
         self.assertEqual((out, changes), (self.g, []))
         self.assertEqual(len(problems), 3)
+
+    # --- light sets and zones ---
+
+    def test_light_sets_and_zones_are_read(self):
+        sets = gd.read_light_sets(self.g)
+        self.assertEqual(len(sets), 2)
+        self.assertAlmostEqual(sets[0][3], -0.17, places=6)
+        zone, = gd.read_light_zones(self.g)
+        self.assertEqual((zone["colour_a"], zone["set_a"], zone["flags"], zone["tail"]),
+                         ([32, 32, 40, 128], 1, 1, bytes(range(0x2C))))
+        box = gd.zone_box(zone)      # the unit box's corner (1, 1, 1) is the world's (14, 22, 33)
+        corner = [sum(box[4 * j + r] for j in range(3)) + box[12 + r] for r in range(3)]
+        self.assertEqual([round(v, 5) for v in corner], [14.0, 22.0, 33.0])
+        at = gp.offset(self.g, gd.LIGHT_ZONES)
+        data = gd.write_light_zones(self.g, [zone])
+        self.assertEqual(self.g[at:at + len(data)], data)
+
+    def test_the_scene_shows_light_sets_and_zones(self):
+        nodes, _ = gd.parse_scene(self.text)
+        self.assertEqual(len(gd.meta_of(nodes["Game/LightSets"])["set_0"]), 16)
+        zone = gd.meta_of(nodes["Game/LightZones/LightZone_0000"])
+        self.assertEqual((zone["colour_b"], zone["set_b"], zone["on"], zone["reach"]), ([96, 90, 80, 128], 0, True, 5.0))
+        self.assertEqual([round(v, 5) for v in gd.transform_of(nodes["Game/LightZones/LightZone_0000"])],
+                         [4.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 3.0, 10.0, 20.0, 30.0])
+
+    def test_unedited_light_data_packs_to_nothing(self):
+        out, changes, problems = self.pack(self.text)
+        self.assertEqual((problems, [c for c in changes if "light" in c]), ([], []))
+        self.assertEqual(out, self.g)
+
+    def test_a_light_zone_edited_and_one_added(self):
+        text = edit(self.text, "LightZone_0000", "metadata/rc1_colour_a", "[10, 12, 14]")
+        text = edit(text, "LightZone_0000", "metadata/rc1_set_a", "3")
+        text = text + ('\n[node name="Dark" parent="Game/LightZones" instance=ExtResource("gameplay_light_zone")]\n'
+                       "transform = Transform3D(0, -5, 0, 5, 0, 0, 0, 0, 2, 100, 0, 4)\n"
+                       "metadata/rc1_colour_a = [8, 8, 8, 128]\nmetadata/rc1_colour_b = [8, 8, 8, 128]\n"
+                       "metadata/rc1_reach = 4.0\n")
+        out, changes, problems = self.pack(text)
+        self.assertEqual(problems, [])
+        self.assertIn("light zones: 2", changes)
+        old, new = gd.read_light_zones(out)
+        self.assertEqual((old["colour_a"], old["set_a"], old["tail"]), ([10, 12, 14, 128], 3, bytes(range(0x2C))))
+        self.assertEqual(old["circle"], ZONE["circle"])
+        self.assertEqual((new["colour_a"], new["flags"], new["circle"]), ([8, 8, 8, 128], 1, [100.0, 0.0, 4.0, 16.0]))
+        # The world's (100, 5, 5) is the new box's (1, 0, 0.5): turned a quarter, 5 by 5 by 2.
+        m = new["matrix"]
+        p = [m[k] * 100 + m[4 + k] * 5 + m[8 + k] * 5 + m[12 + k] for k in range(3)]
+        self.assertEqual([round(v, 5) for v in p], [1.0, 0.0, 0.5])
+
+    def test_a_zone_without_a_reach_holds_its_box(self):
+        text = edit(self.text, "LightZone_0000", "transform", "Transform3D(3, 0, 0, 0, 4, 0, 0, 0, 1, 10, 20, 30)")
+        text = text.replace("metadata/rc1_reach = 5.0\n", "")
+        out, changes, problems = self.pack(text)
+        self.assertEqual(problems, [])
+        zone, = gd.read_light_zones(out)
+        self.assertAlmostEqual(zone["circle"][3], 25.0, places=4)
+
+    def test_light_sets_edited(self):
+        text = edit(self.text, "LightSets", "metadata/rc1_set_2", "[" + ", ".join(["0.5"] * 16) + "]")
+        out, changes, problems = self.pack(text)
+        self.assertEqual((problems, changes), ([], ["light sets: 3"]))
+        self.assertEqual(gd.read_light_sets(out)[2], [0.5] * 16)
+        self.assertEqual(gd.read_light_zones(out), gd.read_light_zones(self.g))
+
+    def test_bad_light_data_is_not_packed(self):
+        for node, key, value, says in (("LightSets", "metadata/rc1_set_5", "[" + ", ".join(["0.5"] * 16) + "]", "none left out"),
+                                       ("LightSets", "metadata/rc1_set_0", "[1, 2]", "16 numbers"),
+                                       ("LightZone_0000", "metadata/rc1_colour_a", "[300, 0, 0]", "from 0 to 255"),
+                                       ("LightZone_0000", "metadata/rc1_set_b", "16", "from 0 to 15"),
+                                       ("LightZone_0000", "metadata/rc1_reach", "-1.0", "above 0")):
+            with self.subTest(key=key):
+                out, changes, problems = self.pack(edit(self.text, node, key, value))
+                self.assertEqual((out, changes), (self.g, []))
+                self.assertEqual(len(problems), 1)
+                self.assertIn(says, problems[0])
 
 
 if __name__ == "__main__":
