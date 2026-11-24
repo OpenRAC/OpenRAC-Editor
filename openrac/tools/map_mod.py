@@ -17,6 +17,10 @@ import tempfile
 import games
 import overrides
 
+# A destination's own picture and caption for the flight there (128x128 and 256x32 PNGs in its
+# level's textures): the game shows them in place of the template planet's.
+FLIGHT_PICTURES = ("flight_picture.png", "flight_caption.png")
+
 
 def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
                spawn: list[float] | None = None, heading: float | None = None, skip_movies: bool = True,
@@ -116,6 +120,10 @@ def export_map(packed: Path, project: Path, out: Path, name: str, level: int,
         path = terrain.parent / "textures" / (texture + ".png")
         if path.is_file() and not path.is_symlink():
             files[f"{prefix}/textures/{texture}.png"] = path
+    for picture in FLIGHT_PICTURES if destination else ():
+        path = level_dir / "textures" / picture
+        if path.is_file() and not path.is_symlink():
+            files[f"{prefix}/textures/{picture}"] = path
     patches = []
     patch_file = packed / "patches.tsv"
     if patch_file.is_file():

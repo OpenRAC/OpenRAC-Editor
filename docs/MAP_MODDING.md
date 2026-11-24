@@ -226,6 +226,11 @@ In practice, memory and frame time become the useful limits well before that.
    planet**. It packs the level, exports it and adds it to your mods in one step.
 3. Turn on **Mods** and play (section 4).
 
+For the flight there, put two PNGs in the level's `textures` folder: `flight_picture.png`
+(128x128, the planet the ship flies to, transparent around it) and `flight_caption.png` (256x32,
+its name). The game shows them in place of the template planet's. Without them the flight shows
+the template's.
+
 The first add gives the planet an id (`planet/id` in the project's `project.godot`). Keep it: adding again
 updates the same planet instead of adding a second one. **Export the levels again**
 keeps the name and id. The same step from a shell, in your OpenRAC checkout:
