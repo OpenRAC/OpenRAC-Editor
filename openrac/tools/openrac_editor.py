@@ -343,11 +343,14 @@ def check_project(project: Path, wanted: str = "rac1") -> None:
             raise FormatError(f"{project} holds {game}'s levels, not {wanted}'s", code="game-not-packable")
 
 
-def pack_projects(disc, survey: dict, project: Path, dest: Path, anywhere: bool = True) -> dict:
+def pack_projects(disc, survey: dict, project: Path, dest: Path, anywhere: bool = True,
+                  keep_problems: bool = False) -> dict:
     """PROJECT's levels packed into DEST, published whole (extract.publish: built beside it, so a
     refused edit never leaves half a pack or replaces the last good one); FormatError
     pack-incomplete, naming each edit, when any edit could not be packed (pack.py lists them in
-    changes.txt). Returns {"levels", "mobys", "report", "dest", "moby_names"}."""
+    changes.txt), or when a changed level has a problem map_check.py finds (a hole in the
+    ground, collision off what is drawn, a thing floating or inside another), unless
+    KEEP_PROBLEMS. Returns {"levels", "mobys", "report", "dest", "moby_names"}."""
     check_project(project)
     ours_packed(dest, disc.version.key)
     result, moby_names = {}, {}
@@ -360,11 +363,29 @@ def pack_projects(disc, survey: dict, project: Path, dest: Path, anywhere: bool 
         if incomplete:
             details = "\n".join(f"  {line}" for line in incomplete)
             raise FormatError("Some edits could not be packed:\n" + details, code="pack-incomplete")
+        if not keep_problems:
+            map_problems(project, report)
         result.update(levels=levels, mobys=mobys, report=report)
 
     result["dest"] = publish(dest, build_pack, anywhere, replace=True)
     result["moby_names"] = moby_names
     return result
+
+
+MAP_PROBLEMS = "The map has problems a player would see:"
+
+
+def map_problems(project: Path, report: str) -> None:
+    """FormatError pack-incomplete listing what map_check.py finds wrong in the levels a pack
+    changed (each "<node>: <what> at (x, y, z)")."""
+    try:
+        import map_check
+    except ImportError:
+        print("openrac_editor: the map check needs numpy (the editor's release brings it); not checked")
+        return
+    lines = map_check.packed_problems(project, report)
+    if lines:
+        raise FormatError(MAP_PROBLEMS + "\n" + "\n".join(f"  {line}" for line in lines), code="pack-incomplete")
 
 
 def refused_lines(report: str) -> list[str]:
@@ -440,17 +461,23 @@ def check_or_play(args) -> int:
             raise FormatError("Check and Play are for Ratchet & Clank's levels", code="game-not-packable")
         survey = disc.survey()
         try:
+            keep = getattr(args, "keep_problems", False)
             if args.command == "check":
                 with tempfile.TemporaryDirectory(prefix=".openrac-check-") as temp:
-                    result = pack_projects(disc, survey, projects, Path(temp) / "packed")
+                    result = pack_projects(disc, survey, projects, Path(temp) / "packed", keep_problems=keep)
             else:
-                result = pack_projects(disc, survey, projects, args.packed.resolve())
+                result = pack_projects(disc, survey, projects, args.packed.resolve(), keep_problems=keep)
         except FormatError as exc:
             if getattr(exc, "code", None) != "pack-incomplete":
                 raise
             for line in str(exc).splitlines()[1:]:
                 print(f"openrac-problem: {line.strip()}", flush=True)
-            print("Some edits cannot be packed yet: fix them and try again.")
+            if str(exc).startswith(MAP_PROBLEMS):
+                # The editor offers its Fix button (check-map --fix) for these.
+                print("openrac-map-problems", flush=True)
+                print("The map has problems a player would see: fix them (Fix mends what it can) and try again.")
+            else:
+                print("Some edits cannot be packed yet: fix them and try again.")
             return 1
     print(f"openrac-check: {result['levels']} level(s), {result['mobys']} edit(s), nothing refused", flush=True)
     if args.command == "check":
@@ -627,6 +654,8 @@ def main() -> None:
     packing.add_argument("--states", type=Path, metavar="FILE",
                          help="the port's states program: refresh the packed levels' moby start states "
                               "(moby_states.py); needs --data and --levels")
+    packing.add_argument("--keep-problems", action="store_true",
+                         help="pack even when a level has problems a player would see (check-map)")
     packing.add_argument("--data", type=Path, help="the port's game data, for --states")
     packing.add_argument("--levels", type=Path, help="the port's levels, for --states")
     adding = commands.add_parser("planet", help="pack one level's project and add it as a new planet (planet.py)")
@@ -634,17 +663,32 @@ def main() -> None:
     adding.add_argument("project", type=Path, help="one level's project (a project per level)")
     adding.add_argument("overrides", type=Path, help="the launcher's packs folder (<data>/overrides) to add it to")
     adding.add_argument("--anywhere", action="store_true", help="accepted for the launcher; the planet goes to OVERRIDES")
+    adding.add_argument("--keep-problems", action="store_true",
+                        help="add it even when the level has problems a player would see (check-map)")
     for name, about in (("check", "pack every level of a level project's folder into a throwaway folder and "
                                   "list each edit that cannot be packed"),
                         ("play", "pack, then start the game on that level with the pack")):
         sub = commands.add_parser(name, help=about)
         sub.add_argument("project", type=Path, help="one level's project (a project per level)")
+        sub.add_argument("--keep-problems", action="store_true",
+                         help="pack even when the map has problems a player would see (check-map)")
         if name == "play":
             sub.add_argument("--packed", type=Path, required=True, help="the packed levels folder (written again)")
             sub.add_argument("--game", type=Path, help="the game program (openrac-rac1-<version>)")
             sub.add_argument("--data", type=Path, help="the port's game data")
             sub.add_argument("--levels", type=Path, help="the port's levels")
             sub.add_argument("--no-start", action="store_true", help="pack only: the game is not started")
+    mapping = commands.add_parser("check-map", help="list what a player would see wrong in a level: holes and "
+                                                    "cracks in the ground, collision off what is drawn, things "
+                                                    "floating or inside each other (map_check.py)")
+    mapping.add_argument("project", type=Path, help="one level's project (a project per level)")
+    mapping.add_argument("--fix", action="store_true",
+                         help="mend what can be mended: things set down on the drawn ground, things inside "
+                              "each other moved apart, cracks in the drawn ground welded")
+    mapping.add_argument("--water", type=float, help="the sea's height: nothing under it shows "
+                                                     "(default: the project's map/water setting)")
+    mapping.add_argument("--report", type=Path, metavar="FILE",
+                         help="also write FILE.json (every problem) and FILE.png (a top view with them)")
     placing = commands.add_parser("place", help="set a level's mobys, ties and shrubs down on its ground: no "
                                                 "floating, no sinking, none in a wall (placement.py)")
     placing.add_argument("project", type=Path, help="one level's project (a project per level)")
@@ -660,6 +704,13 @@ def main() -> None:
         try:
             args.iso = remembered_disc(args.project.resolve())
         except FormatError as exc:
+            errors.say(exc)
+            parser.exit(1, f"openrac_editor: {exc}\n")
+    if args.command == "check-map":
+        import map_check
+        try:
+            sys.exit(map_check.main(args.project.resolve(), args.water, args.fix, args.report))
+        except (OSError, FormatError) as exc:
             errors.say(exc)
             parser.exit(1, f"openrac_editor: {exc}\n")
     if args.command == "place":
@@ -714,7 +765,7 @@ def main() -> None:
                 if not args.anywhere and not any(root in dest.parents for root in (ROOT / "assets", ROOT / "build")):
                     raise FormatError("output must be a directory under this repository's assets/ or build/",
                                       code="folder-not-allowed")
-                result = pack_projects(disc, survey, args.project, dest, args.anywhere)
+                result = pack_projects(disc, survey, args.project, dest, args.anywhere, args.keep_problems)
                 print(result["report"], end="")
                 print(f"Packed {result['levels']} level(s), {result['mobys']} edit(s): {result['dest']}")
                 program = args.states if args.states is None or args.states.is_file() else args.states.with_suffix(".exe")
@@ -730,7 +781,8 @@ def main() -> None:
                 import overrides
                 import planet
                 try:
-                    done = planet.add_planet(disc, survey, args.project.resolve(), args.overrides.resolve())
+                    done = planet.add_planet(disc, survey, args.project.resolve(), args.overrides.resolve(),
+                                             args.keep_problems)
                 except overrides.PackError as exc:
                     raise FormatError(str(exc), code=planet.code_of(exc)) from exc
                 print(done["report"], end="")

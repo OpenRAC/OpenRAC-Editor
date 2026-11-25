@@ -33,7 +33,9 @@ server (docs/MCP.md), and to see the result in the game with OpenRAC's game serv
    Then `level_place` with the new things' `names` and `move`: it sets each one down on its whole
    underside (no floating, no sinking, none in a wall) and moves a crate off a slope.
 4. `scene_save`, then `level_check` and `job_wait`: each refused edit comes with the node's path
-   and why. Fix and check again until none is left.
+   and why. Fix and check again until none is left. Check also lists what a player would see wrong
+   (cracks in the ground, collision off what is drawn, things floating or inside each other): run
+   `level_check_map` with `fix`, then mend the rest by hand.
 5. To play it: `level_play` (the game starts on the level), or `planet_set` then `planet_add` for a
    new planet the ship can fly to.
 6. To see it in the game, use the game server: `game_start` on the level with the packed folder,

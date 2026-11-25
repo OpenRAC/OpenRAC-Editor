@@ -181,9 +181,10 @@ def map_note(project: Path) -> tuple[str, str]:
     return author or settings(project).get("map/author", "").strip(), about
 
 
-def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
+def add_planet(disc, survey: dict, project: Path, into: Path, keep_problems: bool = False) -> dict:
     """Packs PROJECT's level, exports it as a new planet and installs it in the launcher's packs
-    folder INTO: what was done, for the report."""
+    folder INTO: what was done, for the report. A level with problems a player would see
+    (map_check.py) is refused, unless KEEP_PROBLEMS."""
     from map_mod import export_map
     from pack import pack
     if not (project / "project.godot").is_file():
@@ -199,6 +200,15 @@ def add_planet(disc, survey: dict, project: Path, into: Path) -> dict:
         refused = [line.strip() for line in report.splitlines() if line.lstrip().startswith("not packed:")]
         if refused:
             raise PlanetError("Some edits could not be packed:\n" + "\n".join(f"  {line}" for line in refused), INCOMPLETE)
+        try:
+            import map_check
+        except ImportError:                       # no numpy: not checked (the release brings it)
+            keep_problems = True
+        if not keep_problems:
+            lines = map_check.packed_problems(project, report)
+            if lines:
+                raise PlanetError("The map has problems a player would see:\n"
+                                  + "\n".join(f"  {line}" for line in lines), INCOMPLETE)
         out = Path(temp) / "planet"
         author, about = map_note(project)
         manifest = export_map(packed, project, out, name, level, destination=True, map_id=ident,

@@ -69,6 +69,7 @@ x and y across, z up, headings in degrees):
 | `behaviour_list` | The behaviour presets and their numbers |
 | `ground_at` | The floor under a point, from the level's collision |
 | `level_place` | Sets mobys, ties and shrubs down on their whole underside: no floating, sinking or wall (a job; `move` finds a level spot) |
+| `level_check_map` | Lists what a player would see wrong (cracks, holes, collision off the drawn ground, things floating or inside each other); with `fix` mends what it can first (a job) |
 | `cutscene_list`, `cutscene_get`, `cutscene_remove` | The level's cutscenes as `.cutscene` documents ([CUTSCENE_FORMAT.md](CUTSCENE_FORMAT.md)) |
 | `cutscene_write`, `cutscene_add` | Write a whole cutscene, or add shots, actors, lines, sounds and events to one |
 | `cutscene_check` | What the game would not take or would skip |

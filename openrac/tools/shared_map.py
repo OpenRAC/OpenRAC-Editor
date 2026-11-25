@@ -509,8 +509,10 @@ def _safe(rel: str) -> str:
 # =============================================================================
 
 def export(project: Path, out: Path, author: str = "", about: str = "", credits: list[str] | None = None,
-           disc_path: Path | None = None) -> dict:
-    """Write PROJECT's map to OUT; what went in, for the report."""
+           disc_path: Path | None = None, keep_problems: bool = False) -> dict:
+    """Write PROJECT's map to OUT; what went in, for the report. A map with problems a player would
+    see (map_check.py: holes, collision off what is drawn, things floating or inside each other)
+    is refused, unless KEEP_PROBLEMS."""
     import openrac_editor
     from disc import Disc
     project = project.resolve()
@@ -539,6 +541,8 @@ def export(project: Path, out: Path, author: str = "", about: str = "", credits:
                            "(your edits are carried over)")
         pristine = project_files(pristine_root)
         edited = project_files(project)
+        if not keep_problems:
+            refuse_problems(project, level, pristine, edited)
         entries, blobs, report = [], {}, {"scenes": 0, "patches": 0, "game": 0, "own": [], "removed": 0}
         new = {rel: path for rel, path in edited.items() if rel not in pristine}
         # Settings Godot writes for files of the level itself are its own, not the creator's.
@@ -737,6 +741,26 @@ def needs_runtime(project: Path, level: int) -> bool:
     return bool(moves) or (level_dir / "cutscenes").is_dir()
 
 
+def refuse_problems(project: Path, level: int, pristine: dict, edited: dict) -> None:
+    """MapError listing what map_check.py finds wrong in the map; only the things the map adds or
+    moves are judged, not the disc's own."""
+    try:
+        import map_check
+    except ImportError:                           # no numpy: not checked (the release brings it)
+        return
+    rel = f"levels/level_{level:02}/level_{level:02}.tscn"
+    changed = map_check.edited_from_scenes(pristine[rel].read_text(encoding="utf-8"),
+                                           edited[rel].read_text(encoding="utf-8")) \
+        if rel in pristine and rel in edited else None
+    found = map_check.check_level(project, map_check.water_of(project), edited=changed)
+    lines = [p.line() for ps in found["problems"].values() for p in ps]
+    if lines:
+        shown = "\n".join(f"  {line}" for line in lines[:200])
+        more = f"\n  ... and {len(lines) - 200} more" if len(lines) > 200 else ""
+        raise MapError(f"The map has {len(lines)} problem(s) a player would see (run openrac_editor.py check-map "
+                       f"{project} --fix to mend what it can):\n{shown}{more}")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="openrac_editor.py map", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -749,6 +773,8 @@ def main(argv=None) -> int:
     out.add_argument("--credit", action="append", default=[], help="credit for a model or texture you used (repeat)")
     out.add_argument("--disc", type=Path, help="the disc (default: the one the levels were read from)")
     out.add_argument("--anywhere", action="store_true", help="accepted for the launcher")
+    out.add_argument("--keep-problems", action="store_true",
+                     help="export even when the map has problems a player would see (check-map)")
     into = commands.add_parser("import", help="make a project of a shared map beside your levels")
     into.add_argument("map", type=Path, help="the .openrac-map file")
     into.add_argument("projects", type=Path, help="your levels folder (where level_NN projects are)")
@@ -766,7 +792,7 @@ def main(argv=None) -> int:
                 target.mkdir(parents=True, exist_ok=True)
                 name = planet.planet_name(args.project.resolve())
                 target = target / (planet.planet_id(args.project.resolve(), name) + SUFFIX)
-            done = export(args.project, target, args.author, args.about, args.credit, args.disc)
+            done = export(args.project, target, args.author, args.about, args.credit, args.disc, args.keep_problems)
             print(f"Map {done['name']} (level {done['level']:02}, {done['disc'].upper()} disc): "
                   f"{done['scenes']} scene(s) changed, {done['patches']} file(s) patched, "
                   f"{done['game']} game file(s) named, {len(done['own'])} of your own file(s), "
@@ -790,7 +816,9 @@ def main(argv=None) -> int:
             from disc import Disc
             with Disc(done["disc"]) as disc:
                 try:
-                    added = planet.add_planet(disc, disc.survey(), done["project"], args.planet.resolve())
+                    # Its maker's export checked it (check-map); a player adding it is not asked to fix it.
+                    added = planet.add_planet(disc, disc.survey(), done["project"], args.planet.resolve(),
+                                              keep_problems=True)
                 except overrides.PackError as exc:
                     raise FormatError(str(exc), code=planet.code_of(exc)) from exc
                 print(f"Added it to your mods as the planet {added['name']}: turn on Mods, board the ship "

@@ -256,9 +256,9 @@ class Ground:
         self.floor_cells = buckets(self.floors)
         self.wall_cells = buckets(self.walls)
 
-    def floor(self, P: np.ndarray, top: np.ndarray, bottom: np.ndarray, exclude: str = ""):
+    def floor(self, P: np.ndarray, top: np.ndarray, bottom: np.ndarray, exclude: str = "", mobys: bool = True):
         """For each point P (N, 2): the highest floor between BOTTOM and TOP (N,), its height and
-        normal (NaN where there is none)."""
+        normal (NaN where there is none). MOBYS: other mobys' tops count too."""
         P = np.asarray(P, np.float64)
         z = np.full(len(P), np.nan)
         nrm = np.full((len(P), 3), np.nan)
@@ -271,9 +271,12 @@ class Ground:
             if cand is None:
                 continue
             idx = np.array(idx)
-            if exclude:
+            if exclude or not mobys:
                 own = self.floor_owner[cand]
-                cand = cand[(own != exclude) & (own != "m:" + exclude)]
+                keep = (own != exclude) & (own != "m:" + exclude)
+                if not mobys:
+                    keep &= ~np.char.startswith(own.astype(str), "m:")
+                cand = cand[keep]
                 if len(cand) == 0:
                     continue
             T = self.floors[cand]
@@ -345,10 +348,10 @@ def tri_box(T: np.ndarray, h: np.ndarray) -> np.ndarray:
     return hit
 
 
-def level_ground(project: Path, text: str) -> Ground:
+def level_ground(project: Path, text: str, drawn_only: bool = False) -> Ground:
     """The level's ground: its terrain, its static models, its own collision (Game/Collision), its
     ties (rocks, platforms, buildings) and its still mobys (crates stand on crates), as the scene
-    places them."""
+    places them. DRAWN_ONLY leaves the collision out: nothing may stand on ground nobody sees."""
     ids = {}
     tris, owners = [], []
     current = None
@@ -373,7 +376,8 @@ def level_ground(project: Path, text: str) -> Ground:
             current = None
             name, parent, inst = m.groups()
             if inst and inst in ids and ((parent == "Game" and name == "Terrain")
-                                         or parent in ("Game/StaticAssets", "Game/Collision", "Game/Ties", "Game/Mobys")):
+                                         or parent in ("Game/StaticAssets", "Game/Ties", "Game/Mobys")
+                                         or (parent == "Game/Collision" and not drawn_only)):
                 current = [ids[inst], None, name, parent in ("Game/Ties", "Game/Mobys")]
             continue
         if current is not None and line.startswith("transform = "):
@@ -418,7 +422,7 @@ def tris_of(project, entry) -> np.ndarray:
 # --- setting things down ---
 
 def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, hard: bool, water=None, name="",
-           move=True):
+           move=True, taken=None):
     """Where a thing goes: (basis, origin, what was done, problem or None). A thing floating on
     WATER (a height: its underside within a little of it) stays."""
     pose = shape.pose(basis)
@@ -432,8 +436,13 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
         ps = shape.pose(b)
         F = (ps.points if core == "points" else ps.core if core else ps.feet) + o
         g, n = ground.floor(F[:, :2], F[:, 2] + reach + extra, F[:, 2] - LIFT - extra, name)
+        if water is not None and not hard:
+            # A plant does not grow on the sea's floor (a crate or lamp may stand in the shallows).
+            g = np.where(g < water - 0.25, np.nan, g)
         return F, g, n
 
+    if water is not None and (shape.points @ basis.T)[:, 2].max() + origin[2] < water - 1.0:
+        return basis, origin, None, None                     # wholly under the water: out of sight
     F, g, n = look(basis, origin)
     if np.isnan(g).all():
         return basis, origin, None, None                     # nothing under it: water, sky, flying
@@ -443,7 +452,7 @@ def settle(ground: Ground, shape: Shape, basis: np.ndarray, origin: np.ndarray, 
         if pose.height < LOW * pose.size:
             return settle_low(shape, basis, origin, lambda b, o: look(b, o, "points", 0.7), pose.height)
         return settle_soft(ground, shape, basis, origin, lambda b, o: look(b, o, True), pose.height, pose.size)
-    return settle_hard(ground, shape, basis, origin, look, pose.size, pose.height, name, move)
+    return settle_hard(ground, shape, basis, origin, look, pose.size, pose.height, name, move, taken)
 
 
 def settle_low(shape, basis, origin, look, height):
@@ -513,10 +522,11 @@ def settle_soft(ground, shape, basis, origin, look, height, size):
     return basis, origin + np.array([0, 0, -lift]), f"lowered {lift:.2f}", None
 
 
-def settle_hard(ground, shape, basis, origin, look, size, height, name="", move=True):
+def settle_hard(ground, shape, basis, origin, look, size, height, name="", move=True, taken=None):
     """A made thing (a crate, a lamp): no foot may float, and the high side may sink only a
     little (SINK of its height). Else the nearest spot within SEARCH where it can stand. A thing
-    being placed now (MOVE) must stand level and have room above it (not inside a block)."""
+    being placed now (MOVE) must stand level and have room above it (not inside a block), and
+    away from the things set down before it at the same height (TAKEN: (x, y, z, size) each)."""
     sink = max((NEW_SINK if move else HARD_SINK) * height, 0.05)
 
     def fit(o, extra=0.0):
@@ -533,9 +543,13 @@ def settle_hard(ground, shape, basis, origin, look, size, height, name="", move=
             return None
         if move:
             top = np.full(len(F), g.max() + (1 + HEADROOM) * height)
-            above, _ = ground.floor(F[:, :2], top, g + 0.05 * height + 0.02, name)
+            # (A crate stacked on it is no ceiling.)
+            above, _ = ground.floor(F[:, :2], top, g + 0.05 * height + 0.02, name, mobys=False)
             if not np.isnan(above).all():
                 return None                           # something over it: a ceiling, inside a block
+        if move and taken and any(math.hypot(o2[0] - x, o2[1] - y) < (size + s) / 2 and abs(o2[2] - z) < height * 0.5
+                                  for x, y, z, s in taken):
+            return None                               # another thing set down there (not under it)
         return None if wall_inside(ground, shape, basis, o2, name, float(g.max()), move) else o2
 
     first = fit(origin)
@@ -597,17 +611,19 @@ def scene_path(project: Path) -> Path:
 
 
 def place_scene(project: Path, text: str, names=None, fix=True, hard_classes=(), soft_classes=(), hover=HOVER,
-                water=None, move=False):
+                water=None, move=False, drawn_only=False):
     """Every thing of the scene TEXT (or those whose names match NAMES, fnmatch patterns) set
     down. MOVE lets a hard thing that cannot stand where it is go to the nearest good spot
     (for things just placed); without it such a thing is only listed. Returns (new text,
-    report): report is a list of {node, kind, class, done, problem, position}."""
+    report): report is a list of {node, kind, class, done, problem, position}. DRAWN_ONLY: the
+    ground is only what is drawn (level_ground)."""
     import fnmatch
     project = Path(project)
-    ground = level_ground(project, text)
+    ground = level_ground(project, text, drawn_only)
     ids, shapes = {}, {}
     lines = text.split("\n")
     report = []
+    taken: list = []
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -647,7 +663,9 @@ def place_scene(project: Path, text: str, names=None, fix=True, hard_classes=(),
             continue
         hard = (kind == "moby" or cls in hard_classes) and cls not in soft_classes
         basis, origin = read_matrix(TRANSFORM.match(lines[j]).group(1))
-        b2, o2, done, problem = settle(ground, shape, basis, origin, hard, water, name, move)
+        b2, o2, done, problem = settle(ground, shape, basis, origin, hard, water, name, move, taken)
+        if hard:
+            taken.append((float(o2[0]), float(o2[1]), float(o2[2]), shape.pose(b2).size))
         if done or problem:
             report.append({"node": name, "kind": kind, "class": cls, "done": done, "problem": problem,
                            "position": [round(float(v), 3) for v in o2]})
