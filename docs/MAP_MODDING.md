@@ -217,6 +217,25 @@ In practice, memory and frame time become the useful limits well before that.
 
 ## 3. Pack and export an added destination
 
+### The map check
+
+Play, Check, Pack, **Add as a new planet** and map export first check the level for what a
+player would see wrong, and stop when they find any:
+
+- cracks and holes in your own terrain (a line of sky through the ground);
+- collision that does not follow what is drawn (the hero falls through, stands in the air or
+  sinks in);
+- things floating over the ground, sunk into it or standing in a wall;
+- ties and models standing inside each other.
+
+Each problem names its node and place; click it in the dialog to select the node. Press **Fix**
+to mend what can be mended without a choice: cracks are welded and small holes filled, the
+collision of your terrain is made again from what is drawn, ties and models are moved out of each
+other and things are set down on the ground. What is left is listed again for you to mend by hand.
+From a terminal: `openrac_editor.py check-map PROJECT [--fix] [--report FILE]` (`--report` also
+writes a top view of the problems). Set `map/water` in `project.godot`'s `[openrac]` section to your
+sea's height so nothing under it counts. `--keep-problems` packs a level as it is.
+
 ### The quick way
 
 1. In the editor, click the level (the top object in the **Level** list). Its **Properties**

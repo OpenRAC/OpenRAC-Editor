@@ -17,6 +17,8 @@ var dialog: AcceptDialog
 var problems: ItemList
 var summary: Label
 var worker: Thread
+## Fix in the dialog when the map has problems (openrac_editor.py check-map --fix).
+var fix_button: Button
 
 
 func _init() -> void:
@@ -42,6 +44,12 @@ func _init() -> void:
 	problems.item_clicked.connect(func(index: int, _at: Vector2, _button: int) -> void: select_problem(index))
 	box.add_child(problems)
 	dialog.add_child(box)
+	fix_button = dialog.add_button("Fix", true, "fix")
+	fix_button.tooltip_text = "Mends what can be mended without a choice: cracks and holes in your ground welded, collision made from what you see, things set down on the ground and moved out of each other."
+	fix_button.visible = false
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action == &"fix":
+			fix())
 	add_child(dialog)
 
 
@@ -126,7 +134,7 @@ static func game_beside(states: String) -> String:
 	return states.left(states.length() - name.length()) + name.replace("-states", "")
 
 
-## The command for KIND ("check" or "play"), or a sentence saying what is missing.
+## The command for KIND ("check", "check-map" or "play"), or a sentence saying what is missing.
 static func command_for(kind: String, level: Dictionary) -> Variant:
 	var python: String = user_arg("--openrac-python")
 	var tools: String = user_arg("--openrac-tools")
@@ -170,8 +178,30 @@ func start() -> void:
 	worker.start(run.bind(command))
 
 
+## Saves, then runs check-map --fix on this level in the background; the scene is read again after.
+func fix() -> void:
+	if worker != null and worker.is_started():
+		return
+
+	var command: Variant = command_for("check-map", this_level())
+
+	if command is String:
+		show_result(1, PackedStringArray([command]))
+		return
+
+	var args: PackedStringArray = command["args"]
+	args.append("--fix")
+	command["args"] = args
+	EditorInterface.save_all_scenes()
+	dialog.hide()
+	play_button.disabled = true
+	play_button.text = "Fixing"
+	worker = Thread.new()
+	worker.start(run.bind(command, true))
+
+
 ## On the worker's thread: runs the command and hands its lines back to the editor's thread.
-func run(command: Dictionary) -> void:
+func run(command: Dictionary, fixing: bool = false) -> void:
 	var output: Array = []
 	var code: int = OS.execute(command["program"], command["args"], output, true)
 	var lines := PackedStringArray()
@@ -179,14 +209,24 @@ func run(command: Dictionary) -> void:
 	for chunk in output:
 		lines.append_array(String(chunk).split("\n", false))
 
-	finish.call_deferred(code, lines)
+	finish.call_deferred(code, lines, fixing)
 
 
-func finish(code: int, lines: PackedStringArray) -> void:
+func finish(code: int, lines: PackedStringArray, fixing: bool = false) -> void:
 	worker.wait_to_finish()
 	worker = null
 	play_button.disabled = false
 	play_button.text = "Play Level"
+
+	# The fix wrote the level's scene and ground: show them as they are now.
+	if fixing:
+		var root: Node = EditorInterface.get_edited_scene_root()
+
+		if root != null and not root.scene_file_path.is_empty():
+			EditorInterface.reload_scene_from_path(root.scene_file_path)
+
+		if code != 0:
+			lines.append("openrac-map-problems")
 
 	# The game is up: its window says so, a dialog would only stand in the way.
 	if code == 0 and lines.has("openrac-started"):
@@ -213,7 +253,20 @@ func show_result(code: int, lines: PackedStringArray) -> void:
 		elif not line.begins_with("openrac-"):
 			said.append(line)
 
-	if problems.item_count > 0:
+	var map: bool = lines.has("openrac-map-problems")
+	var fixed := PackedStringArray()
+
+	for line in said:
+		if line.begins_with("fixed: "):
+			fixed.append(line.trim_prefix("fixed: "))
+
+	fix_button.visible = map and fixed.is_empty()
+
+	if problems.item_count > 0 and map:
+		summary.text = ("Fixed: %s.\n" % "; ".join(fixed) if not fixed.is_empty() else "") \
+			+ "The map has %d problems a player would see. %s Click one to find it." % [problems.item_count,
+			"These are left for you." if not fixed.is_empty() else "Fix mends what it can."]
+	elif problems.item_count > 0:
 		summary.text = "%d edits can't be built. Click one, fix it, then play again." % problems.item_count
 	elif code == 0:
 		summary.text = "\n".join(said) if not said.is_empty() else "Done."

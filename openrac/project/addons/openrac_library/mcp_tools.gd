@@ -51,6 +51,14 @@ func register(on: Object, owner: EditorPlugin) -> void:
 		"move": prop("boolean", "A thing that cannot stand where it is moves to the nearest good spot (default false: only listed)."),
 		"water": prop("number", "The water's height: things afloat on it stay."),
 		"check": prop("boolean", "Only list what is off; change nothing.")}, [], level_place)
+	add("level_check_map", "Checks the level for what a player would see wrong: cracks and holes in the level's own "
+		+ "ground, collision off what is drawn (falls through, stands in the air), things floating, sunk or inside "
+		+ "each other. Each problem as {node, path, why} (why ends with \"at (x, y, z)\"). Pack, Play, Add as planet "
+		+ "and map export refuse a level with any. With fix it first mends what it can: cracks welded, collision "
+		+ "made from the drawn ground, things set down and moved apart; the scene is read again. A job.", {
+		"fix": prop("boolean", "Mend what can be mended first (default false: only list)."),
+		"water": prop("number", "The sea's height: nothing under it shows (default: the project's map/water).")},
+		[], level_check_map)
 	add("planet_get", "The planet's name in the ship's menu and its id (set once it was added).", {}, [], planet_get, read_only)
 	add("planet_set", "Names this level as a planet (the ship's menu): plain letters A-Z, digits, spaces and punctuation, "
 		+ "at most 40 characters. Saved in project.godot.", {"name": prop("string", "The planet's name.")}, ["name"], planet_set)
@@ -212,6 +220,26 @@ func parsed(code: int, lines: PackedStringArray, kind: String) -> Dictionary:
 
 	var result: Dictionary = {"ok": code == 0 and problems.is_empty(), "kind": kind, "problems": problems, "said": said}
 
+	if kind == "check-map":
+		var fixed: bool = false
+
+		for line in said:
+			fixed = fixed or String(line).begins_with("fixed: ")
+
+		# The fix wrote the scene under the editor: read it again.
+		if fixed and at != null:
+			EditorInterface.reload_scene_from_path.call_deferred(at.scene_file_path)
+
+		if not result["ok"]:
+			if not problems.is_empty():
+				result["error"] = "%d problem(s) a player would see: run with fix, then mend the rest (path) by hand." % problems.size()
+			elif not said.is_empty():
+				result["error"] = "\n".join(PackedStringArray(said.slice(-5)))
+			else:
+				result["error"] = "It did not run."
+
+		return result
+
 	if kind == "place":
 		# The scene file was written under the editor: read it again (nothing changed with --check).
 		if at != null and not said.is_empty() and not String(said[-1]).begins_with("would") and not String(said[-1]).begins_with("set 0 "):
@@ -263,6 +291,18 @@ func level_place(args: Dictionary) -> Variant:
 			extra.append(String(pattern))
 
 	return run_tool("place", "Set things down", extra)
+
+
+func level_check_map(args: Dictionary) -> Variant:
+	var extra := PackedStringArray()
+
+	if bool(args.get("fix", false)):
+		extra.append("--fix")
+
+	if args.get("water") != null:
+		extra.append_array(["--water", str(float(args["water"]))])
+
+	return run_tool("check-map", "Check the map", extra)
 
 
 func planet_get(_args: Dictionary) -> Dictionary:
